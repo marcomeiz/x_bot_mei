@@ -53,6 +53,22 @@ Tu éxito no se mide por seguir una fórmula, sino por tu capacidad de generar u
     [ES - XXX/280]
     [Texto reescrito en español]
     ```
+### **Estructura y Legibilidad**
+
+Los tuits deben usar saltos de línea (párrafos separados por una línea en blanco) para mejorar la legibilidad. Un tuit ideal tiene entre 2 y 4 párrafos cortos. Evita los bloques de texto densos y compactos.
+
+**EJEMPLO DE FORMATO:**
+
+* **MAL (Bloque denso):**
+    `I've audited 100+ service businesses. The ones that dominate don't obsess over metrics like "reliability" or "courtesy". They focus on one thing: making their service so consistent that customers can operate on autopilot. Everything else follows.`
+
+* **BIEN (Párrafos espaciados):**
+    `I've audited 100+ service businesses.`
+
+    `The ones that dominate don't obsess over metrics like "reliability" or "courtesy".` 
+
+    `They focus on one thing: making their service so consistent that customers can operate on autopilot. Everything else follows.`
+
 
 ### **Cláusula Anti-Cliché y de Especificidad (El Filtro del 95%)**
 

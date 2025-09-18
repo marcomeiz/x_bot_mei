@@ -6,28 +6,25 @@ from dotenv import load_dotenv
 from flask import Flask, request
 import requests
 
-# Importamos todas las funciones necesarias, incluyendo post_tweet_to_x
 from core_generator import (
     find_relevant_topic, generate_tweet_from_topic, find_topic_by_id, post_tweet_to_x
 )
 
 load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-X_USERNAME = "marcomeiz" # <--- ¡RECUERDA CAMBIAR ESTO!
+X_USERNAME = "tu_usuario_de_x" # <--- ¡RECUERDA CAMBIAR ESTO!
 
 app = Flask(__name__)
 
+TEMP_DIR = "/tmp"
+
 def get_new_tweet_keyboard():
-    """Crea y devuelve el teclado con el botón para generar un nuevo tuit."""
-    keyboard = {"inline_keyboard": [[{"text": "🚀 Generar Nuevo Tuit", "callback_data": "generate_new"}]]}
-    return keyboard
+    return {"inline_keyboard": [[{"text": "🚀 Generar Nuevo Tuit", "callback_data": "generate_new"}]]}
 
 def send_telegram_message(chat_id, text, reply_markup=None):
-    """Función centralizada para enviar mensajes a Telegram."""
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
-    if reply_markup:
-        payload["reply_markup"] = reply_markup
+    if reply_markup: payload["reply_markup"] = reply_markup
     try:
         requests.post(url, json=payload)
         print(f"Mensaje enviado a chat_id {chat_id}")
@@ -35,24 +32,19 @@ def send_telegram_message(chat_id, text, reply_markup=None):
         print(f"Error enviando mensaje a Telegram: {e}")
 
 def edit_telegram_message(chat_id, message_id, text, reply_markup=None):
-    """Función para editar un mensaje existente."""
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText"
     payload = {"chat_id": chat_id, "message_id": message_id, "text": text, "parse_mode": "Markdown"}
-    if reply_markup:
-        payload["reply_markup"] = reply_markup
+    if reply_markup: payload["reply_markup"] = reply_markup
     requests.post(url, json=payload)
 
 def do_the_work(chat_id):
-    """Función principal que se ejecuta en segundo plano."""
-    print(f"Iniciando búsqueda de tema para el chat_id: {chat_id}")
     topic = find_relevant_topic()
     if topic:
         propose_tweet(chat_id, topic)
     else:
-        send_telegram_message(chat_id, "❌ No pude encontrar un tema relevante en la base de datos.", reply_markup=get_new_tweet_keyboard())
+        send_telegram_message(chat_id, "❌ No pude encontrar un tema relevante.", reply_markup=get_new_tweet_keyboard())
 
 def propose_tweet(chat_id, topic):
-    """Genera un tuit para un tema y lo propone con botones."""
     topic_abstract = topic.get("abstract")
     topic_id = topic.get("topic_id")
     
@@ -64,9 +56,13 @@ def propose_tweet(chat_id, topic):
         send_telegram_message(chat_id, f"Hubo un problema: {eng_tweet}", reply_markup=get_new_tweet_keyboard())
         return
 
-    # Guardamos temporalmente los tuits para la aprobación
-    with open(f"{chat_id}_{topic_id}.tmp", "w") as f:
-        json.dump({"eng": eng_tweet, "spa": spa_tweet}, f)
+    temp_file_path = os.path.join(TEMP_DIR, f"{chat_id}_{topic_id}.tmp")
+    # AÑADIMOS ESTADO DE PUBLICACIÓN
+    with open(temp_file_path, "w") as f:
+        json.dump({
+            "eng": eng_tweet, "spa": spa_tweet,
+            "eng_published": False, "spa_published": False
+        }, f)
 
     keyboard = {"inline_keyboard": [[
         {"text": "👍 Publicar (ES)", "callback_data": f"approve_spa_{topic_id}"},
@@ -78,7 +74,6 @@ def propose_tweet(chat_id, topic):
     send_telegram_message(chat_id, message_text, reply_markup=keyboard)
 
 def handle_callback_query(update):
-    """Maneja las pulsaciones de todos los botones."""
     query = update.get("callback_query", {})
     chat_id = query["message"]["chat"]["id"]
     message_id = query["message"]["message_id"]
@@ -87,52 +82,83 @@ def handle_callback_query(update):
     parts = callback_data.split('_')
     action = parts[0]
     
-    original_message_text = query["message"].get("text", "")
+    if action == "generate": # Maneja "generate_new"
+        edit_telegram_message(chat_id, message_id, "🚀 Iniciando nuevo proceso...")
+        threading.Thread(target=do_the_work, args=(chat_id,)).start()
+        return
+
+    # Para approve y reject, necesitamos el topic_id
+    topic_id = parts[-1]
+    temp_file_path = os.path.join(TEMP_DIR, f"{chat_id}_{topic_id}.tmp")
+    
+    try:
+        with open(temp_file_path, "r") as f:
+            state = json.load(f)
+    except FileNotFoundError:
+        edit_telegram_message(chat_id, message_id, query["message"]["text"] + "\n\n❌ Error: La sesión ha expirado (archivo temporal no encontrado).")
+        send_telegram_message(chat_id, "Por favor, genera un nuevo tuit.", reply_markup=get_new_tweet_keyboard())
+        return
 
     if action == "approve":
         lang = parts[1]
-        topic_id = parts[2]
-        edit_telegram_message(chat_id, message_id, original_message_text + f"\n\n✅ **Aprobado ({lang.upper()}).** Publicando en X...")
-        try:
-            with open(f"{chat_id}_{topic_id}.tmp", "r") as f: tweets = json.load(f)
-            tweet_to_post = tweets.get(lang)
-            if tweet_to_post:
-                response_data = post_tweet_to_x(tweet_to_post)
-                if response_data and response_data.get("id"):
-                    tweet_id = response_data.get("id")
-                    tweet_url = f"https://x.com/{X_USERNAME}/status/{tweet_id}"
-                    send_telegram_message(chat_id, f"🚀 **¡Publicado con éxito!**\n\nPuedes verlo aquí: {tweet_url}", reply_markup=get_new_tweet_keyboard())
-                else:
-                    send_telegram_message(chat_id, "❌ Error al publicar en X.", reply_markup=get_new_tweet_keyboard())
-            if os.path.exists(f"{chat_id}_{topic_id}.tmp"): os.remove(f"{chat_id}_{topic_id}.tmp")
-        except Exception as e:
-            print(f"Error en proceso de aprobación: {e}")
-            send_telegram_message(chat_id, "❌ Error al procesar la aprobación.", reply_markup=get_new_tweet_keyboard())
+        tweet_to_post = state.get(lang)
+        
+        send_telegram_message(chat_id, f"✅ **Aprobado ({lang.upper()}).** Publicando en X...")
+        
+        response_data = post_tweet_to_x(tweet_to_post)
+        
+        if response_data and response_data.get("id"):
+            tweet_id = response_data.get("id")
+            tweet_url = f"https://x.com/{X_USERNAME}/status/{tweet_id}"
+            send_telegram_message(chat_id, f"🚀 **¡Publicado!**\n{tweet_url}")
+            
+            # Actualizar estado
+            state[f"{lang}_published"] = True
+            with open(temp_file_path, "w") as f: json.dump(state, f)
+
+        else:
+            send_telegram_message(chat_id, "❌ Error al publicar en X. Revisa las credenciales/permisos.")
 
     elif action == "reject":
-        topic_id = parts[1]
-        edit_telegram_message(chat_id, message_id, original_message_text + "\n\n❌ **Rechazado.**")
-        topic = find_topic_by_id(topic_id)
-        if topic:
-            threading.Thread(target=propose_tweet, args=(chat_id, topic)).start()
-        else:
-            send_telegram_message(chat_id, "❌ No pude encontrar el tema original.", reply_markup=get_new_tweet_keyboard())
-        if os.path.exists(f"{chat_id}_{topic_id}.tmp"): os.remove(f"{chat_id}_{topic_id}.tmp")
-            
-    elif action == "generate":
-        edit_telegram_message(chat_id, message_id, "🚀 Iniciando nuevo proceso...")
-        threading.Thread(target=do_the_work, args=(chat_id,)).start()
+        edit_telegram_message(chat_id, message_id, query["message"]["text"] + "\n\n❌ **Rechazado.**")
+        send_telegram_message(chat_id, "Ciclo cancelado.", reply_markup=get_new_tweet_keyboard())
+        if os.path.exists(temp_file_path): os.remove(temp_file_path)
+        return
+
+    # --- LÓGICA DE ACTUALIZACIÓN DE BOTONES ---
+    # Volvemos a leer el estado por si ha cambiado
+    with open(temp_file_path, "r") as f:
+        current_state = json.load(f)
+    
+    # Comprobamos si ya hemos terminado
+    if current_state.get("eng_published") and current_state.get("spa_published"):
+        edit_telegram_message(chat_id, message_id, query["message"]["text"] + "\n\n🎉 **Ambas versiones publicadas.**")
+        send_telegram_message(chat_id, "¡Buen trabajo!", reply_markup=get_new_tweet_keyboard())
+        if os.path.exists(temp_file_path): os.remove(temp_file_path)
+    else:
+        # Reconstruimos los botones que quedan
+        remaining_buttons = []
+        if not current_state.get("spa_published"):
+            remaining_buttons.append({"text": "👍 Publicar (ES)", "callback_data": f"approve_spa_{topic_id}"})
+        if not current_state.get("eng_published"):
+            remaining_buttons.append({"text": "👍 Publicar (EN)", "callback_data": f"approve_eng_{topic_id}"})
+        
+        new_keyboard = {"inline_keyboard": [
+            remaining_buttons,
+            [{"text": "👎 Rechazar (finalizar)", "callback_data": f"reject_{topic_id}"}]
+        ]}
+        
+        # Editamos el mensaje original con los botones actualizados
+        edit_telegram_message(chat_id, message_id, query["message"]["text"], reply_markup=new_keyboard)
 
 @app.route(f"/{TELEGRAM_BOT_TOKEN}", methods=["POST"])
 def telegram_webhook():
-    if request.is_json:
-        update = request.get_json()
-        if "message" in update and "text" in update["message"] and update["message"]["text"] == "/generate":
-            chat_id = update["message"]["chat"]["id"]
-            send_telegram_message(chat_id, "🤖 Comando recibido. Iniciando proceso...")
-            threading.Thread(target=do_the_work, args=(chat_id,)).start()
-        elif "callback_query" in update:
-            handle_callback_query(update)
+    update = request.get_json()
+    if "message" in update and update["message"].get("text") == "/generate":
+        threading.Thread(target=do_the_work, args=(update["message"]["chat"]["id"],)).start()
+    elif "callback_query" in update:
+        # El manejo de callbacks ahora es más complejo, así que lo ponemos en un hilo
+        threading.Thread(target=handle_callback_query, args=(update,)).start()
     return "ok", 200
 
 @app.route("/")

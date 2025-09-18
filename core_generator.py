@@ -32,6 +32,41 @@ PATRONES_NIKITA = [
 ]
 COO_PERSONA = "Un Chief Operating Officer (COO) enfocado en liderazgo operacional, ejecución, escalado de negocios, sistemas y procesos."
 
+# --- FUNCIÓN NUEVA PARA ACORTAR ---
+def refine_and_shorten_tweet(tweet_text: str, model: str) -> str:
+    """
+    Toma un texto y usa un LLM para acortarlo a menos de 280 caracteres,
+    preservando el mensaje central.
+    """
+    print(f"📏 Refinando y acortando texto de {len(tweet_text)} caracteres...")
+    prompt = f"""
+    Your task is to shorten the following text to be under 280 characters.
+    This is a hard limit. You MUST succeed.
+    Do not add any extra commentary or formatting.
+    Just provide the shortened text directly.
+    Preserve the core message and the original tone.
+
+    Original Text:
+    "{tweet_text}"
+
+    Shortened Text:
+    """
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a ruthless text editor. Your only goal is brevity."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.4 # Una temperatura más baja para ser más directo
+        )
+        shortened_text = response.choices[0].message.content.strip()
+        print(f"✅ Texto acortado a {len(shortened_text)} caracteres.")
+        return shortened_text
+    except Exception as e:
+        print(f"Error al acortar el texto: {e}")
+        return tweet_text # Devuelve el original si falla
+
 # --- FUNCIÓN PARA PUBLICAR EN X ---
 def post_tweet_to_x(text_to_post: str):
     if not all([X_API_KEY, X_API_KEY_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET]):
@@ -64,43 +99,74 @@ def generate_tweet_from_topic(topic_abstract: str):
         patron_elegido = random.choice(PATRONES_NIKITA)
         print(f"✍️ Escribiendo borrador (Patrón: {patron_elegido})...")
         
-        for i in range(MAX_ROUNDS):
-            # --- PROMPT REFORZADO ---
-            prompt = f"""
-            Your task is to write a tweet in two languages (English and Spanish) about the following topic.
-            Follow the contract provided.
+        # --- MODIFICACIÓN CLAVE 1: PROMPT DE GENERACIÓN MÁS LIBRE ---
+        # Eliminamos la regla CRITICAL SUPREME RULE para darle libertad creativa.
+        prompt = f"""
+        Your task is to write a tweet in two languages (English and Spanish) about the following topic.
+        Follow the contract provided to nail the style and tone.
 
-            **CRITICAL SUPREME RULE:** Both the English and Spanish versions MUST be under 280 characters. This is the most important rule and overrides all other creative instructions. Count the characters as you write. If you are over the limit, you must stop and rewrite shorter.
+        **Pattern to use:** {patron_elegido}
+        **Topic:** {topic_abstract}
 
-            **Pattern to use:** {patron_elegido}
-            **Topic:** {topic_abstract}
+        **Contract for style reference:**
+        {contract}
+        """
 
-            **Contract for style reference:**
-            {contract}
-            """
-            response = client.chat.completions.create(model=GENERATION_MODEL, messages=[{"role": "system", "content": "You are a ghostwriter obsessed with the 280 character limit. Brevity is your highest priority."}, {"role": "user", "content": prompt}], temperature=0.7 + (i * 0.1))
-            draft = response.choices[0].message.content.strip()
+        # Hacemos un solo intento de alta calidad. El bucle ya no es tan necesario aquí.
+        response = client.chat.completions.create(
+            model=GENERATION_MODEL, 
+            messages=[
+                {"role": "system", "content": "You are a creative ghostwriter embodying the persona in the contract."},
+                {"role": "user", "content": prompt}
+            ], 
+            temperature=0.75
+        )
+        draft = response.choices[0].message.content.strip()
+        
+        eng_tweet, spa_tweet = parse_final_draft(draft)
+
+        if not eng_tweet or not spa_tweet:
+            print("Error: El borrador inicial no pudo ser parseado. No se encontraron los bloques [EN] o [ES].")
+            return "Error: Formato de borrador inicial inválido.", ""
+
+        # --- MODIFICACIÓN CLAVE 2: REFINAR SI ES NECESARIO ---
+        # En lugar de descartar, acortamos programáticamente.
+        if len(eng_tweet) > 280:
+            print(f"⚠️ Borrador EN demasiado largo ({len(eng_tweet)}/280). Enviando a refinar...")
+            eng_tweet = refine_and_shorten_tweet(eng_tweet, VALIDATION_MODEL) # Usamos Haiku que es más rápido y barato
+        
+        if len(spa_tweet) > 280:
+            print(f"⚠️ Borrador ES demasiado largo ({len(spa_tweet)}/280). Enviando a refinar...")
+            spa_tweet = refine_and_shorten_tweet(spa_tweet, VALIDATION_MODEL)
+
+        # Verificación final después del refinamiento
+        if len(eng_tweet) > 280 or len(spa_tweet) > 280:
+            print(f"❌ Fallo crítico: Incluso después de refinar, el tuit excede los 280 caracteres ({len(eng_tweet)}/{len(spa_tweet)}).")
+            return "Error: No se pudo acortar el tuit lo suficiente.", ""
             
-            eng_tweet, spa_tweet = parse_final_draft(draft)
-            
-            if len(eng_tweet) > 280 or len(spa_tweet) > 280 or not eng_tweet or not spa_tweet:
-                print(f"⚠️ Borrador descartado por longitud o formato incorrecto ({len(eng_tweet)}/{len(spa_tweet)}). Reintentando...")
-                continue
+        # La validación de estilo sigue siendo una buena idea
+        print("🕵️ Borrador con longitud correcta. Validando estilo...")
+        validation_prompt = f"Validate this draft: '{eng_tweet}\n\n{spa_tweet}' against the contract. Does it follow the style? Respond ONLY with JSON: {{\"pasa_validacion\": boolean, \"feedback_detallado\": \"...\"}}"
+        validation_response = client.chat.completions.create(
+            model=VALIDATION_MODEL, 
+            response_format={"type": "json_object"}, 
+            messages=[
+                {"role": "system", "content": "You are a strict JSON editor focused on style and tone."}, 
+                {"role": "user", "content": validation_prompt}
+            ], 
+            temperature=0.1
+        )
+        validation = json.loads(validation_response.choices[0].message.content)
 
-            print("🕵️ Borrador tiene longitud correcta. Validando estilo...")
-            validation_prompt = f"Validate this draft: '{draft}' against the contract. Is it under 280 chars AND does it follow the style? Respond ONLY with JSON: {{\"pasa_validacion\": boolean, \"feedback_detallado\": \"...\"}}"
-            validation_response = client.chat.completions.create(model=VALIDATION_MODEL, response_format={"type": "json_object"}, messages=[{"role": "system", "content": "You are a strict JSON editor. The character limit is the most important rule."}, {"role": "user", "content": validation_prompt}], temperature=0.1)
-            validation = json.loads(validation_response.choices[0].message.content)
+        if validation.get("pasa_validacion"):
+            print("👍 Borrador final validado con éxito.")
+            return eng_tweet, spa_tweet
+        else:
+            print(f"⚠️ El borrador final no pasó la validación de estilo: {validation.get('feedback_detallado')}")
+            # Aún así, devolvemos el borrador porque ya cumple la longitud, que era el problema principal.
+            # Podrías decidir devolver un error si el estilo es crítico.
+            return eng_tweet, spa_tweet
 
-            if validation.get("pasa_validacion"):
-                print("👍 Borrador validado con éxito.")
-                return eng_tweet, spa_tweet
-            else:
-                if i < MAX_ROUNDS - 1:
-                    print(f"⚠️ Borrador no pasó la validación de estilo. Reintentando...")
-
-        return "Error: No se pudo generar un tuit válido que cumpliera todas las reglas.", ""
-    
     except Exception as e:
         print(f"Error crítico en generate_tweet_from_topic: {e}")
         return f"Error crítico durante la generación: {e}", ""

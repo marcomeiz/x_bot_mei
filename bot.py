@@ -13,6 +13,15 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 app = Flask(__name__)
 
+def get_new_tweet_keyboard():
+    """Crea y devuelve el teclado con el botón para generar un nuevo tuit."""
+    keyboard = {
+        "inline_keyboard": [[
+            {"text": "🚀 Generar Nuevo Tuit", "callback_data": "generate_new"},
+        ]]
+    }
+    return keyboard
+
 def send_telegram_message(chat_id, text, reply_markup=None):
     """Función centralizada para enviar mensajes a Telegram."""
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -25,8 +34,16 @@ def send_telegram_message(chat_id, text, reply_markup=None):
     except Exception as e:
         print(f"Error enviando mensaje a Telegram: {e}")
 
+def edit_telegram_message(chat_id, message_id, text, reply_markup=None):
+    """Función para editar un mensaje existente (ej. para quitar botones)."""
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText"
+    payload = {"chat_id": chat_id, "message_id": message_id, "text": text, "parse_mode": "Markdown"}
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+    requests.post(url, json=payload)
+
 def propose_tweet(chat_id, topic):
-    """Genera un tuit para un tema y lo propone con botones."""
+    """Genera un tuit para un tema y lo propone con botones de aprobación/rechazo."""
     topic_abstract = topic.get("abstract")
     topic_id = topic.get("topic_id")
 
@@ -35,7 +52,7 @@ def propose_tweet(chat_id, topic):
     eng_tweet, spa_tweet = generate_tweet_from_topic(topic_abstract)
     
     if "Error:" in eng_tweet:
-        send_telegram_message(chat_id, f"Hubo un problema: {eng_tweet}")
+        send_telegram_message(chat_id, f"Hubo un problema: {eng_tweet}", reply_markup=get_new_tweet_keyboard())
         return
 
     keyboard = {
@@ -55,10 +72,10 @@ def handle_generate_command(chat_id):
     if topic:
         propose_tweet(chat_id, topic)
     else:
-        send_telegram_message(chat_id, "❌ No pude encontrar un tema relevante en la base de datos.")
+        send_telegram_message(chat_id, "❌ No pude encontrar un tema relevante en la base de datos.", reply_markup=get_new_tweet_keyboard())
 
 def handle_callback_query(update):
-    """Maneja las pulsaciones de los botones."""
+    """Maneja las pulsaciones de todos los botones."""
     query = update.get("callback_query", {})
     chat_id = query["message"]["chat"]["id"]
     message_id = query["message"]["message_id"]
@@ -66,21 +83,25 @@ def handle_callback_query(update):
     
     action, _, topic_id = callback_data.partition('_')
     
-    # Edita el mensaje original para quitar los botones y dar feedback
-    requests.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageReplyMarkup", json={"chat_id": chat_id, "message_id": message_id})
+    original_message_text = query["message"].get("text", "")
 
     if action == "approve":
-        send_telegram_message(chat_id, f"✅ **¡Tuit sobre tema {topic_id} Aprobado!**")
-        # Aquí iría la lógica futura para añadir a la cola de publicación.
+        edit_telegram_message(chat_id, message_id, original_message_text + "\n\n✅ **¡Aprobado!**")
+        send_telegram_message(chat_id, "Listo para el siguiente.", reply_markup=get_new_tweet_keyboard())
         
     elif action == "reject":
-        send_telegram_message(chat_id, f"❌ **Borrador sobre tema {topic_id} Rechazado.**\nGenerando una nueva versión...")
+        edit_telegram_message(chat_id, message_id, original_message_text + "\n\n❌ **Rechazado.**")
+        send_telegram_message(chat_id, "Generando una nueva versión sobre el mismo tema...")
         topic = find_topic_by_id(topic_id)
         if topic:
-            # Inicia la regeneración en un hilo para no bloquear
             threading.Thread(target=propose_tweet, args=(chat_id, topic)).start()
         else:
-            send_telegram_message(chat_id, "❌ No pude encontrar el tema original para regenerar.")
+            send_telegram_message(chat_id, "❌ No pude encontrar el tema original para regenerar.", reply_markup=get_new_tweet_keyboard())
+            
+    elif action == "generate" and topic_id == "new":
+        # Edita el mensaje anterior para quitar el botón y que no se pueda pulsar dos veces
+        edit_telegram_message(chat_id, message_id, "Iniciando nuevo proceso...")
+        threading.Thread(target=handle_generate_command, args=(chat_id,)).start()
 
 @app.route(f"/{TELEGRAM_BOT_TOKEN}", methods=["POST"])
 def telegram_webhook():

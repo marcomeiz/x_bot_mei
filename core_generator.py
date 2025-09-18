@@ -18,7 +18,7 @@ client = OpenAI(
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 CONTRACT_FILE = os.path.join(BASE_DIR, "copywriter_contract.md")
 JSON_DIR = os.path.join(BASE_DIR, "json")
-MAX_ROUNDS = 3 # Reducimos los reintentos internos, ya que ahora hay reintentos humanos
+MAX_ROUNDS = 3
 GENERATION_MODEL = "anthropic/claude-3.5-sonnet"
 VALIDATION_MODEL = "anthropic/claude-3-haiku"
 PATRONES_NIKITA = [
@@ -27,7 +27,23 @@ PATRONES_NIKITA = [
 ]
 COO_PERSONA = "Un Chief Operating Officer (COO) enfocado en liderazgo operacional, ejecución, escalado de negocios, sistemas y procesos."
 
-# --- FUNCIONES AUXILIARES (las que ya conoces) ---
+# --- NUEVA FUNCIÓN ---
+def find_topic_by_id(topic_id: str):
+    """Busca en todos los archivos JSON un tema con un ID específico."""
+    files = [f for f in os.listdir(JSON_DIR) if f.lower().endswith(".json")]
+    for file_name in files:
+        filepath = os.path.join(JSON_DIR, file_name)
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                for topic in data.get("extracted_topics", []):
+                    if topic.get("topic_id") == topic_id:
+                        return topic
+        except (IOError, json.JSONDecodeError):
+            continue
+    return None
+
+# ... (El resto de funciones de core_generator.py permanecen igual que en la versión anterior) ...
 def is_topic_coo_relevant(topic_abstract: str) -> bool:
     print(f"🕵️  Validando relevancia: '{topic_abstract[:70]}...'")
     prompt = f'Is this topic "{topic_abstract}" relevant for a COO persona? Respond ONLY with JSON: {{"is_relevant": boolean}}'
@@ -45,19 +61,7 @@ def remove_topic_from_json(filepath: str, topic_to_remove: dict):
             print(f"🗑️  Tema irrelevante eliminado de {os.path.basename(filepath)}")
     except Exception as e: print(f"Error removing topic: {e}")
 
-def parse_final_draft(draft: str) -> (str, str):
-    eng_match = re.search(r"\[EN\s*-\s*\d+/\d+\]\s*(.*)", draft, re.DOTALL | re.IGNORECASE)
-    spa_match = re.search(r"\[ES\s*-\s*\d+/\d+\]\s*(.*)", draft, re.DOTALL | re.IGNORECASE)
-    english_text = eng_match.group(1).split("[ES -")[0].strip() if eng_match else ""
-    spanish_text = spa_match.group(1).strip() if spa_match else ""
-    return english_text, spanish_text
-
-# --- NUEVAS FUNCIONES REFACTORIZADAS ---
-
 def find_relevant_topic():
-    """
-    Busca y valida un tema relevante. Devuelve solo el tema o None.
-    """
     files = [f for f in os.listdir(JSON_DIR) if f.lower().endswith(".json")]
     if not files: raise RuntimeError(f"No JSON files found in {JSON_DIR}")
     
@@ -84,12 +88,9 @@ def find_relevant_topic():
             remove_topic_from_json(filepath, candidate_topic)
             time.sleep(1)
     
-    return None # Devuelve None si no encuentra nada relevante
+    return None
 
 def generate_tweet_from_topic(topic_abstract: str):
-    """
-    Toma un tema y genera un tuit validado sobre él.
-    """
     try:
         with open(CONTRACT_FILE, "r", encoding="utf-8") as f: contract = f.read()
         
@@ -105,10 +106,17 @@ def generate_tweet_from_topic(topic_abstract: str):
             validation = json.loads(validation_response.choices[0].message.content)
 
             if validation.get("pasa_validacion"):
-                return parse_final_draft(draft) # Devuelve (eng_tweet, spa_tweet)
+                return parse_final_draft(draft)
 
         return "Error: No se pudo generar un tuit válido después de varios intentos.", ""
     
     except Exception as e:
         print(f"Error crítico en generate_tweet_from_topic: {e}")
         return f"Error crítico durante la generación: {e}", ""
+
+def parse_final_draft(draft: str) -> (str, str):
+    eng_match = re.search(r"\[EN\s*-\s*\d+/\d+\]\s*(.*)", draft, re.DOTALL | re.IGNORECASE)
+    spa_match = re.search(r"\[ES\s*-\s*\d+/\d+\]\s*(.*)", draft, re.DOTALL | re.IGNORECASE)
+    english_text = eng_match.group(1).split("[ES -")[0].strip() if eng_match else ""
+    spanish_text = spa_match.group(1).strip() if spa_match else ""
+    return english_text, spanish_text

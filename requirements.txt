@@ -8,3 +8,4 @@ Flask
 gunicorn
 python-telegram-bot
 desktop-notifier
+tweepy

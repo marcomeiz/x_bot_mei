@@ -1,147 +1,98 @@
 import os
-from dotenv import load_dotenv
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    Application, CommandHandler, CallbackQueryHandler, ConversationHandler, ContextTypes
-)
+import json
+import time
 import threading
+from dotenv import load_dotenv
+from flask import Flask, request
+import requests
 
-# Importamos las funciones refactorizadas
-from core_generator import find_relevant_topic, generate_tweet_from_topic
+from core_generator import find_relevant_topic, generate_tweet_from_topic, find_topic_by_id
 
-# Cargar configuración
 load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
-# Estados para la conversación
-AWAITING_APPROVAL = 1
+app = Flask(__name__)
 
-# --- Teclado para "Generar Nuevo" ---
-def get_new_tweet_keyboard():
-    """Crea el teclado con el botón para generar un nuevo tuit."""
-    keyboard = [[InlineKeyboardButton("🚀 Generar Nuevo Tuit", callback_data='generate_new')]]
-    return InlineKeyboardMarkup(keyboard)
+def send_telegram_message(chat_id, text, reply_markup=None):
+    """Función centralizada para enviar mensajes a Telegram."""
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+    try:
+        requests.post(url, json=payload)
+        print(f"Mensaje enviado a chat_id {chat_id}")
+    except Exception as e:
+        print(f"Error enviando mensaje a Telegram: {e}")
 
-# --- Funciones del Bot ---
-
-def generate_and_propose(chat_id: int, context: ContextTypes.DEFAULT_TYPE):
-    """Función principal que genera y envía la propuesta al usuario."""
-    
-    if 'current_topic' not in context.user_data:
-        context.bot.send_message(chat_id, "🤖 Buscando un nuevo tema relevante...")
-        topic = find_relevant_topic()
-        if not topic:
-            context.bot.send_message(
-                chat_id,
-                "❌ No pude encontrar un tema relevante en la base de datos.",
-                reply_markup=get_new_tweet_keyboard()
-            )
-            return
-        context.user_data['current_topic'] = topic
-    
-    topic = context.user_data['current_topic']
+def propose_tweet(chat_id, topic):
+    """Genera un tuit para un tema y lo propone con botones."""
     topic_abstract = topic.get("abstract")
+    topic_id = topic.get("topic_id")
 
-    context.bot.send_message(chat_id, f"✍️ Tema: '{topic_abstract}'.\nGenerando borrador...")
+    send_telegram_message(chat_id, f"✍️ Tema: '{topic_abstract}'.\nGenerando borrador...")
     
     eng_tweet, spa_tweet = generate_tweet_from_topic(topic_abstract)
     
     if "Error:" in eng_tweet:
-        context.bot.send_message(
-            chat_id,
-            f"Hubo un problema: {eng_tweet}",
-            reply_markup=get_new_tweet_keyboard()
-        )
+        send_telegram_message(chat_id, f"Hubo un problema: {eng_tweet}")
         return
 
-    context.user_data['eng_tweet'] = eng_tweet
-    context.user_data['spa_tweet'] = spa_tweet
+    keyboard = {
+        "inline_keyboard": [[
+            {"text": "👍 Aprobar", "callback_data": f"approve_{topic_id}"},
+            {"text": "👎 Rechazar", "callback_data": f"reject_{topic_id}"},
+        ]]
+    }
     
-    keyboard = [
-        [
-            InlineKeyboardButton("👍 Aprobar", callback_data='approve'),
-            InlineKeyboardButton("👎 Rechazar", callback_data='reject'),
-        ]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    message_text = f"**Borrador Propuesto:**\n\n**EN:**\n{eng_tweet}\n\n**ES:**\n{spa_tweet}\n\n¿Aprobar para la cola de publicación?"
-    context.bot.send_message(chat_id, text=message_text, reply_markup=reply_markup, parse_mode='Markdown')
+    message_text = f"**Borrador Propuesto (ID: {topic_id}):**\n\n**EN:**\n{eng_tweet}\n\n**ES:**\n{spa_tweet}\n\n¿Aprobar?"
+    send_telegram_message(chat_id, message_text, reply_markup=keyboard)
 
-# --- Manejadores de Estados y Comandos ---
+def handle_generate_command(chat_id):
+    """Maneja la lógica de encontrar un tema y proponer un tuit."""
+    send_telegram_message(chat_id, "🤖 Buscando un nuevo tema relevante...")
+    topic = find_relevant_topic()
+    if topic:
+        propose_tweet(chat_id, topic)
+    else:
+        send_telegram_message(chat_id, "❌ No pude encontrar un tema relevante en la base de datos.")
 
-async def approval_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Maneja la respuesta del usuario (botones 👍/👎)."""
-    query = update.callback_query
-    await query.answer()
+def handle_callback_query(update):
+    """Maneja las pulsaciones de los botones."""
+    query = update.get("callback_query", {})
+    chat_id = query["message"]["chat"]["id"]
+    message_id = query["message"]["message_id"]
+    callback_data = query.get("data", "")
     
-    if query.data == 'approve':
-        await query.edit_message_text(
-            text="✅ **¡Tuit Aprobado!**\n\n(Próximamente se añadirá a la cola de publicación)",
-            reply_markup=get_new_tweet_keyboard() # Añadimos el botón de generar nuevo
-        )
-        context.user_data.clear()
-        return ConversationHandler.END
+    action, _, topic_id = callback_data.partition('_')
+    
+    # Edita el mensaje original para quitar los botones y dar feedback
+    requests.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageReplyMarkup", json={"chat_id": chat_id, "message_id": message_id})
+
+    if action == "approve":
+        send_telegram_message(chat_id, f"✅ **¡Tuit sobre tema {topic_id} Aprobado!**")
+        # Aquí iría la lógica futura para añadir a la cola de publicación.
         
-    elif query.data == 'reject':
-        await query.edit_message_text(text="❌ **Borrador Rechazado.**\nGenerando una nueva versión sobre el mismo tema. Un momento...")
-        threading.Thread(target=generate_and_propose, args=(update.effective_chat.id, context)).start()
-        return AWAITING_APPROVAL # Mantenemos el estado de espera
+    elif action == "reject":
+        send_telegram_message(chat_id, f"❌ **Borrador sobre tema {topic_id} Rechazado.**\nGenerando una nueva versión...")
+        topic = find_topic_by_id(topic_id)
+        if topic:
+            # Inicia la regeneración en un hilo para no bloquear
+            threading.Thread(target=propose_tweet, args=(chat_id, topic)).start()
+        else:
+            send_telegram_message(chat_id, "❌ No pude encontrar el tema original para regenerar.")
 
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Mensaje de bienvenida."""
-    await update.message.reply_text(
-        "¡Hola! Soy tu ghostwriter.",
-        reply_markup=get_new_tweet_keyboard()
-    )
+@app.route(f"/{TELEGRAM_BOT_TOKEN}", methods=["POST"])
+def telegram_webhook():
+    if request.is_json:
+        update = request.get_json()
+        if "message" in update and "text" in update["message"] and update["message"]["text"] == "/generate":
+            chat_id = update["message"]["chat"]["id"]
+            threading.Thread(target=handle_generate_command, args=(chat_id,)).start()
+        elif "callback_query" in update:
+            handle_callback_query(update)
+    return "ok", 200
 
-async def generate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Inicia la conversación para generar un tuit, ya sea por comando o por botón."""
-    chat_id = update.effective_chat.id
-    
-    # Si viene de un botón, respondemos al callback
-    if update.callback_query:
-        await update.callback_query.answer()
-        # Opcional: editar el mensaje anterior para quitar el botón
-        await update.callback_query.edit_message_reply_markup(reply_markup=None)
-
-    print(f"Iniciando generación para el chat_id: {chat_id}")
-    context.user_data.clear()
-    
-    # El trabajo pesado se hace en un hilo para no bloquear
-    threading.Thread(target=generate_and_propose, args=(chat_id, context)).start()
-    
-    return AWAITING_APPROVAL
-
-async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Cancela la conversación actual."""
-    await update.message.reply_text(
-        "Operación cancelada.",
-        reply_markup=get_new_tweet_keyboard()
-    )
-    context.user_data.clear()
-    return ConversationHandler.END
-
-def main() -> None:
-    """Inicia el bot."""
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-    
-    conv_handler = ConversationHandler(
-        entry_points=[
-            CommandHandler('generate', generate_command),
-            CallbackQueryHandler(generate_command, pattern='^generate_new$') # El botón ahora llama a la misma función
-        ],
-        states={
-            AWAITING_APPROVAL: [CallbackQueryHandler(approval_handler, pattern='^(approve|reject)$')],
-        },
-        fallbacks=[CommandHandler('cancel', cancel_command)],
-    )
-
-    application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(conv_handler)
-
-    print("🚀 El bot conversacional con botón de regeneración está en línea...")
-    application.run_polling()
-
-if __name__ == "__main__":
-    main()
+@app.route("/")
+def index():
+    return "Bot is alive!", 200

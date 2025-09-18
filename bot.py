@@ -2,6 +2,8 @@ import os
 import json
 import time
 import threading
+import subprocess
+from datetime import datetime
 from dotenv import load_dotenv
 from flask import Flask, request
 import requests
@@ -13,17 +15,31 @@ from core_generator import generate_single_tweet
 load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
-# Inicializar la aplicación web Flask - ESTA ES LA LÍNEA CLAVE
+# Inicializar la aplicación web Flask
 app = Flask(__name__)
+
+def get_status_message():
+    """Prepara el mensaje de estado, incluyendo la versión del código."""
+    try:
+        # Intenta obtener el hash del último commit de Git
+        commit_hash = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode('utf-8').strip()
+        version_info = f"Versión del código: `{commit_hash}`"
+    except Exception:
+        version_info = "Versión del código: No disponible"
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+    
+    status_message = (
+        f"✅ **Ghostwriter Bot está en línea.**\n\n"
+        f"{version_info}\n"
+        f"Último reinicio: {timestamp}"
+    )
+    return status_message
 
 def send_telegram_message(chat_id, text):
     """Función auxiliar para enviar mensajes de vuelta a Telegram."""
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "Markdown"
-    }
+    payload = { "chat_id": chat_id, "text": text, "parse_mode": "Markdown" }
     try:
         requests.post(url, json=payload)
         print(f"Mensaje enviado a chat_id {chat_id}")
@@ -52,7 +68,7 @@ def telegram_webhook():
     """Esta función se activa cuando Telegram nos envía un mensaje."""
     if request.is_json:
         update = request.get_json()
-
+        
         if "message" in update and "text" in update["message"]:
             chat_id = update["message"]["chat"]["id"]
             text = update["message"]["text"]
@@ -60,6 +76,12 @@ def telegram_webhook():
             if text == "/generate":
                 thread = threading.Thread(target=do_the_work, args=(chat_id,))
                 thread.start()
+            
+            # --- NUEVO: Manejador para el comando /status ---
+            elif text == "/status":
+                print(f"Recibido comando /status del chat_id: {chat_id}")
+                status_text = get_status_message()
+                send_telegram_message(chat_id, status_text)
 
     return "ok", 200
 

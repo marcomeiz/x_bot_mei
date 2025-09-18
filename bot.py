@@ -6,11 +6,14 @@ from dotenv import load_dotenv
 from flask import Flask, request
 import requests
 
-from core_generator import find_relevant_topic, generate_tweet_from_topic, find_topic_by_id, post_tweet_to_x
+# Importamos todas las funciones necesarias, incluyendo post_tweet_to_x
+from core_generator import (
+    find_relevant_topic, generate_tweet_from_topic, find_topic_by_id, post_tweet_to_x
+)
 
 load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-X_USERNAME = "tu_usuario_de_x" # <--- ¡RECUERDA CAMBIAR ESTO!
+X_USERNAME = "marcomeiz" # <--- ¡RECUERDA CAMBIAR ESTO!
 
 app = Flask(__name__)
 
@@ -52,6 +55,8 @@ def propose_tweet(chat_id, topic):
     """Genera un tuit para un tema y lo propone con botones."""
     topic_abstract = topic.get("abstract")
     topic_id = topic.get("topic_id")
+    
+    send_telegram_message(chat_id, f"✍️ Tema: '{topic_abstract}'.\nGenerando borrador...")
     
     eng_tweet, spa_tweet = generate_tweet_from_topic(topic_abstract)
     
@@ -124,7 +129,7 @@ def telegram_webhook():
         update = request.get_json()
         if "message" in update and "text" in update["message"] and update["message"]["text"] == "/generate":
             chat_id = update["message"]["chat"]["id"]
-            send_telegram_message(chat_id, "🤖 Comando recibido. Iniciando proceso (puede tardar varios minutos)...")
+            send_telegram_message(chat_id, "🤖 Comando recibido. Iniciando proceso...")
             threading.Thread(target=do_the_work, args=(chat_id,)).start()
         elif "callback_query" in update:
             handle_callback_query(update)

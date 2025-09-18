@@ -3,13 +3,20 @@ import json
 import random
 import re
 import time
+import tweepy
 from dotenv import load_dotenv
 from openai import OpenAI
 import requests
 
-# --- Carga de Configuración ---
+# --- Carga de Configuración Completa ---
 load_dotenv()
 openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+X_API_KEY = os.getenv("X_API_KEY")
+X_API_KEY_SECRET = os.getenv("X_API_KEY_SECRET")
+X_ACCESS_TOKEN = os.getenv("X_ACCESS_TOKEN")
+X_ACCESS_TOKEN_SECRET = os.getenv("X_ACCESS_TOKEN_SECRET")
+
 client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=openrouter_api_key)
 
 # --- Rutas y Constantes ---
@@ -25,8 +32,24 @@ PATRONES_NIKITA = [
 ]
 COO_PERSONA = "Un Chief Operating Officer (COO) enfocado en liderazgo operacional, ejecución, escalado de negocios, sistemas y procesos."
 
-# --- Funciones ---
+# --- FUNCIÓN PARA PUBLICAR EN X ---
+def post_tweet_to_x(text_to_post: str):
+    if not all([X_API_KEY, X_API_KEY_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET]):
+        print("Error: Faltan las credenciales de la API de X.")
+        return None
+    try:
+        client_x = tweepy.Client(
+            consumer_key=X_API_KEY, consumer_secret=X_API_KEY_SECRET,
+            access_token=X_ACCESS_TOKEN, access_token_secret=X_ACCESS_TOKEN_SECRET
+        )
+        response = client_x.create_tweet(text=text_to_post)
+        print(f"Respuesta de la API de X: {response.data}")
+        return response.data
+    except Exception as e:
+        print(f"Error al publicar en X: {e}")
+        return None
 
+# --- RESTO DE FUNCIONES DE CORE_GENERATOR ---
 def is_topic_coo_relevant(topic_abstract: str) -> bool:
     print(f"🕵️  Validando relevancia: '{topic_abstract[:70]}...'")
     prompt = f'Is this topic "{topic_abstract}" relevant for a COO persona? Respond ONLY with JSON: {{"is_relevant": boolean}}'

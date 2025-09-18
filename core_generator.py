@@ -10,17 +10,21 @@ import requests
 # --- Carga de Configuración ---
 load_dotenv()
 openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+# ... (el resto de tus variables de entorno)
 
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=openrouter_api_key,
 )
 
+# --- MODIFICACIÓN: Construcción de Rutas Absolutas ---
+# Obtiene la ruta del directorio donde se encuentra este script
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+# Construye las rutas completas a los archivos y carpetas
+CONTRACT_FILE = os.path.join(BASE_DIR, "copywriter_contract.md")
+JSON_DIR = os.path.join(BASE_DIR, "json")
+
 # --- Constantes y Definiciones ---
-CONTRACT_FILE = "copywriter_contract.md"
-JSON_DIR = "json"
 MAX_ROUNDS = 5
 GENERATION_MODEL = "anthropic/claude-3.5-sonnet"
 VALIDATION_MODEL = "anthropic/claude-3-haiku"
@@ -36,9 +40,7 @@ escalado de negocios, sistemas, procesos, gestión de equipos de alto rendimient
 productividad y la intersección entre estrategia y operaciones del día a día.
 """
 
-# --- Las funciones que ya conocemos (validador, generador, etc.) ---
-# (Se han omitido por brevedad, pero son las mismas que en tu main.py anterior)
-# ... (is_topic_coo_relevant, remove_topic_from_json, load_contract, etc.) ...
+# ... (El resto de tus funciones: is_topic_coo_relevant, remove_topic_from_json, etc. permanecen igual) ...
 def is_topic_coo_relevant(topic_abstract: str) -> bool:
     prompt = f'Is this topic "{topic_abstract}" relevant for a COO persona focused on operations, execution, and leadership? Respond ONLY with JSON: {{"is_relevant": boolean}}'
     try:
@@ -90,46 +92,37 @@ def parse_final_draft(draft: str) -> (str, str):
     english_text = eng_match.group(1).split("[ES -")[0].strip() if eng_match else ""
     spanish_text = spa_match.group(1).strip() if spa_match else ""
     return english_text, spanish_text
-    
 
-# --- La Función Principal que el Bot Llamará (CORREGIDA) ---
 def generate_single_tweet():
     """
     Realiza todo el proceso de generar un tuit validado y devuelve el resultado.
     Siempre devuelve una tupla de dos valores (string, string).
     """
     try:
-        # NOTA: Asegúrate de que las funciones auxiliares como find_and_validate_topic,
-        # generate_initial_draft, etc., están definidas en este mismo archivo.
         contract = open(CONTRACT_FILE, "r", encoding="utf-8").read()
         topic_data, _ = find_and_validate_topic()
         topic_abstract = topic_data.get("abstract")
 
         if not topic_abstract:
-            # Retorna dos valores, el error y un string vacío
             return "Error: No se pudo encontrar un tema válido.", ""
 
         patron_elegido = random.choice(PATRONES_NIKITA)
         draft = ""
 
         for _ in range(MAX_ROUNDS):
-            # Asumimos que generate_initial_draft y refine_draft existen
             if draft == "":
                 draft = generate_initial_draft(topic_abstract, contract, patron_elegido)
-            else: # Lógica de refinamiento si fuera necesaria
+            else:
                 pass 
 
             validation = validate_with_ai(draft, contract)
-
+            
             if validation.get("pasa_validacion"):
                 eng_tweet, spa_tweet = parse_final_draft(draft)
-                # Retorno de éxito con dos valores
                 return eng_tweet, spa_tweet
-
-        # Si el bucle termina sin éxito, retorna dos valores
+        
         return "Error: No se pudo generar un tuit válido después de varios intentos.", ""
 
     except Exception as e:
-        # Cualquier otro error también retorna dos valores
         print(f"Error crítico en generate_single_tweet: {e}")
         return f"Error crítico durante la generación: {e}", ""

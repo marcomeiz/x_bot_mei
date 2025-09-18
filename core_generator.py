@@ -65,20 +65,30 @@ def generate_tweet_from_topic(topic_abstract: str):
         print(f"✍️ Escribiendo borrador (Patrón: {patron_elegido})...")
         
         for i in range(MAX_ROUNDS):
-            prompt = f"Using the pattern '{patron_elegido}', write a tweet about '{topic_abstract}'. Obey the 280 character limit strictly. The contract is: {contract}"
-            response = client.chat.completions.create(model=GENERATION_MODEL, messages=[{"role": "system", "content": "You are Nikita Bier's ghostwriter. You are obsessed with the 280 character limit."}, {"role": "user", "content": prompt}], temperature=0.7 + (i * 0.1))
+            # --- PROMPT REFORZADO ---
+            prompt = f"""
+            Your task is to write a tweet in two languages (English and Spanish) about the following topic.
+            Follow the contract provided.
+
+            **CRITICAL SUPREME RULE:** Both the English and Spanish versions MUST be under 280 characters. This is the most important rule and overrides all other creative instructions. Count the characters as you write. If you are over the limit, you must stop and rewrite shorter.
+
+            **Pattern to use:** {patron_elegido}
+            **Topic:** {topic_abstract}
+
+            **Contract for style reference:**
+            {contract}
+            """
+            response = client.chat.completions.create(model=GENERATION_MODEL, messages=[{"role": "system", "content": "You are a ghostwriter obsessed with the 280 character limit. Brevity is your highest priority."}, {"role": "user", "content": prompt}], temperature=0.7 + (i * 0.1))
             draft = response.choices[0].message.content.strip()
             
             eng_tweet, spa_tweet = parse_final_draft(draft)
             
-            # 1. Control Matemático de Longitud
-            if len(eng_tweet) > 280 or len(spa_tweet) > 280:
-                print(f"⚠️ Borrador descartado por longitud ({len(eng_tweet)}/{len(spa_tweet)}). Reintentando...")
+            if len(eng_tweet) > 280 or len(spa_tweet) > 280 or not eng_tweet or not spa_tweet:
+                print(f"⚠️ Borrador descartado por longitud o formato incorrecto ({len(eng_tweet)}/{len(spa_tweet)}). Reintentando...")
                 continue
 
-            # 2. Control de Estilo por IA
             print("🕵️ Borrador tiene longitud correcta. Validando estilo...")
-            validation_prompt = f"Validate this draft: '{draft}' against the contract: {contract}. Is it under 280 chars AND does it follow the style? Respond ONLY with JSON: {{\"pasa_validacion\": boolean, \"feedback_detallado\": \"...\"}}"
+            validation_prompt = f"Validate this draft: '{draft}' against the contract. Is it under 280 chars AND does it follow the style? Respond ONLY with JSON: {{\"pasa_validacion\": boolean, \"feedback_detallado\": \"...\"}}"
             validation_response = client.chat.completions.create(model=VALIDATION_MODEL, response_format={"type": "json_object"}, messages=[{"role": "system", "content": "You are a strict JSON editor. The character limit is the most important rule."}, {"role": "user", "content": validation_prompt}], temperature=0.1)
             validation = json.loads(validation_response.choices[0].message.content)
 

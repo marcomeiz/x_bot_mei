@@ -87,10 +87,16 @@ def post_tweet_to_x(text_to_post: str):
 # --- RESTO DE FUNCIONES DE CORE_GENERATOR ---
 
 def parse_final_draft(draft: str) -> (str, str):
-    eng_match = re.search(r"\[EN\s*-\s*\d+/\d+\]\s*(.*)", draft, re.DOTALL | re.IGNORECASE)
-    spa_match = re.search(r"\[ES\s*-\s*\d+/\d+\]\s*(.*)", draft, re.DOTALL | re.IGNORECASE)
-    english_text = eng_match.group(1).split("[ES -")[0].strip() if eng_match else ""
+    # --- MODIFICACIÓN 2: REGEX MÁS FLEXIBLE ---
+    # (?: ... )? crea un grupo opcional que no se captura.
+    # Ahora aceptará "[EN - 123/280]" y también "[EN]"
+    eng_match = re.search(r"\[EN(?:\s*-\s*\d+/\d+)?\]\s*(.*)", draft, re.DOTALL | re.IGNORECASE)
+    spa_match = re.search(r"\[ES(?:\s*-\s*\d+/\d+)?\]\s*(.*)", draft, re.DOTALL | re.IGNORECASE)
+    # --- FIN DE LA MODIFICACIÓN 2 ---
+    
+    english_text = eng_match.group(1).split("[ES")[0].strip() if eng_match else ""
     spanish_text = spa_match.group(1).strip() if spa_match else ""
+    
     return english_text, spanish_text
 
 def generate_tweet_from_topic(topic_abstract: str):
@@ -188,31 +194,44 @@ def remove_topic_from_json(filepath: str, topic_to_remove: dict):
             print(f"🗑️  Tema irrelevante eliminado de {os.path.basename(filepath)}")
     except Exception as e: print(f"Error removing topic: {e}")
 
+# --- MODIFICACIÓN 3: BÚSQUEDA DE TEMAS OPTIMIZADA ---
 def find_relevant_topic():
     files = [f for f in os.listdir(JSON_DIR) if f.lower().endswith(".json")]
-    if not files: raise RuntimeError(f"No JSON files found in {JSON_DIR}")
+    if not files:
+        raise RuntimeError(f"No JSON files found in {JSON_DIR}")
     
-    searched_files = set()
-    while len(searched_files) < len(files):
-        chosen_file_name = random.choice(list(set(files) - searched_files))
-        searched_files.add(chosen_file_name)
-        filepath = os.path.join(JSON_DIR, chosen_file_name)
+    random.shuffle(files) # 1. Barajamos los ficheros una sola vez
+
+    for file_name in files:
+        filepath = os.path.join(JSON_DIR, file_name)
         try:
-            with open(filepath, "r", encoding="utf-8") as f: data = json.load(f)
-        except Exception: continue
+            with open(filepath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (IOError, json.JSONDecodeError):
+            continue # Si el fichero está corrupto o no se puede leer, saltamos al siguiente
+
         topics = data.get("extracted_topics", [])
-        if not topics: continue
-        
-        candidate_topic = random.choice(topics)
-        
-        if is_topic_coo_relevant(candidate_topic.get("abstract", "")):
-            print(f"✅ Tema aprobado: {candidate_topic.get('abstract')}")
-            return candidate_topic
-        else:
-            print(f"❌ Tema descartado: {candidate_topic.get('abstract')}")
-            remove_topic_from_json(filepath, candidate_topic)
-            time.sleep(1)
-    return None
+        if not topics:
+            continue
+
+        random.shuffle(topics) # 2. Barajamos los temas dentro del fichero
+
+        for topic in topics:
+            abstract = topic.get("abstract", "")
+            if not abstract:
+                continue
+
+            if is_topic_coo_relevant(abstract):
+                print(f"✅ Tema aprobado de '{file_name}': {abstract}")
+                return topic # 3. Encontramos uno, lo devolvemos y la función termina
+            else:
+                print(f"❌ Tema descartado de '{file_name}': {abstract}")
+                remove_topic_from_json(filepath, topic)
+                time.sleep(1) # Pequeña pausa para no sobrecargar el disco
+
+    print("⚠️ No se encontraron temas relevantes en ningún fichero JSON.")
+    return None # Si recorremos todo y no encontramos nada, devolvemos None
+# --- FIN DE LA MODIFICACIÓN 3 ---
 
 def find_topic_by_id(topic_id: str):
     files = [f for f in os.listdir(JSON_DIR) if f.lower().endswith(".json")]

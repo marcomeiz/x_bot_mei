@@ -1,58 +1,69 @@
 import os
+import json
+import time
+import threading
 from dotenv import load_dotenv
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
-import asyncio
+from flask import Flask, request
+import requests
 
-# Importamos la función que hace todo el trabajo pesado
+# Importamos la función que hace el trabajo pesado
 from core_generator import generate_single_tweet
 
-# Cargar el token del bot desde el archivo .env
+# Cargar configuración
 load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-if not TELEGRAM_BOT_TOKEN:
-    raise ValueError("TELEGRAM_BOT_TOKEN no encontrado en el archivo .env")
 
-# --- Definición de Comandos para el Bot ---
+# Inicializar la aplicación web Flask - ESTA ES LA LÍNEA CLAVE
+app = Flask(__name__)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Envía un mensaje de bienvenida cuando el usuario escribe /start."""
-    await update.message.reply_text("¡Hola! Soy tu ghostwriter. Envíame /generate para crear un nuevo tuit.")
+def send_telegram_message(chat_id, text):
+    """Función auxiliar para enviar mensajes de vuelta a Telegram."""
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "Markdown"
+    }
+    try:
+        requests.post(url, json=payload)
+        print(f"Mensaje enviado a chat_id {chat_id}")
+    except Exception as e:
+        print(f"Error sending message to Telegram: {e}")
 
-async def generate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Manejador para el comando /generate."""
-    chat_id = update.effective_chat.id
-    print(f"Recibido comando /generate del chat_id: {chat_id}")
+def do_the_work(chat_id):
+    """Función que se ejecuta en segundo plano para generar el tuit."""
+    print(f"Iniciando generación de tuit para el chat_id: {chat_id}")
+    send_telegram_message(chat_id, "🤖 Entendido. Buscando un tema y empezando el proceso creativo... Dame un minuto.")
 
-    # Enviar un mensaje de "trabajando en ello" para una mejor experiencia de usuario
-    await update.message.reply_text("🤖 Entendido. Buscando un tema relevante y empezando el proceso creativo... Esto puede tardar un minuto.")
+    eng_tweet, spa_tweet = generate_single_tweet()
 
-    # Ejecutar la función de generación en un hilo separado para no bloquear el bot
-    loop = asyncio.get_running_loop()
-    eng_tweet, spa_tweet = await loop.run_in_executor(None, generate_single_tweet)
-
-    # Enviar los resultados al usuario
     if "Error:" in eng_tweet:
-        await update.message.reply_text(f"Hubo un problema: {eng_tweet}")
+        send_telegram_message(chat_id, f"Hubo un problema: {eng_tweet}")
     else:
-        # Usamos la función send_telegram_message que ya teníamos, pero la adaptamos para el bot
         if eng_tweet:
-            await context.bot.send_message(chat_id=chat_id, text=f"**English Version Approved:**\n\n{eng_tweet}", parse_mode='Markdown')
+            send_telegram_message(chat_id, f"**English Version Approved:**\n\n{eng_tweet}")
         if spa_tweet:
-            await asyncio.sleep(1) # Pequeña pausa
-            await context.bot.send_message(chat_id=chat_id, text=f"**Versión en Español Aprobada:**\n\n{spa_tweet}", parse_mode='Markdown')
+            time.sleep(1)
+            send_telegram_message(chat_id, f"**Versión en Español Aprobada:**\n\n{spa_tweet}")
+    print(f"Proceso completado para el chat_id: {chat_id}")
 
-def main() -> None:
-    """Inicia el bot y lo mantiene escuchando."""
-    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+@app.route(f"/{TELEGRAM_BOT_TOKEN}", methods=["POST"])
+def telegram_webhook():
+    """Esta función se activa cuando Telegram nos envía un mensaje."""
+    if request.is_json:
+        update = request.get_json()
 
-    # Registrar los manejadores de comandos
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("generate", generate))
+        if "message" in update and "text" in update["message"]:
+            chat_id = update["message"]["chat"]["id"]
+            text = update["message"]["text"]
 
-    print("🚀 El bot está en línea y escuchando comandos...")
-    # Iniciar el bot (se quedará escuchando hasta que lo detengas con Ctrl+C)
-    application.run_polling()
+            if text == "/generate":
+                thread = threading.Thread(target=do_the_work, args=(chat_id,))
+                thread.start()
 
-if __name__ == "__main__":
-    main()
+    return "ok", 200
+
+@app.route("/")
+def index():
+    """Página de inicio simple para verificar que la app está viva."""
+    return "Bot is alive!", 200

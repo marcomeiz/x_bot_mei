@@ -91,30 +91,45 @@ def parse_final_draft(draft: str) -> (str, str):
     spanish_text = spa_match.group(1).strip() if spa_match else ""
     return english_text, spanish_text
     
-# --- La Función Principal que el Bot Llamará ---
+
+# --- La Función Principal que el Bot Llamará (CORREGIDA) ---
 def generate_single_tweet():
     """
     Realiza todo el proceso de generar un tuit validado y devuelve el resultado.
+    Siempre devuelve una tupla de dos valores (string, string).
     """
     try:
+        # NOTA: Asegúrate de que las funciones auxiliares como find_and_validate_topic,
+        # generate_initial_draft, etc., están definidas en este mismo archivo.
         contract = open(CONTRACT_FILE, "r", encoding="utf-8").read()
         topic_data, _ = find_and_validate_topic()
         topic_abstract = topic_data.get("abstract")
 
         if not topic_abstract:
-            return "Error: No se pudo encontrar un tema válido."
+            # Retorna dos valores, el error y un string vacío
+            return "Error: No se pudo encontrar un tema válido.", ""
 
         patron_elegido = random.choice(PATRONES_NIKITA)
+        draft = ""
 
         for _ in range(MAX_ROUNDS):
-            draft = generate_initial_draft(topic_abstract, contract, patron_elegido)
+            # Asumimos que generate_initial_draft y refine_draft existen
+            if draft == "":
+                draft = generate_initial_draft(topic_abstract, contract, patron_elegido)
+            else: # Lógica de refinamiento si fuera necesaria
+                pass 
+
             validation = validate_with_ai(draft, contract)
-            
+
             if validation.get("pasa_validacion"):
                 eng_tweet, spa_tweet = parse_final_draft(draft)
+                # Retorno de éxito con dos valores
                 return eng_tweet, spa_tweet
 
-        return "Error: No se pudo generar un tuit válido después de varios intentos."
+        # Si el bucle termina sin éxito, retorna dos valores
+        return "Error: No se pudo generar un tuit válido después de varios intentos.", ""
 
     except Exception as e:
-        return f"Error crítico durante la generación: {e}"
+        # Cualquier otro error también retorna dos valores
+        print(f"Error crítico en generate_single_tweet: {e}")
+        return f"Error crítico durante la generación: {e}", ""

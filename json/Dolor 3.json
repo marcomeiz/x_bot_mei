@@ -1,0 +1,81 @@
+{
+  "pdf_name": "Dolor 3",
+  "extracted_topics": [
+    {
+      "abstract": "Poor project management can lead to costly delays, client dissatisfaction, and team burnout",
+      "topic_id": "3d76fe31ea"
+    },
+    {
+      "abstract": "Resource misallocation creates team imbalance: some overworked, others underutilized",
+      "topic_id": "8b4b2efaf8"
+    },
+    {
+      "abstract": "Lack of project visibility often results in delays and misunderstandings between teams",
+      "topic_id": "f1ce42999c"
+    },
+    {
+      "abstract": "Poor internal communication leads to costly errors and duplicate work efforts",
+      "topic_id": "78a130ace3"
+    },
+    {
+      "abstract": "Unrealistic deadlines compromise work quality and damage client relationships",
+      "topic_id": "efe7cd8bda"
+    },
+    {
+      "abstract": "Effective project management tools provide real-time visibility and better resource allocation",
+      "topic_id": "0e3e04bee0"
+    },
+    {
+      "abstract": "Strategic resource mapping helps prevent employee burnout and optimize team capacity",
+      "topic_id": "4ce98988b9"
+    },
+    {
+      "abstract": "Clear project tracking metrics are essential to maintain control and meet deadlines",
+      "topic_id": "e28e8212f1"
+    },
+    {
+      "abstract": "Balanced resource allocation improves both productivity and team morale",
+      "topic_id": "9a1e100031"
+    },
+    {
+      "abstract": "Integrated project management systems reduce effort duplication and improve planning",
+      "topic_id": "e7d98d2536"
+    },
+    {
+      "abstract": "Optimizing resource allocation prevents employee burnout and ensures efficient talent utilization",
+      "topic_id": "b95c93df79"
+    },
+    {
+      "abstract": "Regular resource allocation reviews help adapt to changing project needs",
+      "topic_id": "954214d73d"
+    },
+    {
+      "abstract": "Clear communication channels and daily follow-up meetings improve project management",
+      "topic_id": "982419b724"
+    },
+    {
+      "abstract": "Defining precise roles prevents confusion and enhances team collaboration",
+      "topic_id": "a2682d2b47"
+    },
+    {
+      "abstract": "Implementing agile methodology with realistic timelines improves project delivery",
+      "topic_id": "7954e33c7a"
+    },
+    {
+      "abstract": "Creating timeline review committees validates deadlines before client commitments",
+      "topic_id": "390c93e5f3"
+    },
+    {
+      "abstract": "Setting achievable deadlines reduces team stress and builds client trust",
+      "topic_id": "0a04defcd1"
+    },
+    {
+      "abstract": "Project management systems need cultural change toward accountability",
+      "topic_id": "76b9090a82"
+    },
+    {
+      "abstract": "Success depends on quick adaptation to changes while maintaining team morale",
+      "topic_id": "f0f25e85b2"
+    }
+  ]
+}

@@ -102,113 +102,125 @@ def parse_final_draft(draft: str) -> (str, str):
 # COPIA Y PEGA ESTA FUNCIÓN COMPLETA EN LUGAR DE LA TUYA EN core_generator.py
 
 def generate_tweet_from_topic(topic_abstract: str):
-    try:
-        with open(CONTRACT_FILE, "r", encoding="utf-8") as f: contract = f.read()
-        patron_elegido = random.choice(PATRONES_NIKITA)
-        print(f"✍️ Escribiendo borrador (Patrón: {patron_elegido})...")
+    MAX_ATTEMPTS = 3  # Definimos un número máximo de intentos para la autocorrección
+    last_error_feedback = "" # Variable para guardar el feedback entre intentos
 
-        # --- MODIFICACIÓN FUNDAMENTAL: PROMPT DE ALTA EXIGENCIA CON PERSONA DE COO ---
-        # Usamos la variable COO_PERSONA que ya está definida en tu script.
-        prompt = f"""
-        You are Nikita Bier's ghostwriter. Your specific mindset is that of a Chief Operating Officer.
-        Your persona is: "{COO_PERSONA}"
+    # Inicia el bucle de autocorrección
+    for attempt in range(MAX_ATTEMPTS):
+        print(f"\n🚀 Intento de generación {attempt + 1}/{MAX_ATTEMPTS}...")
+        
+        try:
+            # --- Tu lógica de generación original, ahora dentro del bucle ---
+            with open(CONTRACT_FILE, "r", encoding="utf-8") as f: contract = f.read()
+            patron_elegido = random.choice(PATRONES_NIKITA)
+            print(f"✍️ Escribiendo borrador (Patrón: {patron_elegido})...")
 
-        Your task is to write a tweet based on the topic below, strictly following the provided contract.
+            # MEJORA: Añadimos el feedback del error anterior para que la IA aprenda
+            feedback_prompt_addition = f"\nCRITICAL NOTE ON PREVIOUS ATTEMPT: Your last draft failed validation. The feedback was: '{last_error_feedback}'. You MUST correct this in the new draft. Do not repeat the same mistake." if last_error_feedback else ""
 
-        **Contract for style and tone:**
-        {contract}
+            prompt = f"""
+            You are Nikita Bier's ghostwriter. Your specific mindset is that of a Chief Operating Officer.
+            Your persona is: "{COO_PERSONA}"
 
-        ---
-        **CRITICAL SUPREME RULE: PRE-GENERATION CHECKLIST**
-        Before writing a single word, you MUST mentally confirm the following:
-        1.  **Mindset Check:** Am I writing from the perspective of a Chief Operating Officer? My focus must be on operational leadership, execution, scaling, systems, and processes. (COO Mindset)
-        2.  **Specificity Check:** Is my core idea grounded in a specific, tangible detail from an operational scenario, not a grand, abstract metaphor? (Cláusula Anti-Cliché)
-        3.  **Cliché Check:** Have I identified and avoided all business/tech clichés like "game-changer", "synergy", "company DNA"?
-        4.  **Subtlety Check:** Am I SHOWING the operational insight directly instead of ANNOUNCING it with phrases like "Here's an important lesson:"? (Regla de Sutileza)
-        5.  **Opening Check:** Is my opening sentence varied and engaging? I will avoid starting with "Most COOs think..." or a similar formula. (Cláusula de Aperturas Variadas)
+            Your task is to write a tweet based on the topic below, strictly following the provided contract.
+            {feedback_prompt_addition}
+            
+            **Contract for style and tone:**
+            {contract}
 
-        Only after you have confirmed these five points, proceed with writing the tweet.
+            ---
+            **CRITICAL SUPREME RULE: PRE-GENERATION CHECKLIST**
+            Before writing a single word, you MUST mentally confirm the following:
+            1.  **Mindset Check:** Am I writing from the perspective of a Chief Operating Officer? My focus must be on operational leadership, execution, scaling, systems, and processes. (COO Mindset)
+            2.  **Specificity Check:** Is my core idea grounded in a specific, tangible detail from an operational scenario, not a grand, abstract metaphor? (Cláusula Anti-Cliché)
+            3.  **Cliché Check:** Have I identified and avoided all business/tech clichés like "game-changer", "synergy", "company DNA"?
+            4.  **Subtlety Check:** Am I SHOWING the operational insight directly instead of ANNOUNCING it with phrases like "Here's an important lesson:"? (Regla de Sutileza)
+            5.  **Opening Check:** Is my opening sentence varied and engaging? I will avoid starting with "Most COOs think..." or a similar formula. (Cláusula de Aperturas Variadas)
 
-        ---
-        **Your Assignment:**
-        - **Topic:** {topic_abstract}
-        - **Inspiration Pattern to use:** {patron_elegido}
-        - **Output Format:** Provide ONLY the final text in the specified EN/ES format. Do not add commentary.
-        """
+            Only after you have confirmed these five points, proceed with writing the tweet.
 
-        print("🧠 Enviando prompt de alta exigencia (COO Persona) a Claude 3.5 Sonnet...")
-        response = client.chat.completions.create(
-            model=GENERATION_MODEL,
-            messages=[
-                {"role": "system", "content": "You are a world-class ghostwriter embodying the COO persona defined in the user's contract. Your primary goal is authenticity through operational specificity."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7
-        )
-        draft = response.choices[0].message.content.strip()
+            ---
+            **Your Assignment:**
+            - **Topic:** {topic_abstract}
+            - **Inspiration Pattern to use:** {patron_elegido}
+            - **Output Format:** Provide ONLY the final text in the specified EN/ES format. Do not add commentary.
+            """
 
-        eng_tweet, spa_tweet = parse_final_draft(draft)
+            print("🧠 Enviando prompt de alta exigencia (COO Persona) a Claude 3.5 Sonnet...")
+            response = client.chat.completions.create(
+                model=GENERATION_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are a world-class ghostwriter embodying the COO persona defined in the user's contract. Your primary goal is authenticity through operational specificity."},
+                    {"role": "user", "content": prompt}
+                ],
+                # MEJORA: Aumentamos la temperatura en cada reintento para evitar respuestas idénticas
+                temperature=0.7 + (attempt * 0.05)
+            )
+            draft = response.choices[0].message.content.strip()
+            eng_tweet, spa_tweet = parse_final_draft(draft)
 
-        if not eng_tweet or not spa_tweet:
-            print("Error: El borrador inicial no pudo ser parseado. No se encontraron los bloques [EN] o [ES].")
-            return "Error: Formato de borrador inicial inválido.", ""
+            if not eng_tweet or not spa_tweet:
+                print("Error: El borrador no pudo ser parseado. Reintentando...")
+                last_error_feedback = "The draft was not parsed correctly. Ensure both [EN] and [ES] blocks are present and correctly formatted."
+                continue # Pasa al siguiente intento
 
-        # El acortamiento programático sigue siendo una buena salvaguarda
-        if len(eng_tweet) > 280:
-            print(f"⚠️ Borrador EN demasiado largo ({len(eng_tweet)}/280). Enviando a refinar...")
-            eng_tweet = refine_and_shorten_tweet(eng_tweet, VALIDATION_MODEL)
+            if len(eng_tweet) > 280:
+                print(f"⚠️ Borrador EN demasiado largo ({len(eng_tweet)}/280). Enviando a refinar...")
+                eng_tweet = refine_and_shorten_tweet(eng_tweet, VALIDATION_MODEL)
 
-        if len(spa_tweet) > 280:
-            print(f"⚠️ Borrador ES demasiado largo ({len(spa_tweet)}/280). Enviando a refinar...")
-            spa_tweet = refine_and_shorten_tweet(spa_tweet, VALIDATION_MODEL)
+            if len(spa_tweet) > 280:
+                print(f"⚠️ Borrador ES demasiado largo ({len(spa_tweet)}/280). Enviando a refinar...")
+                spa_tweet = refine_and_shorten_tweet(spa_tweet, VALIDATION_MODEL)
 
-        if len(eng_tweet) > 280 or len(spa_tweet) > 280:
-            print(f"❌ Fallo crítico: Incluso después de refinar, el tuit excede los 280 caracteres.")
-            return "Error: No se pudo acortar el tuit lo suficiente.", ""
+            if len(eng_tweet) > 280 or len(spa_tweet) > 280:
+                print(f"❌ Fallo crítico: Incluso después de refinar, el tuit excede los 280 caracteres. Reintentando...")
+                last_error_feedback = "The generated text was too long and could not be shortened sufficiently. Please generate a more concise draft from the beginning."
+                continue # Pasa al siguiente intento
 
-        # La validación específica sigue siendo crucial
-        print("🕵️ Borrador con longitud correcta. Validando estilo en detalle...")
-        validation_prompt = f"""
-        Analyze the following tweet draft against the ghostwriter contract, specifically from a COO's perspective.
-        Provide your response ONLY in JSON format.
+            print("🕵️ Borrador con longitud correcta. Validando estilo en detalle...")
+            validation_prompt = f"""
+            Analyze the following tweet draft against the ghostwriter contract, specifically from a COO's perspective.
+            Provide your response ONLY in JSON format.
+            **Draft:**
+            [EN] {eng_tweet}
+            [ES] {spa_tweet}
+            **JSON Response format:**
+            {{
+                "pasa_validacion": boolean, "violates_anti_cliche_clause": boolean, "cliches_found": ["list", "of", "cliches"],
+                "violates_subtlety_clause": boolean, "announcing_phrase_found": "The phrase it used",
+                "feedback_detallado": "A brief, actionable critique on why it fails or passes the COO persona test."
+            }}
+            """
+            validation_response = client.chat.completions.create(
+                model=VALIDATION_MODEL, response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": "You are a strict JSON editor focused on validating text against a contract's anti-cliché and subtlety rules from a COO's perspective."},
+                    {"role": "user", "content": validation_prompt}
+                ], temperature=0.0
+            )
+            validation = json.loads(validation_response.choices[0].message.content)
 
-        **Draft:**
-        [EN] {eng_tweet}
-        [ES] {spa_tweet}
+            # --- LA LÓGICA DE DECISIÓN CORREGIDA ---
+            if validation.get("pasa_validacion"):
+                print(f"👍 Borrador final validado con éxito en el intento {attempt + 1}.")
+                return eng_tweet, spa_tweet # ¡ÉXITO! La función termina y devuelve el tuit bueno.
+            else:
+                # FALLO: Guardamos el feedback y dejamos que el bucle continúe al siguiente intento.
+                last_error_feedback = validation.get('feedback_detallado', 'No specific feedback provided.')
+                print(f"❌ El intento {attempt + 1} no pasó la validación detallada.")
+                print(f"   Feedback: {last_error_feedback}")
+                print(f"   Clichés encontrados: {validation.get('cliches_found')}")
+                # El bucle continuará automáticamente a la siguiente iteración.
 
-        **JSON Response format:**
-        {{
-            "pasa_validacion": boolean,
-            "violates_anti_cliche_clause": boolean,
-            "cliches_found": ["list", "of", "cliches"],
-            "violates_subtlety_clause": boolean,
-            "announcing_phrase_found": "The phrase it used",
-            "feedback_detallado": "A brief, actionable critique on why it fails or passes the COO persona test."
-        }}
-        """
-        validation_response = client.chat.completions.create(
-            model=VALIDATION_MODEL,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": "You are a strict JSON editor focused on validating text against a contract's anti-cliché and subtlety rules from a COO's perspective."},
-                {"role": "user", "content": validation_prompt}
-            ],
-            temperature=0.0
-        )
-        validation = json.loads(validation_response.choices[0].message.content)
+        except Exception as e:
+            print(f"Error crítico en el intento {attempt + 1}: {e}")
+            last_error_feedback = f"A critical exception occurred: {str(e)}"
+            # El bucle continuará al siguiente intento.
 
-        if validation.get("pasa_validacion"):
-            print("👍 Borrador final validado con éxito.")
-            return eng_tweet, spa_tweet
-        else:
-            print(f"❌ El borrador no pasó la validación detallada.")
-            print(f"   Feedback: {validation.get('feedback_detallado')}")
-            print(f"   Clichés encontrados: {validation.get('cliches_found')}")
-            return eng_tweet, spa_tweet
-
-    except Exception as e:
-        print(f"Error crítico en generate_tweet_from_topic: {e}")
-        return f"Error crítico durante la generación: {e}", ""
+    # --- GESTIÓN DE FALLO TOTAL ---
+    # Si el bucle termina (es decir, se agotaron los 3 intentos), devolvemos un error definitivo.
+    print("🚨 Se agotaron todos los intentos. No se pudo generar un borrador válido.")
+    return "Error: No se pudo generar un borrador válido tras varios intentos.", ""
 
 def is_topic_coo_relevant(topic_abstract: str) -> bool:
     print(f"🕵️  Validando relevancia: '{topic_abstract[:70]}...'")

@@ -67,6 +67,46 @@ def refine_and_shorten_tweet(tweet_text: str, model: str) -> str:
         print(f"Error al acortar el texto: {e}")
         return tweet_text # Devuelve el original si falla
 
+# --- FUNCIÓN NUEVA PARA APLICAR ESTILO Y FORMATO ---
+def refine_tweet_style(raw_draft: str, model: str) -> str:
+    """
+    Toma un borrador en bruto y le aplica el estilo, formato y voz de Nikita Bier.
+    """
+    print("🎨 Refinando estilo y formato del borrador...")
+    prompt = f"""
+    You are a social media style editor, an expert in Nikita Bier's voice.
+    Your task is to take a raw, dense draft and rewrite it to match his specific style.
+    The core insight of the draft MUST remain 100% intact.
+
+    **CRITICAL RULES:**
+    1.  **Airy Formatting:** Break the text into 2-4 very short paragraphs. Use line breaks. Dense text blocks are forbidden.
+    2.  **Personal Voice:** Shift the tone from an academic lesson to a personal observation shared with a colleague. It should feel like earned wisdom, not a lecture.
+    3.  **Subtle Wit:** If possible, add a touch of dry wit or a punchy final sentence.
+    4.  **Preserve the Core:** Do not alter the central counter-intuitive insight of the original draft.
+
+    **RAW DRAFT:**
+    ---
+    {raw_draft}
+    ---
+
+    **REFINED DRAFT (applying all rules):**
+    """
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a world-class ghostwriter specializing in rewriting dense text into the witty, airy, and insightful style of Nikita Bier."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.6 # Un poco de creatividad para el estilo
+        )
+        refined_text = response.choices[0].message.content.strip()
+        print("✅ Estilo y formato refinados.")
+        return refined_text
+    except Exception as e:
+        print(f"Error al refinar el estilo: {e}")
+        return raw_draft # Devuelve el original si falla
+
 # --- FUNCIÓN PARA PUBLICAR EN X ---
 def post_tweet_to_x(text_to_post: str):
     if not all([X_API_KEY, X_API_KEY_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET]):
@@ -157,6 +197,7 @@ def generate_tweet_from_topic(topic_abstract: str):
                 temperature=0.7 + (attempt * 0.05)
             )
             draft = response.choices[0].message.content.strip()
+            draft = refine_tweet_style(draft, VALIDATION_MODEL)
             eng_tweet, spa_tweet = parse_final_draft(draft)
 
             if not eng_tweet or not spa_tweet:

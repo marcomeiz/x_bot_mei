@@ -55,22 +55,40 @@ def refine_and_shorten_tweet(tweet_text: str, model: str) -> str:
         print(f"Error al acortar el texto: {e}")
         return tweet_text
 
-def refine_single_tweet_style(raw_text: str, model: str) -> str:
-    print("🎨 Refinando estilo y formato de un bloque de texto...")
-    prompt = f"""
-    You are a social media style editor, an expert in Nikita Bier's voice.
-    Your task is to take the following dense text and rewrite it to match his specific style.
-    The core insight of the text MUST remain 100% intact.
-    **CRITICAL RULES:**
-    1.  **Airy Formatting:** Break the text into 2-4 very short paragraphs. Use line breaks.
-    2.  **Personal Voice:** Shift the tone from an academic lesson to a personal observation.
-    3.  **Subtle Wit:** Add a touch of dry wit or a punchy final sentence.
-    **RAW TEXT:** --- {raw_text} ---
-    **REFINED TEXT (applying all rules):**
-    """
+# --- MODIFICACIÓN 1: EDITOR DE ESTILO BILINGÜE ---
+def refine_single_tweet_style(raw_text: str, model: str, lang: str = 'en') -> str:
+    print(f"🎨 Refinando estilo y formato de un bloque de texto en '{lang}'...")
+
+    if lang == 'es':
+        prompt = f"""
+        Eres un editor de estilo experto en la voz de Nikita Bier.
+        Tu tarea es tomar el siguiente texto denso y reescribirlo para que coincida con su estilo específico.
+        El insight principal del texto DEBE permanecer 100% intacto.
+        **REGLAS CRÍTICAS:**
+        1.  **Formato Aéreo:** Divide el texto en 2-4 párrafos muy cortos. Usa saltos de línea.
+        2.  **Voz Personal:** Cambia el tono de una lección académica a una observación personal.
+        3.  **Ingenio Sutil:** Añade un toque de ingenio seco o una frase final contundente.
+        **TEXTO EN BRUTO:** --- {raw_text} ---
+        **TEXTO REFINADO (aplicando todas las reglas):**
+        """
+        system_message = "Eres un ghostwriter de clase mundial especializado en reescribir texto denso en el estilo ingenioso, aéreo y perspicaz de Nikita Bier, adaptado al español."
+    else: # Default a Inglés
+        prompt = f"""
+        You are a social media style editor, an expert in Nikita Bier's voice.
+        Your task is to take the following dense text and rewrite it to match his specific style.
+        The core insight of the text MUST remain 100% intact.
+        **CRITICAL RULES:**
+        1.  **Airy Formatting:** Break the text into 2-4 very short paragraphs. Use line breaks.
+        2.  **Personal Voice:** Shift the tone from an academic lesson to a personal observation.
+        3.  **Subtle Wit:** Add a touch of dry wit or a punchy final sentence.
+        **RAW TEXT:** --- {raw_text} ---
+        **REFINED TEXT (applying all rules):**
+        """
+        system_message = "You are a world-class ghostwriter specializing in rewriting dense text into the witty, airy, and insightful style of Nikita Bier."
+
     try:
         response = client.chat.completions.create(
-            model=model, messages=[{"role": "system", "content": "You are a world-class ghostwriter specializing in rewriting dense text into the witty, airy, and insightful style of Nikita Bier."}, {"role": "user", "content": prompt}], temperature=0.6
+            model=model, messages=[{"role": "system", "content": system_message}, {"role": "user", "content": prompt}], temperature=0.6
         )
         refined_text = response.choices[0].message.content.strip()
         print("✅ Bloque de texto refinado.")
@@ -100,9 +118,6 @@ def parse_final_draft(draft: str) -> (str, str):
     return english_text, spanish_text
 
 def is_text_in_spanish(text: str, model: str) -> bool:
-    """
-    Verifica si un bloque de texto está escrito en español usando un LLM.
-    """
     print("🇪🇸  Verificando que el texto esté en español...")
     prompt = f"""
     Is the following text written in Spanish?
@@ -166,8 +181,9 @@ def generate_tweet_from_topic(topic_abstract: str):
                 last_error_feedback = "The text under the [ES] tag was NOT in Spanish. You MUST provide a native Spanish version."
                 continue
 
-            eng_tweet = refine_single_tweet_style(eng_tweet, VALIDATION_MODEL)
-            spa_tweet = refine_single_tweet_style(spa_tweet, VALIDATION_MODEL)
+            # --- MODIFICACIÓN 2: LLAMADAS AL EDITOR BILINGÜE ---
+            eng_tweet = refine_single_tweet_style(eng_tweet, VALIDATION_MODEL, lang='en')
+            spa_tweet = refine_single_tweet_style(spa_tweet, VALIDATION_MODEL, lang='es')
 
             if len(eng_tweet) > 280: eng_tweet = refine_and_shorten_tweet(eng_tweet, VALIDATION_MODEL)
             if len(spa_tweet) > 280: spa_tweet = refine_and_shorten_tweet(spa_tweet, VALIDATION_MODEL)

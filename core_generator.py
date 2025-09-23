@@ -83,13 +83,14 @@ def refine_tweet_style(raw_draft: str, model: str) -> str:
     2.  **Personal Voice:** Shift the tone from an academic lesson to a personal observation shared with a colleague. It should feel like earned wisdom, not a lecture.
     3.  **Subtle Wit:** If possible, add a touch of dry wit or a punchy final sentence.
     4.  **Preserve the Core:** Do not alter the central counter-intuitive insight of the original draft.
+    5.  **Maintain Structure:** Your final output MUST preserve the original structure, including the `[EN]` and `[ES]` tags. This is non-negotiable.
 
     **RAW DRAFT:**
     ---
     {raw_draft}
     ---
 
-    **REFINED DRAFT (applying all rules):**
+    **REFINED DRAFT (applying all rules, preserving [EN]/[ES] tags):**
     """
     try:
         response = client.chat.completions.create(

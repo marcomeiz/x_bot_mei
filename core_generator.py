@@ -30,14 +30,11 @@ PATRONES_NIKITA = [
     "1. La Lección Universal", "2. El Sentimiento del Creador", "3. La Receta Contraintuitiva",
     "4. La Observación Meta", "5. La Aventura Narrativa", "6. La Comparación de Escala Hiperbólica"
 ]
-COO_PERSONA = "Un Chief Operating Officer (COO) enfocado en liderazgo operacional, ejecución, escalado de negocios, sistemas y procesos."
+# --- MODIFICACIÓN 1: PERSONA ALINEADA CON NIKITA ---
+COO_PERSONA = "Tu persona es Nikita Bier, un COO que piensa como un constructor. Tu voz es la de un colega experimentado, no la de un gurú. El tono es directo, ingenioso y a menudo informal, pero siempre autoritativo y basado en la experiencia práctica. Prioriza la sabiduría ganada sobre la jerga corporativa."
 
-# --- FUNCIÓN PARA ACORTAR (INTACTA) ---
+# --- FUNCIONES AUXILIARES (INTACTAS) ---
 def refine_and_shorten_tweet(tweet_text: str, model: str) -> str:
-    """
-    Toma un texto y usa un LLM para acortarlo a menos de 280 caracteres,
-    preservando el mensaje central.
-    """
     print(f"📏 Refinando y acortando texto de {len(tweet_text)} caracteres...")
     prompt = f"""
     Your task is to shorten the following text to be under 280 characters.
@@ -67,11 +64,7 @@ def refine_and_shorten_tweet(tweet_text: str, model: str) -> str:
         print(f"Error al acortar el texto: {e}")
         return tweet_text
 
-# --- FUNCIÓN DE ESTILO CORREGIDA Y SIMPLIFICADA ---
 def refine_single_tweet_style(raw_text: str, model: str) -> str:
-    """
-    Toma un bloque de texto único y le aplica el estilo y formato de Nikita Bier.
-    """
     print("🎨 Refinando estilo y formato de un bloque de texto...")
     prompt = f"""
     You are a social media style editor, an expert in Nikita Bier's voice.
@@ -104,9 +97,8 @@ def refine_single_tweet_style(raw_text: str, model: str) -> str:
         return refined_text
     except Exception as e:
         print(f"Error al refinar el texto único: {e}")
-        return raw_text # Devuelve el original si falla
+        return raw_text
 
-# --- FUNCIÓN PARA PUBLICAR EN X (INTACTA) ---
 def post_tweet_to_x(text_to_post: str):
     if not all([X_API_KEY, X_API_KEY_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET]):
         print("Error: Faltan las credenciales de la API de X en el entorno.")
@@ -123,7 +115,6 @@ def post_tweet_to_x(text_to_post: str):
         print(f"Error al publicar en X: {e}")
         return None
 
-# --- FUNCIÓN DE PARSEADO (INTACTA) ---
 def parse_final_draft(draft: str) -> (str, str):
     eng_match = re.search(r"\[EN(?:\s*-\s*\d+/\d+)?\]\s*(.*)", draft, re.DOTALL | re.IGNORECASE)
     spa_match = re.search(r"\[ES(?:\s*-\s*\d+/\d+)?\]\s*(.*)", draft, re.DOTALL | re.IGNORECASE)
@@ -133,7 +124,7 @@ def parse_final_draft(draft: str) -> (str, str):
     
     return english_text, spanish_text
 
-# --- FUNCIÓN PRINCIPAL DE GENERACIÓN (TOTALMENTE REESTRUCTURADA) ---
+# --- FUNCIÓN PRINCIPAL DE GENERACIÓN (CON VALIDADOR CORREGIDO) ---
 def generate_tweet_from_topic(topic_abstract: str):
     MAX_ATTEMPTS = 3
     last_error_feedback = ""
@@ -149,40 +140,34 @@ def generate_tweet_from_topic(topic_abstract: str):
             feedback_prompt_addition = f"\nCRITICAL NOTE ON PREVIOUS ATTEMPT: Your last draft failed. The feedback was: '{last_error_feedback}'. You MUST correct this." if last_error_feedback else ""
 
             prompt = f"""
-            You are Nikita Bier's ghostwriter, embodying a Chief Operating Officer persona: "{COO_PERSONA}"
-            Write a tweet based on the topic below, strictly following the contract.
+            You are Nikita Bier's ghostwriter. Your specific mindset is that of a Chief Operating Officer who thinks like a builder.
+            Your persona is: "{COO_PERSONA}"
+
+            Your task is to write a tweet based on the topic below, strictly following the provided contract.
             {feedback_prompt_addition}
             
-            **Contract:**
+            **Contract for style and tone:**
             {contract}
 
             ---
-            **PRE-GENERATION CHECKLIST (Mental Confirmation Required):**
-            1.  **Mindset:** Am I writing as a COO about operations, execution, scaling, systems?
-            2.  **Specificity:** Is the idea grounded in a tangible operational detail, not a metaphor?
-            3.  **Cliché Check:** Have I avoided clichés like "game-changer", "synergy"?
-            4.  **Subtlety:** Am I SHOWING the insight, not ANNOUNCING it?
-            5.  **Opening:** Is the opening varied and not the same old formula?
-
-            ---
-            **Assignment:**
+            **Your Assignment:**
             - **Topic:** {topic_abstract}
-            - **Inspiration Pattern:** {patron_elegido}
+            - **Inspiration Pattern to use:** {patron_elegido}
             - **Output Format:** Provide ONLY the final text in the specified EN/ES format.
+            - **HARD LENGTH CONSTRAINT:** Your response for BOTH the English and Spanish text MUST be under 280 characters each. This is a strict rule. Be concise from the start.
             """
 
-            print("🧠 Enviando prompt de alta exigencia (COO Persona) a Claude 3.5 Sonnet...")
+            print("🧠 Enviando prompt de alta exigencia (Persona Nikita) a Claude 3.5 Sonnet...")
             response = client.chat.completions.create(
                 model=GENERATION_MODEL,
                 messages=[
-                    {"role": "system", "content": "You are a world-class ghostwriter embodying the COO persona. Your goal is authenticity through operational specificity."},
+                    {"role": "system", "content": "You are a world-class ghostwriter embodying the Nikita Bier persona. Your goal is authenticity through operational specificity and a direct, witty voice."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7 + (attempt * 0.05)
             )
             raw_draft = response.choices[0].message.content.strip()
 
-            # --- NUEVO FLUJO: 1. PARSEAR PRIMERO ---
             eng_tweet, spa_tweet = parse_final_draft(raw_draft)
 
             if not eng_tweet or not spa_tweet:
@@ -190,11 +175,9 @@ def generate_tweet_from_topic(topic_abstract: str):
                 last_error_feedback = "The initial draft was not parsed correctly. You MUST ensure both [EN] and [ES] blocks are present and correctly formatted in your output."
                 continue
 
-            # --- NUEVO FLUYO: 2. ESTILIZAR DESPUÉS (POR SEPARADO) ---
             eng_tweet = refine_single_tweet_style(eng_tweet, VALIDATION_MODEL)
             spa_tweet = refine_single_tweet_style(spa_tweet, VALIDATION_MODEL)
 
-            # --- El resto de las validaciones continúan como antes ---
             if len(eng_tweet) > 280:
                 eng_tweet = refine_and_shorten_tweet(eng_tweet, VALIDATION_MODEL)
             if len(spa_tweet) > 280:
@@ -205,19 +188,29 @@ def generate_tweet_from_topic(topic_abstract: str):
                 last_error_feedback = "The generated text was too long. Generate a more concise draft."
                 continue
 
-            print("🕵️  Validando estilo en detalle...")
+            print("🕵️  Validando estilo en detalle (criterios de Nikita)...")
+            
+            # --- MODIFICACIÓN 2: VALIDADOR REEDUCADO ---
             validation_prompt = f"""
-            Analyze the following tweet draft against the ghostwriter contract from a COO's perspective.
-            Respond ONLY in JSON.
+            You are a strict editor validating a tweet draft against Nikita Bier's ghostwriting contract.
+            CRITICAL CONTEXT: The goal is to sound like Nikita, who is a COO but uses a direct, witty, and often informal tone. Your job is NOT to enforce a generic corporate COO voice. A professional but informal tone IS ALLOWED and DESIRABLE.
+
+            Analyze the draft based on these priorities:
+            1.  **Core Insight:** Is the central idea sharp, counter-intuitive, and relevant to operations/building products? (Highest Priority)
+            2.  **Nikita's Voice:** Does it sound like an experienced colleague sharing a key discovery, not a corporate announcement? (High Priority)
+            3.  **Contract Rules:** Does it avoid the specific clichés and "announcing" phrases from the contract?
+
+            Provide your response ONLY in JSON format.
             **Draft:**
             [EN] {eng_tweet}
             [ES] {spa_tweet}
-            **JSON Format:** {{"pasa_validacion": boolean, "feedback_detallado": "Critique on why it fails or passes the COO persona test."}}
+            **JSON Format:** {{"pasa_validacion": boolean, "feedback_detallado": "A brief, actionable critique focused ONLY on the core insight and contract rules. Mention tone only if it's completely off-brand for Nikita (e.g., sounds like marketing fluff or a generic motivational quote)."}}
             """
+
             validation_response = client.chat.completions.create(
                 model=VALIDATION_MODEL, response_format={"type": "json_object"},
                 messages=[
-                    {"role": "system", "content": "You are a strict JSON editor validating text against a contract's rules from a COO's perspective."},
+                    {"role": "system", "content": "You are a strict JSON editor validating text against Nikita Bier's specific voice and contract rules."},
                     {"role": "user", "content": validation_prompt}
                 ], temperature=0.0
             )

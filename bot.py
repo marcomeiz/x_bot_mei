@@ -5,7 +5,7 @@ import threading
 from dotenv import load_dotenv
 from flask import Flask, request
 import requests
-from urllib.parse import quote_plus # Nueva librería para formatear el texto para URLs
+from urllib.parse import quote_plus
 
 from core_generator import (
     find_relevant_topic, generate_tweet_from_topic, find_topic_by_id
@@ -45,33 +45,41 @@ def do_the_work(chat_id):
     """Función que inicia el proceso de encontrar y proponer un tuit."""
     topic = find_relevant_topic()
     if topic:
-        propose_tweet(chat_id, topic)
+        # --- CAMBIO CLAVE: Llama a generate_tweet_from_topic que devuelve 2 versiones en inglés ---
+        eng_tweet_a, eng_tweet_b = generate_tweet_from_topic(topic.get("abstract"))
+        propose_tweet(chat_id, topic, eng_tweet_a, eng_tweet_b)
     else:
         send_telegram_message(chat_id, "❌ No pude encontrar un tema relevante.", reply_markup=get_new_tweet_keyboard())
 
-def propose_tweet(chat_id, topic):
+# --- MODIFICACIÓN: La función ahora recibe ambas versiones del tuit ---
+def propose_tweet(chat_id, topic, eng_tweet_a, eng_tweet_b):
     """Genera un tuit y lo propone con botones de aprobación/rechazo."""
     topic_abstract = topic.get("abstract")
     topic_id = topic.get("topic_id")
     
     send_telegram_message(chat_id, f"✍️ Tema: '{topic_abstract}'.\nGenerando borrador...")
     
-    eng_tweet, spa_tweet = generate_tweet_from_topic(topic_abstract)
-    
-    if "Error:" in eng_tweet:
-        send_telegram_message(chat_id, f"Hubo un problema: {eng_tweet}", reply_markup=get_new_tweet_keyboard())
+    if "Error:" in eng_tweet_a:
+        send_telegram_message(chat_id, f"Hubo un problema: {eng_tweet_a}", reply_markup=get_new_tweet_keyboard())
         return
 
     temp_file_path = os.path.join(TEMP_DIR, f"{chat_id}_{topic_id}.tmp")
+    # --- CAMBIO CLAVE: Guardar ambas versiones en el archivo temporal ---
     with open(temp_file_path, "w") as f:
-        json.dump({"eng": eng_tweet, "spa": spa_tweet}, f)
+        json.dump({"eng_a": eng_tweet_a, "eng_b": eng_tweet_b}, f)
 
+    # --- CAMBIO CLAVE: Crear botones de aprobación para cada opción ---
     keyboard = {"inline_keyboard": [[
-        {"text": "👍 Aprobar", "callback_data": f"approve_{topic_id}"},
-        {"text": "👎 Rechazar", "callback_data": f"reject_{topic_id}"},
+        {"text": "👍 Aprobar Opción A", "callback_data": f"approve_a_{topic_id}"},
+        {"text": "👍 Aprobar Opción B", "callback_data": f"approve_b_{topic_id}"},
     ]]}
     
-    message_text = f"**Borrador Propuesto (ID: {topic_id}):**\n\n**EN:**\n{eng_tweet}\n\n**ES:**\n{spa_tweet}\n\n¿Aprobar?"
+    message_text = (
+        f"**Borrador Propuesto (ID: {topic_id}):**\n\n"
+        f"**Opción A:**\n{eng_tweet_a}\n\n"
+        f"**Opción B:**\n{eng_tweet_b}\n\n"
+        f"¿Cuál de las dos quieres aprobar?"
+    )
     send_telegram_message(chat_id, message_text, reply_markup=keyboard)
 
 def handle_callback_query(update):
@@ -81,7 +89,7 @@ def handle_callback_query(update):
     message_id = query["message"]["message_id"]
     callback_data = query.get("data", "")
     
-    action, _, topic_id = callback_data.partition('_')
+    action, version, topic_id = callback_data.split('_', 2)
     original_message_text = query["message"].get("text", "")
 
     if action == "approve":
@@ -91,20 +99,21 @@ def handle_callback_query(update):
             with open(temp_file_path, "r") as f:
                 tweets = json.load(f)
             
-            eng_tweet = tweets.get("eng", "")
-            spa_tweet = tweets.get("spa", "")
+            # --- CAMBIO CLAVE: Seleccionar la versión aprobada ---
+            if version == 'a':
+                tweet_to_publish = tweets.get("eng_a", "")
+            else:
+                tweet_to_publish = tweets.get("eng_b", "")
 
-            # Construir los enlaces Web Intent
-            eng_intent_url = f"https://x.com/intent/tweet?text={quote_plus(eng_tweet)}"
-            spa_intent_url = f"https://x.com/intent/tweet?text={quote_plus(spa_tweet)}"
+            # Construir el enlace Web Intent
+            eng_intent_url = f"https://x.com/intent/tweet?text={quote_plus(tweet_to_publish)}"
 
-            # Crear el teclado con los enlaces
+            # Crear el teclado con el enlace
             keyboard = {"inline_keyboard": [
-                [{"text": "🚀 Abrir en X (EN)", "url": eng_intent_url}],
-                [{"text": "🚀 Abrir en X (ES)", "url": spa_intent_url}]
+                [{"text": "🚀 Publicar en X", "url": eng_intent_url}],
             ]}
             
-            send_telegram_message(chat_id, "Usa los siguientes botones para publicar:", reply_markup=keyboard)
+            send_telegram_message(chat_id, "Usa el siguiente botón para publicar:", reply_markup=keyboard)
             send_telegram_message(chat_id, "Listo para el siguiente.", reply_markup=get_new_tweet_keyboard())
             
             if os.path.exists(temp_file_path): os.remove(temp_file_path)
@@ -118,12 +127,14 @@ def handle_callback_query(update):
         edit_telegram_message(chat_id, message_id, original_message_text + "\n\n❌ **Rechazado.**")
         topic = find_topic_by_id(topic_id)
         if topic:
-            threading.Thread(target=propose_tweet, args=(chat_id, topic)).start()
+            # --- CAMBIO CLAVE: Llama a generate_tweet_from_topic con el tema original ---
+            eng_tweet_a, eng_tweet_b = generate_tweet_from_topic(topic.get("abstract"))
+            threading.Thread(target=propose_tweet, args=(chat_id, topic, eng_tweet_a, eng_tweet_b)).start()
         else:
             send_telegram_message(chat_id, "❌ No pude encontrar el tema original.", reply_markup=get_new_tweet_keyboard())
         if os.path.exists(temp_file_path): os.remove(temp_file_path)
             
-    elif action == "generate":
+    elif callback_data == "generate_new":
         edit_telegram_message(chat_id, message_id, "🚀 Iniciando nuevo proceso...")
         threading.Thread(target=do_the_work, args=(chat_id,)).start()
 

@@ -93,14 +93,14 @@ La confianza se demuestra, no se declara. Presenta la idea directamente. La tran
 
 ### **Formato y Estructura (Innegociable)**
 
-* **Límite:** 280 caracteres.
-* **Idiomas:** Inglés y Español (de España), reescrito de forma nativa.
+* **Límite:** 280 caracteres por versión.
+* **Idiomas:** Solo Inglés. Debes proporcionar **dos versiones distintas en inglés** (Opción A y Opción B).
 * **Formato de Entrega:**
     ```
-    [EN - XXX/280]
-    [Texto en inglés]
+    [EN - A]
+    [Texto de la versión A en inglés]
 
-    [ES - XXX/280]
-    [Texto reescrito en español]
+    [EN - B]
+    [Texto de la versión B en inglés]
     ```
 * **Legibilidad:** Usa saltos de línea (párrafos separados por una línea en blanco) para mejorar la lectura. Un tuit ideal tiene entre 2 y 4 párrafos cortos. Evita los bloques de texto densos.

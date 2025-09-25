@@ -45,7 +45,7 @@ def refine_and_shorten_tweet(tweet_text: str, model: str) -> str:
     Shortened Text:
     """
     try:
-        response = client.chat.completions.create(
+        response = client.chat.com.completions.create(
             model=model, messages=[{"role": "system", "content": "You are a ruthless text editor. Your only goal is brevity."}, {"role": "user", "content": prompt}], temperature=0.4
         )
         shortened_text = response.choices[0].message.content.strip()
@@ -110,12 +110,15 @@ def post_tweet_to_x(text_to_post: str):
         print(f"Error al publicar en X: {e}")
         return None
 
+# --- MODIFICACIÓN CLAVE: PARSER PARA DOS VERSIONES EN INGLÉS ---
 def parse_final_draft(draft: str) -> (str, str):
-    eng_match = re.search(r"\[EN(?:\s*-\s*\d+/\d+)?\]\s*(.*)", draft, re.DOTALL | re.IGNORECASE)
-    spa_match = re.search(r"\[ES(?:\s*-\s*\d+/\d+)?\]\s*(.*)", draft, re.DOTALL | re.IGNORECASE)
-    english_text = eng_match.group(1).split("[ES")[0].strip() if eng_match else ""
-    spanish_text = spa_match.group(1).strip() if spa_match else ""
-    return english_text, spanish_text
+    eng_a_match = re.search(r"\[EN - A(?:\s*-\s*\d+/\d+)?\]\s*(.*)", draft, re.DOTALL | re.IGNORECASE)
+    eng_b_match = re.search(r"\[EN - B(?:\s*-\s*\d+/\d+)?\]\s*(.*)", draft, re.DOTALL | re.IGNORECASE)
+    
+    english_a_text = eng_a_match.group(1).split("[EN - B")[0].strip() if eng_a_match else ""
+    english_b_text = eng_b_match.group(1).strip() if eng_b_match else ""
+    
+    return english_a_text, english_b_text
 
 def is_text_in_spanish(text: str, model: str) -> bool:
     print("🇪🇸  Verificando que el texto esté en español...")
@@ -151,7 +154,7 @@ def generate_tweet_from_topic(topic_abstract: str):
             print(f"✍️ Escribiendo borrador (Patrón: {patron_elegido})...")
             feedback_prompt_addition = f"\nCRITICAL NOTE ON PREVIOUS ATTEMPT: Your last draft failed. The feedback was: '{last_error_feedback}'. You MUST correct this." if last_error_feedback else ""
             prompt = f"""
-            You are a world-class ghostwriter. Your task is to write a tweet based on the topic below, strictly following the provided contract which defines your persona and voice.
+            You are a world-class ghostwriter. Your task is to write TWO distinct tweets based on the topic below, strictly following the provided contract which defines your persona and voice.
             {feedback_prompt_addition}
             **Contract for style and tone:**
             {contract}
@@ -161,34 +164,31 @@ def generate_tweet_from_topic(topic_abstract: str):
             **Assignment:**
             - **Topic:** {topic_abstract}
             - **Inspiration Pattern to use:** {patron_elegido}
-            - **Output Format:** Provide ONLY the final text in the specified EN/ES format.
-            - **HARD LENGTH CONSTRAINT:** Your response for BOTH the English and Spanish text MUST be under 280 characters each. This is a strict rule. Be concise from the start.
+            - **Output Format:** Provide ONLY the final text in the specified EN-A/EN-B format.
+            - **HARD LENGTH CONSTRAINT:** Your response for BOTH the English texts MUST be under 280 characters each. This is a strict rule. Be concise from the start.
             """
             print("🧠 Enviando prompt de alta exigencia (Persona Nikita) a Claude 3.5 Sonnet...")
             response = client.chat.completions.create(
                 model=GENERATION_MODEL, messages=[{"role": "system", "content": "You are a world-class ghostwriter embodying the Nikita Bier persona. Your goal is authenticity through operational specificity and a direct, witty voice."}, {"role": "user", "content": prompt}], temperature=0.7 + (attempt * 0.05)
             )
             raw_draft = response.choices[0].message.content.strip()
-            eng_tweet, spa_tweet = parse_final_draft(raw_draft)
+            
+            # --- CAMBIO CLAVE: Parsear ambas versiones en inglés ---
+            eng_tweet_a, eng_tweet_b = parse_final_draft(raw_draft)
 
-            if not eng_tweet or not spa_tweet:
+            if not eng_tweet_a or not eng_tweet_b:
                 print("Error: El borrador INICIAL no pudo ser parseado. Reintentando...")
-                last_error_feedback = "The initial draft was not parsed correctly. You MUST ensure both [EN] and [ES] blocks are present."
+                last_error_feedback = "The initial draft was not parsed correctly. You MUST ensure both [EN - A] and [EN - B] blocks are present."
                 continue
 
-            if not is_text_in_spanish(spa_tweet, VALIDATION_MODEL):
-                print("Error: La versión [ES] no estaba en español. Reintentando...")
-                last_error_feedback = "The text under the [ES] tag was NOT in Spanish. You MUST provide a native Spanish version."
-                continue
+            # --- Refinar y acortar ambas versiones en inglés ---
+            eng_tweet_a = refine_single_tweet_style(eng_tweet_a, VALIDATION_MODEL, lang='en')
+            eng_tweet_b = refine_single_tweet_style(eng_tweet_b, VALIDATION_MODEL, lang='en')
 
-            # --- MODIFICACIÓN 2: LLAMADAS AL EDITOR BILINGÜE ---
-            eng_tweet = refine_single_tweet_style(eng_tweet, VALIDATION_MODEL, lang='en')
-            spa_tweet = refine_single_tweet_style(spa_tweet, VALIDATION_MODEL, lang='es')
+            if len(eng_tweet_a) > 280: eng_tweet_a = refine_and_shorten_tweet(eng_tweet_a, VALIDATION_MODEL)
+            if len(eng_tweet_b) > 280: eng_tweet_b = refine_and_shorten_tweet(eng_tweet_b, VALIDATION_MODEL)
 
-            if len(eng_tweet) > 280: eng_tweet = refine_and_shorten_tweet(eng_tweet, VALIDATION_MODEL)
-            if len(spa_tweet) > 280: spa_tweet = refine_and_shorten_tweet(spa_tweet, VALIDATION_MODEL)
-
-            if len(eng_tweet) > 280 or len(spa_tweet) > 280:
+            if len(eng_tweet_a) > 280 or len(eng_tweet_b) > 280:
                 print(f"❌ Fallo crítico de longitud tras refinar. Reintentando...")
                 last_error_feedback = "The generated text was too long. Generate a more concise draft."
                 continue
@@ -202,9 +202,9 @@ def generate_tweet_from_topic(topic_abstract: str):
             2.  **Nikita's Voice:** Does it sound like an experienced colleague sharing a key discovery, not a corporate announcement? (High Priority)
             3.  **Contract Rules:** Does it avoid the specific clichés and "announcing" phrases from the contract?
             Provide your response ONLY in JSON format.
-            **Draft:**
-            [EN] {eng_tweet}
-            [ES] {spa_tweet}
+            **Drafts:**
+            [EN - A] {eng_tweet_a}
+            [EN - B] {eng_tweet_b}
             **JSON Format:** {{"pasa_validacion": boolean, "feedback_detallado": "A brief, actionable critique focused ONLY on the core insight and contract rules. Mention tone only if it's completely off-brand for Nikita (e.g., sounds like marketing fluff or a generic motivational quote)."}}
             """
             validation_response = client.chat.completions.create(
@@ -214,7 +214,8 @@ def generate_tweet_from_topic(topic_abstract: str):
 
             if validation.get("pasa_validacion"):
                 print(f"👍 Borrador final validado con éxito en el intento {attempt + 1}.")
-                return eng_tweet, spa_tweet
+                # --- CAMBIO CLAVE: Devolver ambas versiones en inglés ---
+                return eng_tweet_a, eng_tweet_b
             else:
                 last_error_feedback = validation.get('feedback_detallado', 'No specific feedback provided.')
                 print(f"❌ El intento {attempt + 1} no pasó la validación: {last_error_feedback}")

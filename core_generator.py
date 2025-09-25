@@ -45,7 +45,7 @@ def refine_and_shorten_tweet(tweet_text: str, model: str) -> str:
     Shortened Text:
     """
     try:
-        response = client.chat.com.completions.create(
+        response = client.chat.completions.create(
             model=model, messages=[{"role": "system", "content": "You are a ruthless text editor. Your only goal is brevity."}, {"role": "user", "content": prompt}], temperature=0.4
         )
         shortened_text = response.choices[0].message.content.strip()

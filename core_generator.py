@@ -1,3 +1,4 @@
+# core_generator.py
 import os
 import json
 import random
@@ -5,7 +6,6 @@ import re
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# MODIFICADO: Importamos las funciones 'get' en lugar de los objetos
 from embeddings_manager import get_embedding, get_topics_collection, get_memory_collection
 
 # --- Carga de Configuración y Validación Crítica ---
@@ -28,7 +28,7 @@ GENERATION_MODEL = "anthropic/claude-3.5-sonnet"
 VALIDATION_MODEL = "anthropic/claude-3-haiku"
 SIMILARITY_THRESHOLD = 0.25
 
-# --- FUNCIONES AUXILIARES (Sin cambios) ---
+# --- (Funciones auxiliares como refine_and_shorten, etc. no cambian) ---
 def refine_and_shorten_tweet(tweet_text: str, model: str) -> str:
     print(f"📏 Refinando y acortando texto de {len(tweet_text)} caracteres...")
     prompt = f'Your task is to shorten the following text to be under 280 characters. This is a hard limit. You MUST succeed. Do not add any extra commentary. Preserve the core message and tone. Original Text: "{tweet_text}"'
@@ -119,8 +119,10 @@ def generate_tweet_from_topic(topic_abstract: str):
             else:
                 last_error_feedback = validation.get('feedback_detallado', 'No specific feedback.')
                 print(f"❌ El intento {attempt + 1} no pasó la validación: {last_error_feedback}")
+        
+        # --- LÍNEA AÑADIDA ---
         except Exception as e:
-            print(f"Error crítico en el intento {attempt + 1}: {e}")
+            print(f"❌ Error crítico en el intento {attempt + 1}: {e}") # <-- ESTA LÍNEA ES LA CLAVE
             last_error_feedback = f"A critical exception occurred: {str(e)}"
     
     return "Error: No se pudo generar un borrador válido tras varios intentos.", ""

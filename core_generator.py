@@ -151,12 +151,12 @@ def generate_tweet_from_topic(topic_abstract: str):
             print(f"✍️ Escribiendo borrador (Patrón: {patron_elegido})...")
             feedback_prompt_addition = f"\nCRITICAL NOTE ON PREVIOUS ATTEMPT: Your last draft failed. The feedback was: '{last_error_feedback}'. You MUST correct this." if last_error_feedback else ""
             prompt = f"""
-            You are Nikita Bier's ghostwriter. Your specific mindset is that of a Chief Operating Officer who thinks like a builder.
-            Your persona is: "{COO_PERSONA}"
-            Your task is to write a tweet based on the topic below, strictly following the provided contract.
+            You are a world-class ghostwriter. Your task is to write a tweet based on the topic below, strictly following the provided contract which defines your persona and voice.
             {feedback_prompt_addition}
             **Contract for style and tone:**
             {contract}
+            ...
+
             ---
             **Assignment:**
             - **Topic:** {topic_abstract}

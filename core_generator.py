@@ -3,19 +3,15 @@ import json
 import random
 import re
 import time
-import tweepy
 from dotenv import load_dotenv
 from openai import OpenAI
-import requests
+
+# Añade esta línea cerca de los otros imports
+from embeddings_manager import get_embedding, topics_collection, memory_collection
 
 # --- Carga de Configuración Completa ---
 load_dotenv()
 openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-X_API_KEY = os.getenv("X_API_KEY")
-X_API_KEY_SECRET = os.getenv("X_API_KEY_SECRET")
-X_ACCESS_TOKEN = os.getenv("X_ACCESS_TOKEN")
-X_ACCESS_TOKEN_SECRET = os.getenv("X_ACCESS_TOKEN_SECRET")
 
 client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=openrouter_api_key)
 
@@ -23,14 +19,9 @@ client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=openrouter_api_
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 CONTRACT_FILE = os.path.join(BASE_DIR, "copywriter_contract.md")
 JSON_DIR = os.path.join(BASE_DIR, "json")
-MAX_ROUNDS = 5
 GENERATION_MODEL = "anthropic/claude-3.5-sonnet"
 VALIDATION_MODEL = "anthropic/claude-3-haiku"
-PATRONES_NIKITA = [
-    "1. La Lección Universal", "2. El Sentimiento del Creador", "3. La Receta Contraintuitiva",
-    "4. La Observación Meta", "5. La Aventura Narrativa", "6. La Comparación de Escala Hiperbólica"
-]
-COO_PERSONA = "Tu persona es Nikita Bier, un COO que piensa como un constructor. Tu voz es la de un colega experimentado, no la de un gurú. El tono es directo, ingenioso y a menudo informal, pero siempre autoritativo y basado en la experiencia práctica. Prioriza la sabiduría ganada sobre la jerga corporativa."
+SIMILARITY_THRESHOLD = 0.25 # Umbral de similitud. Si es más bajo, es "demasiado parecido".
 
 # --- FUNCIONES AUXILIARES ---
 def refine_and_shorten_tweet(tweet_text: str, model: str) -> str:
@@ -55,14 +46,12 @@ def refine_and_shorten_tweet(tweet_text: str, model: str) -> str:
         print(f"Error al acortar el texto: {e}")
         return tweet_text
 
-# --- MODIFICACIÓN 1: EDITOR DE ESTILO BILINGÜE ---
 def refine_single_tweet_style(raw_text: str, model: str, lang: str = 'en') -> str:
     print(f"🎨 Refinando estilo y formato de un bloque de texto en '{lang}'...")
 
     if lang == 'es':
         prompt = f"""
-        Eres un editor de estilo experto en la voz de Nikita Bier.
-        Tu tarea es tomar el siguiente texto denso y reescribirlo para que coincida con su estilo específico.
+        Eres un editor de estilo experto. Tu tarea es tomar el siguiente texto denso y reescribirlo para que coincida con el estilo definido en un contrato (formato aéreo, voz personal, ingenio).
         El insight principal del texto DEBE permanecer 100% intacto.
         **REGLAS CRÍTICAS:**
         1.  **Formato Aéreo:** Divide el texto en 2-4 párrafos muy cortos. Usa saltos de línea.
@@ -71,11 +60,11 @@ def refine_single_tweet_style(raw_text: str, model: str, lang: str = 'en') -> st
         **TEXTO EN BRUTO:** --- {raw_text} ---
         **TEXTO REFINADO (aplicando todas las reglas):**
         """
-        system_message = "Eres un editor de estilo experto. Tu tarea es aplicar las reglas de formato y voz definidas en un contrato de estilo (párrafos cortos, voz personal, etc.) al texto proporcionado."
+        system_message = "Eres un ghostwriter de clase mundial especializado en reescribir texto denso en el estilo ingenioso, aéreo y perspicaz definido en un contrato, adaptado al español."
     else: # Default a Inglés
         prompt = f"""
-        You are a social media style editor, an expert in Nikita Bier's voice.
-        Your task is to take the following dense text and rewrite it to match his specific style.
+        You are a social media style editor, an expert in a specific persona's voice defined by a contract.
+        Your task is to take the following dense text and rewrite it to match that specific style (airy, personal, witty).
         The core insight of the text MUST remain 100% intact.
         **CRITICAL RULES:**
         1.  **Airy Formatting:** Break the text into 2-4 very short paragraphs. Use line breaks.
@@ -84,7 +73,7 @@ def refine_single_tweet_style(raw_text: str, model: str, lang: str = 'en') -> st
         **RAW TEXT:** --- {raw_text} ---
         **REFINED TEXT (applying all rules):**
         """
-        system_message = "You are an expert style editor. Your task is to apply style and voice rules from a style contract (short paragraphs, personal voice, etc.) to the provided text."
+        system_message = "You are a world-class ghostwriter specializing in rewriting dense text into a witty, airy, and insightful style defined by a contract."
 
     try:
         response = client.chat.completions.create(
@@ -97,28 +86,12 @@ def refine_single_tweet_style(raw_text: str, model: str, lang: str = 'en') -> st
         print(f"Error al refinar el texto único: {e}")
         return raw_text
 
-def post_tweet_to_x(text_to_post: str):
-    if not all([X_API_KEY, X_API_KEY_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET]):
-        print("Error: Faltan las credenciales de la API de X en el entorno.")
-        return None
-    try:
-        client_x = tweepy.Client(consumer_key=X_API_KEY, consumer_secret=X_API_KEY_SECRET, access_token=X_ACCESS_TOKEN, access_token_secret=X_ACCESS_TOKEN_SECRET)
-        response = client_x.create_tweet(text=text_to_post)
-        print(f"Respuesta de la API de X: {response.data}")
-        return response.data
-    except Exception as e:
-        print(f"Error al publicar en X: {e}")
-        return None
-
-# --- MODIFICACIÓN CLAVE: PARSER PARA DOS VERSIONES EN INGLÉS ---
 def parse_final_draft(draft: str) -> (str, str):
-    eng_a_match = re.search(r"\[EN - A(?:\s*-\s*\d+/\d+)?\]\s*(.*)", draft, re.DOTALL | re.IGNORECASE)
-    eng_b_match = re.search(r"\[EN - B(?:\s*-\s*\d+/\d+)?\]\s*(.*)", draft, re.DOTALL | re.IGNORECASE)
-    
-    english_a_text = eng_a_match.group(1).split("[EN - B")[0].strip() if eng_a_match else ""
-    english_b_text = eng_b_match.group(1).strip() if eng_b_match else ""
-    
-    return english_a_text, english_b_text
+    eng_match = re.search(r"\[EN(?:\s*-\s*\d+/\d+)?\]\s*(.*)", draft, re.DOTALL | re-IGNORECASE)
+    spa_match = re.search(r"\[ES(?:\s*-\s*\d+/\d+)?\]\s*(.*)", draft, re.DOTALL | re-IGNORECASE)
+    english_text = eng_match.group(1).split("[ES")[0].strip() if eng_match else ""
+    spanish_text = spa_match.group(1).strip() if spa_match else ""
+    return english_text, spanish_text
 
 def is_text_in_spanish(text: str, model: str) -> bool:
     print("🇪🇸  Verificando que el texto esté en español...")
@@ -132,80 +105,82 @@ def is_text_in_spanish(text: str, model: str) -> bool:
             model=model, response_format={"type": "json_object"}, messages=[{"role": "system", "content": "You are a language identification expert that only responds in JSON."}, {"role": "user", "content": prompt}], temperature=0.0
         )
         result = json.loads(response.choices[0].message.content)
-        if result.get("is_spanish"):
-            print("✅ El texto está en español.")
-            return True
-        else:
-            print("❌ ¡Error! El texto NO está en español.")
-            return False
+        return result.get("is_spanish", False)
     except Exception as e:
         print(f"Error al verificar el idioma: {e}")
         return False
 
-# --- FUNCIÓN PRINCIPAL DE GENERACIÓN (VERSIÓN COMPLETA Y CORREGIDA) ---
+# --- FUNCIÓN PRINCIPAL DE GENERACIÓN (MODIFICADA) ---
 def generate_tweet_from_topic(topic_abstract: str):
+    # --- NUEVO: CHEQUEO DE MEMORIA ANTI-REPETICIÓN ---
+    print(f"🧠 Comprobando si el tema '{topic_abstract[:50]}...' es repetitivo...")
+    topic_embedding = get_embedding(topic_abstract)
+    if topic_embedding and memory_collection.count() > 0:
+        similar_results = memory_collection.query(
+            query_embeddings=[topic_embedding],
+            n_results=1
+        )
+        # La distancia en ChromaDB con 'cosine' va de 0 (idéntico) a 2 (opuesto).
+        # Un valor bajo significa muy similar.
+        if similar_results and similar_results['distances'][0][0] < SIMILARITY_THRESHOLD:
+            similar_text = similar_results['documents'][0][0]
+            error_msg = f"Error: El tema es demasiado similar a un tuit ya publicado sobre '{similar_text[:60]}...'. Buscando otro tema."
+            print(f"❌ {error_msg}")
+            return error_msg, ""
+
     MAX_ATTEMPTS = 3
     last_error_feedback = ""
     for attempt in range(MAX_ATTEMPTS):
         print(f"\n🚀 Intento de generación {attempt + 1}/{MAX_ATTEMPTS}...")
         try:
             with open(CONTRACT_FILE, "r", encoding="utf-8") as f: contract = f.read()
-            patron_elegido = random.choice(PATRONES_NIKITA)
-            print(f"✍️ Escribiendo borrador (Patrón: {patron_elegido})...")
+            
             feedback_prompt_addition = f"\nCRITICAL NOTE ON PREVIOUS ATTEMPT: Your last draft failed. The feedback was: '{last_error_feedback}'. You MUST correct this." if last_error_feedback else ""
             prompt = f"""
-            You are a world-class ghostwriter. Your task is to write TWO distinct tweets based on the topic below, strictly following the provided contract which defines your persona and voice.
+            You are a world-class ghostwriter. Your task is to write a tweet based on the topic below, strictly following the provided contract which defines your persona and voice.
             {feedback_prompt_addition}
             **Contract for style and tone:**
             {contract}
-            ...
-
             ---
             **Assignment:**
             - **Topic:** {topic_abstract}
-            - **Inspiration Pattern to use:** {patron_elegido}
-            - **Output Format:** Provide ONLY the final text in the specified EN-A/EN-B format.
-            - **HARD LENGTH CONSTRAINT:** Your response for BOTH the English texts MUST be under 280 characters each. This is a strict rule. Be concise from the start.
+            - **Output Format:** Provide ONLY the final text in the specified EN/ES format.
+            - **HARD LENGTH CONSTRAINT:** Your response for BOTH the English and Spanish text MUST be under 280 characters each. This is a strict rule. Be concise from the start.
             """
-            print("🧠 Enviando prompt de alta exigencia (Persona Nikita) a Claude 3.5 Sonnet...")
+            print("🧠 Enviando prompt de alta exigencia a Claude 3.5 Sonnet...")
             response = client.chat.completions.create(
-                model=GENERATION_MODEL, messages=[{"role": "system", "content": "You are a world-class ghostwriter embodying the Nikita Bier persona. Your goal is authenticity through operational specificity and a direct, witty voice."}, {"role": "user", "content": prompt}], temperature=0.7 + (attempt * 0.05)
+                model=GENERATION_MODEL, messages=[{"role": "system", "content": "You are a world-class ghostwriter embodying the persona defined in your contract. Your goal is authenticity through operational specificity and a direct, witty voice."}, {"role": "user", "content": prompt}], temperature=0.7 + (attempt * 0.05)
             )
             raw_draft = response.choices[0].message.content.strip()
-            
-            # --- CAMBIO CLAVE: Parsear ambas versiones en inglés ---
-            eng_tweet_a, eng_tweet_b = parse_final_draft(raw_draft)
+            eng_tweet, spa_tweet = parse_final_draft(raw_draft)
 
-            if not eng_tweet_a or not eng_tweet_b:
-                print("Error: El borrador INICIAL no pudo ser parseado. Reintentando...")
-                last_error_feedback = "The initial draft was not parsed correctly. You MUST ensure both [EN - A] and [EN - B] blocks are present."
+            if not eng_tweet or not spa_tweet or not is_text_in_spanish(spa_tweet, VALIDATION_MODEL):
+                last_error_feedback = "The initial draft was not parsed correctly, was missing a language, or the ES version was not in Spanish. You MUST ensure both [EN] and [ES] blocks are present and correct."
                 continue
 
-            # --- Refinar y acortar ambas versiones en inglés ---
-            eng_tweet_a = refine_single_tweet_style(eng_tweet_a, VALIDATION_MODEL, lang='en')
-            eng_tweet_b = refine_single_tweet_style(eng_tweet_b, VALIDATION_MODEL, lang='en')
+            eng_tweet = refine_single_tweet_style(eng_tweet, VALIDATION_MODEL, lang='en')
+            spa_tweet = refine_single_tweet_style(spa_tweet, VALIDATION_MODEL, lang='es')
 
-            if len(eng_tweet_a) > 280: eng_tweet_a = refine_and_shorten_tweet(eng_tweet_a, VALIDATION_MODEL)
-            if len(eng_tweet_b) > 280: eng_tweet_b = refine_and_shorten_tweet(eng_tweet_b, VALIDATION_MODEL)
+            if len(eng_tweet) > 280: eng_tweet = refine_and_shorten_tweet(eng_tweet, VALIDATION_MODEL)
+            if len(spa_tweet) > 280: spa_tweet = refine_and_shorten_tweet(spa_tweet, VALIDATION_MODEL)
 
-            if len(eng_tweet_a) > 280 or len(eng_tweet_b) > 280:
-                print(f"❌ Fallo crítico de longitud tras refinar. Reintentando...")
+            if len(eng_tweet) > 280 or len(spa_tweet) > 280:
                 last_error_feedback = "The generated text was too long. Generate a more concise draft."
                 continue
 
-            print("🕵️  Validando estilo en detalle (criterios de Nikita)...")
+            print("🕵️  Validando estilo en detalle...")
             validation_prompt = f"""
-            You are a strict editor validating a tweet draft against a ghostwriting contract. The contract defines a specific persona and voice.
+            You are a strict editor validating a tweet draft against a ghostwriting contract.
             CRITICAL CONTEXT: The persona is a COO, but the desired tone is direct, personal, and witty, NOT a generic corporate voice. Your job is to enforce the rules of the provided contract.
             Analyze the draft based on these priorities:
-            1.  **Core Insight:** Is the central idea sharp, counter-intuitive, and relevant to operations/building products? (Highest Priority)
-            2.  **Nikita's Voice:** Does it sound like an experienced colleague sharing a key discovery, not a corporate announcement? (High Priority)
+            1.  **Core Insight:** Is the central idea sharp and relevant to operations/building?
+            2.  **Persona's Voice:** Does it sound like an experienced colleague sharing a discovery, not a corporate announcement?
             3.  **Contract Rules:** Does it avoid the specific clichés and "announcing" phrases from the contract?
             Provide your response ONLY in JSON format.
-            **Drafts:**
-            [EN - A] {eng_tweet_a}
-            [EN - B] {eng_tweet_b}
-            **JSON Format:** {{"pasa_validacion": boolean, "feedback_detallado": "A brief, actionable critique focused ONLY on the core insight and contract rules. Mention tone only if it's completely off-brand for Nikita (e.g., sounds like marketing fluff or a generic motivational quote)."}}
+            **Draft:**
+            [EN] {eng_tweet}
+            [ES] {spa_tweet}
+            **JSON Format:** {{"pasa_validacion": boolean, "feedback_detallado": "A brief, actionable critique focused ONLY on the core insight and contract rules."}}
             """
             validation_response = client.chat.completions.create(
                 model=VALIDATION_MODEL, response_format={"type": "json_object"}, messages=[{"role": "system", "content": "You are a strict JSON editor validating text against a specific ghostwriting contract and persona."}, {"role": "user", "content": validation_prompt}], temperature=0.0
@@ -214,8 +189,7 @@ def generate_tweet_from_topic(topic_abstract: str):
 
             if validation.get("pasa_validacion"):
                 print(f"👍 Borrador final validado con éxito en el intento {attempt + 1}.")
-                # --- CAMBIO CLAVE: Devolver ambas versiones en inglés ---
-                return eng_tweet_a, eng_tweet_b
+                return eng_tweet, spa_tweet
             else:
                 last_error_feedback = validation.get('feedback_detallado', 'No specific feedback provided.')
                 print(f"❌ El intento {attempt + 1} no pasó la validación: {last_error_feedback}")
@@ -225,52 +199,38 @@ def generate_tweet_from_topic(topic_abstract: str):
     print("🚨 Se agotaron todos los intentos. No se pudo generar un borrador válido.")
     return "Error: No se pudo generar un borrador válido tras varios intentos.", ""
 
-# --- RESTO DE FUNCIONES (INTACTAS) ---
-def is_topic_coo_relevant(topic_abstract: str) -> bool:
-    print(f"🕵️  Validando relevancia: '{topic_abstract[:70]}...'")
-    prompt = f'Is this topic "{topic_abstract}" relevant for a COO persona? Respond ONLY with JSON: {{"is_relevant": boolean}}'
-    try:
-        response = client.chat.completions.create(model=VALIDATION_MODEL, response_format={"type": "json_object"}, messages=[{"role": "system", "content": "You are a strict JSON validator."}, {"role": "user", "content": prompt}], temperature=0.0)
-        return json.loads(response.choices[0].message.content).get("is_relevant", False)
-    except Exception: return False
-
-def remove_topic_from_json(filepath: str, topic_to_remove: dict):
-    try:
-        with open(filepath, "r+", encoding="utf-8") as f:
-            data = json.load(f)
-            data["extracted_topics"] = [t for t in data["extracted_topics"] if t.get("topic_id") != topic_to_remove.get("topic_id")]
-            f.seek(0); json.dump(data, f, indent=2, ensure_ascii=False); f.truncate()
-            print(f"🗑️  Tema irrelevante eliminado de {os.path.basename(filepath)}")
-    except Exception as e: print(f"Error removing topic: {e}")
-
+# --- FUNCIÓN DE SELECCIÓN DE TEMAS (MODIFICADA) ---
 def find_relevant_topic():
-    files = [f for f in os.listdir(JSON_DIR) if f.lower().endswith(".json")]
-    if not files:
-        raise RuntimeError(f"No JSON files found in {JSON_DIR}")
-    random.shuffle(files)
-    for file_name in files:
-        filepath = os.path.join(JSON_DIR, file_name)
-        try:
-            with open(filepath, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except (IOError, json.JSONDecodeError): continue
-        topics = data.get("extracted_topics", [])
-        if not topics: continue
-        random.shuffle(topics)
-        for topic in topics:
-            abstract = topic.get("abstract", "")
-            if not abstract: continue
-            if is_topic_coo_relevant(abstract):
-                print(f"✅ Tema aprobado de '{file_name}': {abstract}")
-                return topic
-            else:
-                print(f"❌ Tema descartado de '{file_name}': {abstract}")
-                remove_topic_from_json(filepath, topic)
-                time.sleep(1)
-    print("⚠️ No se encontraron temas relevantes en ningún fichero JSON.")
+    """
+    Encuentra un tema relevante usando la base de datos de embeddings.
+    Elige un tema al azar de toda la colección para garantizar la variedad.
+    """
+    try:
+        all_ids = topics_collection.get(include=[])['ids']
+        if not all_ids:
+            print("❌ La colección de temas está vacía.")
+            return None
+            
+        random_id = random.choice(all_ids)
+        topic_data = topics_collection.get(ids=[random_id])
+        
+        if topic_data and topic_data['documents']:
+            topic_abstract = topic_data['documents'][0]
+            topic = { "topic_id": random_id, "abstract": topic_abstract }
+            print(f"✅ Tema seleccionado de la DB: '{topic_abstract[:80]}...'")
+            return topic
+    except Exception as e:
+        print(f"❌ Error al buscar un tema en ChromaDB: {e}")
     return None
 
 def find_topic_by_id(topic_id: str):
+    try:
+        topic_data = topics_collection.get(ids=[topic_id])
+        if topic_data and topic_data['documents']:
+            return { "topic_id": topic_id, "abstract": topic_data['documents'][0] }
+    except Exception:
+        pass
+    # Fallback to JSON files if not found in ChromaDB (for older topics)
     files = [f for f in os.listdir(JSON_DIR) if f.lower().endswith(".json")]
     for file_name in files:
         filepath = os.path.join(JSON_DIR, file_name)

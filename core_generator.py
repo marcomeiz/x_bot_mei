@@ -71,7 +71,7 @@ def refine_single_tweet_style(raw_text: str, model: str, lang: str = 'en') -> st
         **TEXTO EN BRUTO:** --- {raw_text} ---
         **TEXTO REFINADO (aplicando todas las reglas):**
         """
-        system_message = "Eres un ghostwriter de clase mundial especializado en reescribir texto denso en el estilo ingenioso, aéreo y perspicaz de Nikita Bier, adaptado al español."
+        system_message = "Eres un editor de estilo experto. Tu tarea es aplicar las reglas de formato y voz definidas en un contrato de estilo (párrafos cortos, voz personal, etc.) al texto proporcionado."
     else: # Default a Inglés
         prompt = f"""
         You are a social media style editor, an expert in Nikita Bier's voice.
@@ -84,7 +84,7 @@ def refine_single_tweet_style(raw_text: str, model: str, lang: str = 'en') -> st
         **RAW TEXT:** --- {raw_text} ---
         **REFINED TEXT (applying all rules):**
         """
-        system_message = "You are a world-class ghostwriter specializing in rewriting dense text into the witty, airy, and insightful style of Nikita Bier."
+        system_message = "You are an expert style editor. Your task is to apply style and voice rules from a style contract (short paragraphs, personal voice, etc.) to the provided text."
 
     try:
         response = client.chat.completions.create(
@@ -195,8 +195,8 @@ def generate_tweet_from_topic(topic_abstract: str):
 
             print("🕵️  Validando estilo en detalle (criterios de Nikita)...")
             validation_prompt = f"""
-            You are a strict editor validating a tweet draft against Nikita Bier's ghostwriting contract.
-            CRITICAL CONTEXT: The goal is to sound like Nikita, who is a COO but uses a direct, witty, and often informal tone. Your job is NOT to enforce a generic corporate COO voice. A professional but informal tone IS ALLOWED and DESIRABLE.
+            You are a strict editor validating a tweet draft against a ghostwriting contract. The contract defines a specific persona and voice.
+            CRITICAL CONTEXT: The persona is a COO, but the desired tone is direct, personal, and witty, NOT a generic corporate voice. Your job is to enforce the rules of the provided contract.
             Analyze the draft based on these priorities:
             1.  **Core Insight:** Is the central idea sharp, counter-intuitive, and relevant to operations/building products? (Highest Priority)
             2.  **Nikita's Voice:** Does it sound like an experienced colleague sharing a key discovery, not a corporate announcement? (High Priority)
@@ -208,7 +208,7 @@ def generate_tweet_from_topic(topic_abstract: str):
             **JSON Format:** {{"pasa_validacion": boolean, "feedback_detallado": "A brief, actionable critique focused ONLY on the core insight and contract rules. Mention tone only if it's completely off-brand for Nikita (e.g., sounds like marketing fluff or a generic motivational quote)."}}
             """
             validation_response = client.chat.completions.create(
-                model=VALIDATION_MODEL, response_format={"type": "json_object"}, messages=[{"role": "system", "content": "You are a strict JSON editor validating text against Nikita Bier's specific voice and contract rules."}, {"role": "user", "content": validation_prompt}], temperature=0.0
+                model=VALIDATION_MODEL, response_format={"type": "json_object"}, messages=[{"role": "system", "content": "You are a strict JSON editor validating text against a specific ghostwriting contract and persona."}, {"role": "user", "content": validation_prompt}], temperature=0.0
             )
             validation = json.loads(validation_response.choices[0].message.content)
 

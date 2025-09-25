@@ -1,4 +1,3 @@
-# embeddings_manager.py
 import os
 import google.generativeai as genai
 import chromadb

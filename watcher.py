@@ -2,7 +2,7 @@ import os
 import time
 import json
 import hashlib
-import asyncio  # <--- AÑADIDO
+import asyncio
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import fitz  # PyMuPDF
@@ -11,8 +11,9 @@ from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 from desktop_notifier import DesktopNotifier
 
-# NUEVO: Importamos las herramientas de nuestro nuevo módulo
-from embeddings_manager import get_embedding, topics_collection
+# --- MODIFICACIÓN 1: CORREGIR LA IMPORTACIÓN ---
+# Importamos la FUNCIÓN que nos da la colección, no la variable
+from embeddings_manager import get_embedding, get_topics_collection
 
 # --- CONFIGURACIÓN ---
 # Folders
@@ -77,8 +78,6 @@ def validate_topic(topic_abstract: str) -> bool:
         return json.loads(response.choices[0].message.content).get("is_relevant", False)
     except Exception: return False
 
-# --- MODIFICACIÓN ASYNC ---
-# La función ahora es asíncrona para poder usar 'await' en la notificación
 async def extract_and_validate_topics(text, pdf_name):
     chunks = chunk_text(text)
     all_validated_topics = []
@@ -137,6 +136,9 @@ async def extract_and_validate_topics(text, pdf_name):
         valid_embeddings = [emb for emb in embeddings if emb is not None]
         
         if valid_embeddings:
+            # --- MODIFICACIÓN 2: LLAMAR A LA FUNCIÓN ---
+            # Ahora llamamos a la función para obtener el objeto de la colección
+            topics_collection = get_topics_collection()
             topics_collection.add(
                 embeddings=valid_embeddings,
                 documents=documents,
@@ -157,12 +159,8 @@ async def extract_and_validate_topics(text, pdf_name):
     print(f"  -> Archivo guardado: {out_path}")
 
     if total_approved > 0:
-        # --- MODIFICACIÓN ASYNC ---
-        # Ahora usamos 'await' para llamar a la notificación
         await notifier.send(title=f"✅ Proceso Completado: {pdf_name}", message=f"Se han añadido {total_approved} nuevos temas a la base de datos.")
 
-# --- MODIFICACIÓN ASYNC ---
-# El manejador de eventos ahora usa asyncio para llamar a la función asíncrona
 class PDFHandler(FileSystemEventHandler):
     def on_created(self, event):
         if event.is_directory:

@@ -35,7 +35,10 @@
   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
   - Credenciales de X/Twitter si se usan scripts relacionados
  - Visualización opcional:
-   - `SHOW_TOPIC_ID` (`0` por defecto). Si `1`, muestra el ID de tema en el encabezado del mensaje del bot aun cuando exista `Origen`. Por defecto el ID queda oculto salvo que no haya `Origen`.
+  - `SHOW_TOPIC_ID` (`0` por defecto). Si `1`, muestra el ID de tema en el encabezado del mensaje del bot aun cuando exista `Origen`. Por defecto el ID queda oculto salvo que no haya `Origen`.
+ - Estilo (opcional):
+   - `ENFORCE_STYLE_AUDIT` (`1` por defecto): activa la auditoría de estilo y revisión condicional.
+   - `STYLE_REVISION_ROUNDS` (`1` por defecto): máximo de rondas de revisión automática por borrador.
 
 Nota: `/.env` está en `.gitignore`. No subas tus claves.
 
@@ -58,7 +61,7 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
   - Vía REPL de Python:
     - `python -i core_generator.py`
     - `generate_tweet_from_topic("<abstract del tema>")`
-  - Comportamiento: crea `[EN - A]` y `[EN - B]`, refina estilo y recorta si >280. Durante generación y refinado se carga y se inyecta el contrato `copywriter_contract.md` en los mensajes del LLM para garantizar el cumplimiento del tono y formato.
+  - Comportamiento: crea `[EN - A]` y `[EN - B]`, refina estilo y recorta si >280. Durante generación y refinado se carga y se inyecta el contrato `copywriter_contract.md` en los mensajes del LLM para garantizar el cumplimiento del tono y formato. Además, se ejecuta una auditoría de estilo (LLM + heurísticos) con posible reescritura si el tono queda demasiado "boardroom" o genérico.
 
 - Generar dos variantes offline (sin LLM):
   - `python offline_generate.py`

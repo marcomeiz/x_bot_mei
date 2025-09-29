@@ -9,6 +9,7 @@ from llm_fallback import llm
 from logger_config import logger
 
 from embeddings_manager import get_embedding, get_topics_collection, get_memory_collection
+from style_guard import improve_style
 
 load_dotenv()
 openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
@@ -179,9 +180,29 @@ def generate_tweet_from_topic(topic_abstract: str):
                 continue
             
             logger.info(f"Intento {attempt + 1}: Borradores A y B parseados. Iniciando refinamiento.")
-            # Refinar estilo y asegurar límite mediante LLM iterativo (sin recorte local)
+            # Refinar estilo según contrato
             draft_a = refine_single_tweet_style(draft_a, VALIDATION_MODEL)
             draft_b = refine_single_tweet_style(draft_b, VALIDATION_MODEL)
+
+            # Auditoría de estilo + posible reescritura creativa (sin listas cerradas)
+            try:
+                improved_a, audit_a = improve_style(draft_a, CONTRACT_TEXT)
+                if improved_a and improved_a != draft_a:
+                    logger.info(f"Auditoría A: se aplicó revisión de estilo. Detalle: {audit_a}")
+                    draft_a = improved_a
+                else:
+                    logger.info(f"Auditoría A: sin cambios. Detalle: {audit_a}")
+            except Exception as _:
+                pass
+            try:
+                improved_b, audit_b = improve_style(draft_b, CONTRACT_TEXT)
+                if improved_b and improved_b != draft_b:
+                    logger.info(f"Auditoría B: se aplicó revisión de estilo. Detalle: {audit_b}")
+                    draft_b = improved_b
+                else:
+                    logger.info(f"Auditoría B: sin cambios. Detalle: {audit_b}")
+            except Exception as _:
+                pass
 
             if len(draft_a) > 280:
                 draft_a = ensure_under_limit_via_llm(draft_a, VALIDATION_MODEL, 280, attempts=4)

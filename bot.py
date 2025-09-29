@@ -18,6 +18,7 @@ load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 app = Flask(__name__)
 TEMP_DIR = "/tmp"
+SHOW_TOPIC_ID = os.getenv("SHOW_TOPIC_ID", "0").lower() in ("1", "true", "yes", "y")
 
 # --- (Funciones de Telegram sin cambios) ---
 def get_new_tweet_keyboard():
@@ -67,7 +68,10 @@ def format_proposal_message(topic_id: str, abstract: str, source_pdf: str | None
     safe_b = escape_markdown_v2(draft_b or "")
 
     lines = []
-    lines.append(f"*Borradores — ID:* {safe_id}")
+    # Cabecera: ocultar ID salvo que no haya source_pdf o la var SHOW_TOPIC_ID lo fuerce
+    lines.append("*Borradores*")
+    if SHOW_TOPIC_ID or not source_pdf:
+        lines.append(f"*ID:* {safe_id}")
     if safe_abstract:
         lines.append(f"*Tema:* {safe_abstract}")
     if safe_source:

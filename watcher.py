@@ -144,10 +144,13 @@ async def extract_and_validate_topics(text, pdf_name):
             # --- MODIFICACIÓN 2: LLAMAR A LA FUNCIÓN ---
             # Ahora llamamos a la función para obtener el objeto de la colección
             topics_collection = get_topics_collection()
+            # Añadir metadatos básicos con el nombre del PDF de origen
+            metadatas = [{"pdf": pdf_name} for _ in documents]
             topics_collection.add(
                 embeddings=valid_embeddings,
                 documents=documents,
-                ids=ids
+                ids=ids,
+                metadatas=metadatas
             )
             print(f"✅ {len(valid_embeddings)} temas han sido añadidos a la base de datos vectorial 'topics_collection'.")
         else:

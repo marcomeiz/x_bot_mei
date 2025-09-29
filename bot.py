@@ -64,8 +64,12 @@ def do_the_work(chat_id):
 def propose_tweet(chat_id, topic):
     topic_abstract = topic.get("abstract")
     topic_id = topic.get("topic_id")
+    source_pdf = topic.get("source_pdf")
     logger.info(f"[CHAT_ID: {chat_id}] Tema seleccionado (ID: {topic_id}). Abstract: '{topic_abstract[:80]}...'")
-    send_telegram_message(chat_id, f"✍️ Tema: '{topic_abstract[:80]}...'.\nGenerando 2 alternativas...")
+    if source_pdf:
+        send_telegram_message(chat_id, f"✍️ Tema: '{topic_abstract[:80]}...'.\n📄 Origen: {source_pdf}\nGenerando 2 alternativas...")
+    else:
+        send_telegram_message(chat_id, f"✍️ Tema: '{topic_abstract[:80]}...'.\nGenerando 2 alternativas...")
 
     draft_a, draft_b = generate_tweet_from_topic(topic_abstract)
 

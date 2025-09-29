@@ -145,10 +145,20 @@ def find_relevant_topic():
             return None
         random_id = random.choice(all_ids)
         logger.info(f"ID de tema aleatorio seleccionado: {random_id}")
-        topic_data = topics_collection.get(ids=[random_id])
-        if topic_data and topic_data['documents']:
-            topic_abstract = topic_data['documents'][0]
+        topic_data = topics_collection.get(ids=[random_id], include=["documents", "metadatas"])  # type: ignore
+        if topic_data and topic_data.get('documents'):
+            docs = topic_data['documents']
+            mds = topic_data.get('metadatas') or []
+            # Compatibilidad con formatos (lista o lista de listas)
+            topic_abstract = docs[0][0] if docs and isinstance(docs[0], list) else docs[0]
+            pdf_name = None
+            if mds:
+                first_md = mds[0][0] if isinstance(mds[0], list) and mds[0] else (mds[0] if isinstance(mds, list) else None)
+                if isinstance(first_md, dict):
+                    pdf_name = first_md.get('pdf') or first_md.get('source_pdf')
             topic = {"topic_id": random_id, "abstract": topic_abstract}
+            if pdf_name:
+                topic["source_pdf"] = pdf_name
             return topic
     except Exception as e:
         logger.error(f"Error al buscar un tema en ChromaDB: {e}", exc_info=True)
@@ -159,10 +169,21 @@ def find_topic_by_id(topic_id: str):
     logger.info(f"Buscando tema específico por ID: {topic_id}")
     topics_collection = get_topics_collection()
     try:
-        topic_data = topics_collection.get(ids=[topic_id])
-        if topic_data and topic_data['documents']:
+        topic_data = topics_collection.get(ids=[topic_id], include=["documents", "metadatas"])  # type: ignore
+        if topic_data and topic_data.get('documents'):
             logger.info(f"Tema con ID {topic_id} encontrado en ChromaDB.")
-            return {"topic_id": topic_id, "abstract": topic_data['documents'][0]}
+            docs = topic_data['documents']
+            mds = topic_data.get('metadatas') or []
+            topic_abstract = docs[0][0] if docs and isinstance(docs[0], list) else docs[0]
+            pdf_name = None
+            if mds:
+                first_md = mds[0][0] if isinstance(mds[0], list) and mds[0] else (mds[0] if isinstance(mds, list) else None)
+                if isinstance(first_md, dict):
+                    pdf_name = first_md.get('pdf') or first_md.get('source_pdf')
+            result = {"topic_id": topic_id, "abstract": topic_abstract}
+            if pdf_name:
+                result["source_pdf"] = pdf_name
+            return result
     except Exception as e:
         logger.error(f"Error al buscar tema por ID {topic_id} en ChromaDB: {e}", exc_info=True)
     

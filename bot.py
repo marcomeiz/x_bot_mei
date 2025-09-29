@@ -229,8 +229,9 @@ def handle_callback_query(update):
         temp_file_path = os.path.join(TEMP_DIR, f"{chat_id}_{topic_id}.tmp")
         logger.info(f"[CHAT_ID: {chat_id}] Aprobada Opción {option} para topic ID: {topic_id}.")
         # Editar el mensaje agregando una marca de aprobación (MarkdownV2)
+        # No re-escapamos el texto original para no romper su formato MDV2
         appended = "✅ *" + escape_markdown_v2(f"¡Aprobada Opción {option}!") + "*"
-        new_text = escape_markdown_v2(original_message_text) + "\n\n" + appended
+        new_text = (original_message_text or "") + "\n\n" + appended
         edit_telegram_message(chat_id, message_id, new_text)
         try:
             if not os.path.exists(temp_file_path):
@@ -265,8 +266,9 @@ def handle_callback_query(update):
     elif action == "reject":
         logger.info(f"[CHAT_ID: {chat_id}] Ambas opciones rechazadas para topic ID: {topic_id}.")
         # Mensaje de rechazo con MarkdownV2 escapado
+        # Conservar el formato original y solo añadir el aviso
         appended = "❌ *" + escape_markdown_v2("Rechazados.") + "*"
-        new_text = escape_markdown_v2(original_message_text) + "\n\n" + appended
+        new_text = (original_message_text or "") + "\n\n" + appended
         edit_telegram_message(chat_id, message_id, new_text, reply_markup=get_new_tweet_keyboard())
 
     elif "generate" in callback_data: # Maneja "generate" y "generate_new"

@@ -22,23 +22,43 @@ TEMP_DIR = "/tmp"
 def get_new_tweet_keyboard():
     return {"inline_keyboard": [[{"text": "🚀 Generar Nuevo Tuit", "callback_data": "generate_new"}]]}
 
+def _post_telegram(url, payload, chat_id):
+    try:
+        r = requests.post(url, json=payload, timeout=20)
+        data = {}
+        try:
+            data = r.json()
+        except Exception:
+            pass
+        if r.status_code != 200 or not data.get("ok", True):
+            logger.error(f"[CHAT_ID: {chat_id}] Telegram API error: status={r.status_code}, resp={data}")
+            return False
+        return True
+    except Exception as e:
+        logger.error(f"[CHAT_ID: {chat_id}] Telegram HTTP error: {e}", exc_info=True)
+        return False
+
 def send_telegram_message(chat_id, text, reply_markup=None):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    # Intento 1: con Markdown simple (puede fallar por entidades)
     payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
-    if reply_markup: payload["reply_markup"] = json.dumps(reply_markup)
-    try:
-        requests.post(url, json=payload)
-    except Exception as e:
-        logger.error(f"[CHAT_ID: {chat_id}] Error enviando mensaje de Telegram: {e}", exc_info=True)
+    if reply_markup: payload["reply_markup"] = reply_markup
+    if _post_telegram(url, payload, chat_id):
+        return True
+    # Intento 2: sin parse_mode (texto plano)
+    payload = {"chat_id": chat_id, "text": text}
+    if reply_markup: payload["reply_markup"] = reply_markup
+    return _post_telegram(url, payload, chat_id)
 
 def edit_telegram_message(chat_id, message_id, text, reply_markup=None):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText"
     payload = {"chat_id": chat_id, "message_id": message_id, "text": text, "parse_mode": "Markdown"}
-    if reply_markup: payload["reply_markup"] = json.dumps(reply_markup)
-    try:
-        requests.post(url, json=payload)
-    except Exception as e:
-        logger.error(f"[CHAT_ID: {chat_id}] Error editando mensaje de Telegram: {e}", exc_info=True)
+    if reply_markup: payload["reply_markup"] = reply_markup
+    if _post_telegram(url, payload, chat_id):
+        return True
+    payload = {"chat_id": chat_id, "message_id": message_id, "text": text}
+    if reply_markup: payload["reply_markup"] = reply_markup
+    return _post_telegram(url, payload, chat_id)
 
 
 # --- (Funciones principales con logs añadidos) ---
@@ -110,8 +130,10 @@ def propose_tweet(chat_id, topic):
         f"--- **Opción B** ({len_b}/280) ---\n{draft_b}"
     )
     logger.info(f"[CHAT_ID: {chat_id}] Enviando propuestas (A/B) al usuario para el topic ID: {topic_id}.")
-    send_telegram_message(chat_id, message_text, reply_markup=keyboard)
-    return True
+    if send_telegram_message(chat_id, message_text, reply_markup=keyboard):
+        return True
+    logger.error(f"[CHAT_ID: {chat_id}] Falló el envío de propuestas por Telegram (ID: {topic_id}).")
+    return False
 
 def handle_callback_query(update):
     query = update.get("callback_query", {})

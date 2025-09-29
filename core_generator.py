@@ -34,17 +34,15 @@ def refine_and_shorten_tweet(tweet_text: str, model: str) -> str:
         return text
     except Exception: return tweet_text
 
-def _force_trim(s: str, limit: int = 280) -> str:
-    if len(s) <= limit:
-        return s
-    cut = s[: limit - 1]
-    if " " in cut:
-        cut = cut[: cut.rfind(" ")]
-    return cut + "…"
+# Eliminado recorte forzado: preferimos iterar con LLM hasta cumplir la longitud
 
 def refine_single_tweet_style(raw_text: str, model: str) -> str:
-    prompt = f'You are a style editor. Your task is to rewrite the dense text below to match a specific style (airy, personal, witty) defined by a contract. The core insight MUST remain. RULES: 1. Break into 2-4 short paragraphs. 2. Use a personal voice. 3. Add subtle wit. RAW TEXT: --- {raw_text} ---'
-    system_message = "You are a world-class ghostwriter rewriting text into a specific style defined by a contract."
+    prompt = (
+        f"You are a style editor. Rewrite the text below to match a specific style (airy, personal, witty) defined by a contract. "
+        f"The core insight MUST remain. RULES: 1) 2-4 short paragraphs. 2) Personal voice. 3) Subtle wit. 4) Do NOT wrap output in quotes. "
+        f"5) Prefer concise phrasing. RAW TEXT: --- {raw_text} ---"
+    )
+    system_message = "You are a world-class ghostwriter rewriting text into a specific style defined by a contract. Keep it concise."
     try:
         text = llm.chat_text(
             model=model,
@@ -56,6 +54,38 @@ def refine_single_tweet_style(raw_text: str, model: str) -> str:
         )
         return text
     except Exception: return raw_text
+
+def ensure_under_limit_via_llm(text: str, model: str, limit: int = 280, attempts: int = 4) -> str:
+    """Itera con LLM hasta obtener un texto <= limit, sin recorte local."""
+    attempt = 0
+    best = text
+    while attempt < attempts:
+        attempt += 1
+        prompt = (
+            f"Rewrite the text so the TOTAL characters are <= {limit}. Preserve meaning and readability. "
+            f"Do NOT add quotes, emojis or hashtags. Prefer short words and compact phrasing. Return ONLY JSON: "
+            f"{{\"text\": \"<final text under {limit} chars>\"}}. Text must be <= {limit} characters.\n\n"
+            f"TEXT: {best}"
+        )
+        try:
+            data = llm.chat_json(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "You are a ruthless editor returning strict JSON only."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.25,
+            )
+            candidate = (data or {}).get("text") if isinstance(data, dict) else None
+            if isinstance(candidate, str) and candidate.strip():
+                candidate = candidate.strip()
+                if len(candidate) <= limit:
+                    return candidate
+                best = candidate
+        except Exception:
+            # Intento fallido, vuelve a intentar con el mejor candidato actual
+            pass
+    return best
 
 # --- FUNCIÓN DE PARSEO MODIFICADA ---
 def parse_final_drafts(draft: str) -> (str, str):
@@ -103,9 +133,9 @@ def generate_tweet_from_topic(topic_abstract: str):
             1.  Provide two high-quality, distinct alternatives in English.
             2.  Label the first alternative with `[EN - A]`.
             3.  Label the second alternative with `[EN - B]`.
-            4.  Both alternatives MUST be under 280 characters. This is a strict rule.
+            4.  Both alternatives MUST be under 280 characters. Do NOT wrap in quotes.
 
-            Provide ONLY the final text in the specified format.
+            Provide ONLY the final text in the specified format (no extra commentary).
             """
             
             logger.info(f"Llamando al modelo de generación: {GENERATION_MODEL}.")
@@ -122,21 +152,18 @@ def generate_tweet_from_topic(topic_abstract: str):
                 continue
             
             logger.info(f"Intento {attempt + 1}: Borradores A y B parseados. Iniciando refinamiento.")
-            # Refinar y validar ambas opciones
+            # Refinar estilo y asegurar límite mediante LLM iterativo (sin recorte local)
             draft_a = refine_single_tweet_style(draft_a, VALIDATION_MODEL)
             draft_b = refine_single_tweet_style(draft_b, VALIDATION_MODEL)
 
-            # Acortar si excede el límite usando LLM y, si persiste, recorte forzado
             if len(draft_a) > 280:
-                draft_a = refine_and_shorten_tweet(draft_a, VALIDATION_MODEL)
-                if len(draft_a) > 280:
-                    logger.warning(f"Intento {attempt + 1}: A seguía >280 tras LLM. Aplicando recorte forzado.")
-                    draft_a = _force_trim(draft_a)
+                draft_a = ensure_under_limit_via_llm(draft_a, VALIDATION_MODEL, 280, attempts=4)
             if len(draft_b) > 280:
-                draft_b = refine_and_shorten_tweet(draft_b, VALIDATION_MODEL)
-                if len(draft_b) > 280:
-                    logger.warning(f"Intento {attempt + 1}: B seguía >280 tras LLM. Aplicando recorte forzado.")
-                    draft_b = _force_trim(draft_b)
+                draft_b = ensure_under_limit_via_llm(draft_b, VALIDATION_MODEL, 280, attempts=4)
+
+            if len(draft_a) > 280 or len(draft_b) > 280:
+                logger.warning(f"Intento {attempt + 1}: Alguna alternativa seguía >280 tras reescritura LLM. Reintentando...")
+                continue
 
             logger.info(f"Intento {attempt + 1}: Borradores generados y validados con éxito.")
             return draft_a, draft_b

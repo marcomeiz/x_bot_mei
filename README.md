@@ -39,6 +39,8 @@
  - Estilo (opcional):
    - `ENFORCE_STYLE_AUDIT` (`1` por defecto): activa la auditoría de estilo y revisión condicional.
    - `STYLE_REVISION_ROUNDS` (`1` por defecto): máximo de rondas de revisión automática por borrador.
+ - Watchers (estilo):
+   - `WATCHER_ENFORCE_STYLE_AUDIT` (`1` por defecto): usa la auditoría de estilo para filtrar abstracts genéricos en la ingesta.
 
 Nota: `/.env` está en `.gitignore`. No subas tus claves.
 
@@ -54,6 +56,7 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
   - Copia PDFs a `uploads/`. El watcher:
     - Extrae texto (PyMuPDF), trocea en chunks y pide 8–12 temas por chunk al LLM.
     - Valida cada tema como “relevante para COO” devolviendo JSON.
+    - Opcional: auditoría de estilo para filtrar abstracts demasiado “boardroom” (activado por defecto; desactivar con `WATCHER_ENFORCE_STYLE_AUDIT=0`).
     - Genera embeddings con Google y añade a `topics_collection` en `db/`.
     - Guarda un resumen en `json/<nombre>.json` y muestra notificación de escritorio.
 

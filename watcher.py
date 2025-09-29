@@ -14,6 +14,7 @@ from desktop_notifier import DesktopNotifier
 # --- MODIFICACIÓN 1: CORREGIR LA IMPORTACIÓN ---
 # Importamos la FUNCIÓN que nos da la colección, no la variable
 from embeddings_manager import get_embedding, get_topics_collection
+from style_guard import audit_style, CONTRACT_TEXT
 
 # --- CONFIGURACIÓN ---
 # Folders
@@ -27,6 +28,7 @@ os.makedirs(JSON_DIR, exist_ok=True)
 
 # API Client
 load_dotenv()
+WATCHER_ENFORCE_STYLE_AUDIT = os.getenv("WATCHER_ENFORCE_STYLE_AUDIT", "1").lower() in ("1", "true", "yes", "y")
 
 # Modelos
 GENERATION_MODEL = "anthropic/claude-3.5-sonnet"
@@ -116,6 +118,18 @@ async def extract_and_validate_topics(text, pdf_name):
             
             print(f"  [validando] '{abstract[:60]}...'")
             if validate_topic(abstract):
+                # Auditoría de estilo opcional para filtrar abstracts demasiado "boardroom"
+                if WATCHER_ENFORCE_STYLE_AUDIT:
+                    try:
+                        audit = audit_style(abstract, CONTRACT_TEXT) or {}
+                        too_board = bool(audit.get("needs_revision", False)) and (
+                            audit.get("voice") == "boardroom" or int(audit.get("corporate_jargon_score", 0)) >= 3 or int(audit.get("cliche_score", 0)) >= 3
+                        )
+                        if too_board:
+                            print("    -> ⚠️ Estilo genérico/boardroom. Omitido.")
+                            continue
+                    except Exception:
+                        pass
                 topic_id = hashlib.md5(abstract.encode()).hexdigest()[:10]
                 topic["topic_id"] = topic_id
                 all_validated_topics.append(topic)

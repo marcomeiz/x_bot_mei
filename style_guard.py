@@ -10,6 +10,19 @@ from embeddings_manager import get_embedding, get_memory_collection
 
 load_dotenv()
 
+# Cargar contrato (compartido para generador y watchers)
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+CONTRACT_FILE = os.path.join(BASE_DIR, "copywriter_contract.md")
+CONTRACT_TEXT = ""
+try:
+    with open(CONTRACT_FILE, "r", encoding="utf-8") as _f:
+        CONTRACT_TEXT = _f.read().strip()
+except Exception as _e:
+    CONTRACT_TEXT = (
+        "Style: airy, personal, witty; 2-4 short paragraphs; personal voice; "
+        "subtle wit; show, don't announce; English only; <=280 chars; two variants A and B."
+    )
+
 ENFORCE_STYLE_AUDIT = os.getenv("ENFORCE_STYLE_AUDIT", "1").lower() in ("1", "true", "yes", "y")
 STYLE_REVISION_ROUNDS = int(os.getenv("STYLE_REVISION_ROUNDS", "1"))
 
@@ -156,4 +169,3 @@ def improve_style(text: str, contract_text: str, rounds: int = STYLE_REVISION_RO
         needs = bool(audit.get("needs_revision", False)) if isinstance(audit, dict) else False
 
     return revised, (audit if isinstance(audit, dict) else {})
-

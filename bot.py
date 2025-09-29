@@ -2,6 +2,7 @@
 import os
 import json
 import threading
+import re
 from dotenv import load_dotenv
 from flask import Flask, request
 import requests
@@ -22,6 +23,62 @@ TEMP_DIR = "/tmp"
 def get_new_tweet_keyboard():
     return {"inline_keyboard": [[{"text": "🚀 Generar Nuevo Tuit", "callback_data": "generate_new"}]]}
 
+# --- Helpers de formato (MarkdownV2) ---
+MDV2_SPECIALS = r"_[]()~`>#+-=|{}.!*"
+
+
+def escape_markdown_v2(text: str) -> str:
+    """Escapa caracteres especiales para MarkdownV2 de Telegram.
+
+    Referencia: https://core.telegram.org/bots/api#markdownv2-style
+    """
+    if text is None:
+        return ""
+    # Escapar backslash primero
+    text = text.replace("\\", "\\\\")
+    for ch in MDV2_SPECIALS:
+        text = text.replace(ch, f"\\{ch}")
+    return text
+
+
+def clean_abstract(text: str, max_len: int = 160) -> str:
+    """Limpia el abstract: quita hashtags y normaliza espacios."""
+    if not isinstance(text, str):
+        return ""
+    t = re.sub(r"#\S+", "", text)  # quitar hashtags
+    t = re.sub(r"\s+", " ", t).strip()
+    if max_len and len(t) > max_len:
+        cut = t[:max_len].rstrip()
+        if " " in cut:
+            cut = cut[: cut.rfind(" ")].rstrip()
+        t = cut + "…"
+    return t
+
+
+def format_proposal_message(topic_id: str, abstract: str, source_pdf: str | None, draft_a: str, draft_b: str) -> str:
+    """Devuelve el mensaje formateado en MarkdownV2 con A/B y contadores."""
+    len_a = len(draft_a)
+    len_b = len(draft_b)
+
+    safe_id = escape_markdown_v2(topic_id or "-")
+    safe_abstract = escape_markdown_v2(clean_abstract(abstract or ""))
+    safe_source = escape_markdown_v2(source_pdf) if source_pdf else None
+    safe_a = escape_markdown_v2(draft_a or "")
+    safe_b = escape_markdown_v2(draft_b or "")
+
+    lines = []
+    lines.append(f"*Borradores — ID:* {safe_id}")
+    if safe_abstract:
+        lines.append(f"*Tema:* {safe_abstract}")
+    if safe_source:
+        lines.append(f"*Origen:* {safe_source}")
+
+    lines.append("")
+    lines.append(f"*A* · {len_a}/280\n{safe_a}")
+    lines.append("")
+    lines.append(f"*B* · {len_b}/280\n{safe_b}")
+    return "\n".join(lines).strip()
+
 def _post_telegram(url, payload, chat_id):
     try:
         r = requests.post(url, json=payload, timeout=20)
@@ -40,24 +97,42 @@ def _post_telegram(url, payload, chat_id):
 
 def send_telegram_message(chat_id, text, reply_markup=None):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    # Intento 1: con Markdown simple (puede fallar por entidades)
-    payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
-    if reply_markup: payload["reply_markup"] = reply_markup
+    # Intento 1: MarkdownV2
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": "MarkdownV2"}
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
     if _post_telegram(url, payload, chat_id):
         return True
-    # Intento 2: sin parse_mode (texto plano)
+    # Intento 2: Markdown clásico
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+    if _post_telegram(url, payload, chat_id):
+        return True
+    # Intento 3: texto plano
     payload = {"chat_id": chat_id, "text": text}
-    if reply_markup: payload["reply_markup"] = reply_markup
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
     return _post_telegram(url, payload, chat_id)
 
 def edit_telegram_message(chat_id, message_id, text, reply_markup=None):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText"
-    payload = {"chat_id": chat_id, "message_id": message_id, "text": text, "parse_mode": "Markdown"}
-    if reply_markup: payload["reply_markup"] = reply_markup
+    # Intento 1: MarkdownV2
+    payload = {"chat_id": chat_id, "message_id": message_id, "text": text, "parse_mode": "MarkdownV2"}
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
     if _post_telegram(url, payload, chat_id):
         return True
+    # Intento 2: Markdown clásico
+    payload = {"chat_id": chat_id, "message_id": message_id, "text": text, "parse_mode": "Markdown"}
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+    if _post_telegram(url, payload, chat_id):
+        return True
+    # Intento 3: texto plano
     payload = {"chat_id": chat_id, "message_id": message_id, "text": text}
-    if reply_markup: payload["reply_markup"] = reply_markup
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
     return _post_telegram(url, payload, chat_id)
 
 
@@ -73,23 +148,28 @@ def do_the_work(chat_id):
                 logger.info(f"[CHAT_ID: {chat_id}] Propuesta enviada con éxito. Finalizando ciclo.")
                 return
             logger.warning(f"[CHAT_ID: {chat_id}] Tema '{topic.get('topic_id')}' descartado por similitud. Buscando otro.")
-            send_telegram_message(chat_id, "⚠️ Tema descartado por ser muy similar a uno anterior. Buscando otro...")
+            send_telegram_message(chat_id, escape_markdown_v2("⚠️ Tema descartado por ser muy similar a uno anterior. Buscando otro…"))
         else:
             logger.error(f"[CHAT_ID: {chat_id}] No se pudo encontrar un tema relevante en la base de datos.")
-            send_telegram_message(chat_id, "❌ No pude encontrar un tema relevante.", reply_markup=get_new_tweet_keyboard())
+            send_telegram_message(chat_id, escape_markdown_v2("❌ No pude encontrar un tema relevante."), reply_markup=get_new_tweet_keyboard())
             return
     logger.error(f"[CHAT_ID: {chat_id}] No se pudo encontrar un tema único tras {max_retries} intentos.")
-    send_telegram_message(chat_id, f"❌ No pude encontrar un tema único tras {max_retries} intentos.", reply_markup=get_new_tweet_keyboard())
+    send_telegram_message(chat_id, escape_markdown_v2(f"❌ No pude encontrar un tema único tras {max_retries} intentos."), reply_markup=get_new_tweet_keyboard())
 
 def propose_tweet(chat_id, topic):
     topic_abstract = topic.get("abstract")
     topic_id = topic.get("topic_id")
     source_pdf = topic.get("source_pdf")
     logger.info(f"[CHAT_ID: {chat_id}] Tema seleccionado (ID: {topic_id}). Abstract: '{topic_abstract[:80]}...'")
+    # Mensaje breve de estado
+    pre_lines = [
+        "🧠 Seleccionando tema…",
+        f"✍️ Tema: {clean_abstract(topic_abstract)[:80]}…",
+    ]
     if source_pdf:
-        send_telegram_message(chat_id, f"✍️ Tema: '{topic_abstract[:80]}...'.\n📄 Origen: {source_pdf}\nGenerando 2 alternativas...")
-    else:
-        send_telegram_message(chat_id, f"✍️ Tema: '{topic_abstract[:80]}...'.\nGenerando 2 alternativas...")
+        pre_lines.append(f"📄 Origen: {source_pdf}")
+    pre_lines.append("Generando 2 alternativas…")
+    send_telegram_message(chat_id, escape_markdown_v2("\n".join(pre_lines)))
 
     draft_a, draft_b = generate_tweet_from_topic(topic_abstract)
 
@@ -97,7 +177,7 @@ def propose_tweet(chat_id, topic):
         return False  # Reintentar con otro tema
     if "Error:" in draft_a:
         logger.error(f"[CHAT_ID: {chat_id}] Error recibido de 'generate_tweet_from_topic': {draft_a}")
-        send_telegram_message(chat_id, f"Hubo un problema: {draft_a}", reply_markup=get_new_tweet_keyboard())
+        send_telegram_message(chat_id, escape_markdown_v2(f"Hubo un problema: {draft_a}"), reply_markup=get_new_tweet_keyboard())
         return False  # Indicar al bucle que intente con otro tema
 
     temp_file_path = os.path.join(TEMP_DIR, f"{chat_id}_{topic_id}.tmp")
@@ -114,21 +194,13 @@ def propose_tweet(chat_id, topic):
             {"text": "👍 Aprobar A", "callback_data": f"approve_A_{topic_id}"},
             {"text": "👍 Aprobar B", "callback_data": f"approve_B_{topic_id}"},
         ],
-        [{"text": "👎 Rechazar Ambos", "callback_data": f"reject_{topic_id}"}]
+        [{"text": "👎 Rechazar Ambos", "callback_data": f"reject_{topic_id}"}],
+        [{"text": "🔁 Generar Nuevo", "callback_data": "generate_new"}],
     ]}
 
-    header_lines = [f"**Borradores Propuestos (ID: {topic_id})**"]
-    if topic_abstract:
-        header_lines.append(f"Tema: {topic_abstract}")
-    if source_pdf:
-        header_lines.append(f"Origen: {source_pdf}")
-    header = "\n".join(header_lines)
+    # Formato limpio en MarkdownV2 (contenido escapado)
+    message_text = format_proposal_message(topic_id, topic_abstract or "", source_pdf, draft_a, draft_b)
 
-    message_text = (
-        f"{header}\n\n"
-        f"--- **Opción A** ({len_a}/280) ---\n{draft_a}\n\n"
-        f"--- **Opción B** ({len_b}/280) ---\n{draft_b}"
-    )
     logger.info(f"[CHAT_ID: {chat_id}] Enviando propuestas (A/B) al usuario para el topic ID: {topic_id}.")
     if send_telegram_message(chat_id, message_text, reply_markup=keyboard):
         return True
@@ -156,7 +228,10 @@ def handle_callback_query(update):
     if action == "approve":
         temp_file_path = os.path.join(TEMP_DIR, f"{chat_id}_{topic_id}.tmp")
         logger.info(f"[CHAT_ID: {chat_id}] Aprobada Opción {option} para topic ID: {topic_id}.")
-        edit_telegram_message(chat_id, message_id, original_message_text + f"\n\n✅ **¡Aprobada Opción {option}!**")
+        # Editar el mensaje agregando una marca de aprobación (MarkdownV2)
+        appended = "✅ *" + escape_markdown_v2(f"¡Aprobada Opción {option}!") + "*"
+        new_text = escape_markdown_v2(original_message_text) + "\n\n" + appended
+        edit_telegram_message(chat_id, message_id, new_text)
         try:
             if not os.path.exists(temp_file_path):
                 raise FileNotFoundError(f"Temp file missing: {temp_file_path}")
@@ -176,8 +251,8 @@ def handle_callback_query(update):
             intent_url = f"https://x.com/intent/tweet?text={quote_plus(chosen_tweet)}"
             keyboard = {"inline_keyboard": [[{"text": f"🚀 Publicar Opción {option}", "url": intent_url}]]}
 
-            send_telegram_message(chat_id, "Usa el siguiente botón para publicar:", reply_markup=keyboard)
-            send_telegram_message(chat_id, "Listo para el siguiente.", reply_markup=get_new_tweet_keyboard())
+            send_telegram_message(chat_id, escape_markdown_v2("Usa el siguiente botón para publicar:"), reply_markup=keyboard)
+            send_telegram_message(chat_id, escape_markdown_v2("Listo para el siguiente."), reply_markup=get_new_tweet_keyboard())
 
             if os.path.exists(temp_file_path):
                 logger.info(f"[CHAT_ID: {chat_id}] Eliminando archivo temporal: {temp_file_path}")
@@ -189,11 +264,14 @@ def handle_callback_query(update):
 
     elif action == "reject":
         logger.info(f"[CHAT_ID: {chat_id}] Ambas opciones rechazadas para topic ID: {topic_id}.")
-        edit_telegram_message(chat_id, message_id, original_message_text + "\n\n❌ **Rechazados.**", reply_markup=get_new_tweet_keyboard())
+        # Mensaje de rechazo con MarkdownV2 escapado
+        appended = "❌ *" + escape_markdown_v2("Rechazados.") + "*"
+        new_text = escape_markdown_v2(original_message_text) + "\n\n" + appended
+        edit_telegram_message(chat_id, message_id, new_text, reply_markup=get_new_tweet_keyboard())
 
     elif "generate" in callback_data: # Maneja "generate" y "generate_new"
         logger.info(f"[CHAT_ID: {chat_id}] El usuario ha solicitado un nuevo tuit manualmente.")
-        edit_telegram_message(chat_id, message_id, "🚀 Buscando un nuevo tema...")
+        edit_telegram_message(chat_id, message_id, escape_markdown_v2("🚀 Buscando un nuevo tema…"))
         threading.Thread(target=do_the_work, args=(chat_id,)).start()
 
 @app.route(f"/{TELEGRAM_BOT_TOKEN}", methods=["POST"])

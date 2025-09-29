@@ -119,3 +119,7 @@ Referencias en código:
 - Si OpenRouter no tiene créditos, prioriza temporalmente Gemini (`FALLBACK_PROVIDER_ORDER=gemini,openrouter`).
 - Para JSON estrictos, mantén indicaciones “Respond ONLY with strict JSON” en prompts y revisa logs si falla el parseo.
 - Actualiza `google-generativeai` periódicamente para acceder a modelos más nuevos (`gemini-2.5-*`).
+
+**Contribución**
+- Lee primero `AGENTS.md` para entender invariantes, flujo, políticas de LLM/Telegram/Chroma y el runbook operativo.
+- Usa commits pequeños (Conventional Commits) y propone antes de cambiar contratos (formato `[EN - A]/[EN - B]`, límite 280, etc.).

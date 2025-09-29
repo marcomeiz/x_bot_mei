@@ -35,12 +35,14 @@
   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
   - Credenciales de X/Twitter si se usan scripts relacionados
  - Visualización opcional:
-  - `SHOW_TOPIC_ID` (`0` por defecto). Si `1`, muestra el ID de tema en el encabezado del mensaje del bot aun cuando exista `Origen`. Por defecto el ID queda oculto salvo que no haya `Origen`.
+   - `SHOW_TOPIC_ID` (`0` por defecto). Si `1`, muestra el ID de tema en el encabezado del mensaje del bot aun cuando exista `Origen`. Por defecto el ID queda oculto salvo que no haya `Origen`.
  - Estilo (opcional):
    - `ENFORCE_STYLE_AUDIT` (`1` por defecto): activa la auditoría de estilo y revisión condicional.
    - `STYLE_REVISION_ROUNDS` (`1` por defecto): máximo de rondas de revisión automática por borrador.
  - Watchers (estilo):
    - `WATCHER_ENFORCE_STYLE_AUDIT` (`1` por defecto): usa la auditoría de estilo para filtrar abstracts genéricos en la ingesta.
+ - Persistencia (ruta ChromaDB):
+   - `CHROMA_DB_PATH` (por defecto `db`): ruta de almacenamiento de ChromaDB. En despliegues con Cloud Run, monta un bucket GCS y usa `/mnt/db` como ruta.
 
 Nota: `/.env` está en `.gitignore`. No subas tus claves.
 

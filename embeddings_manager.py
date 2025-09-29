@@ -29,14 +29,17 @@ def get_chroma_client():
         with _chroma_lock:
             if _chroma_client is None:
                 try:
-                    logger.info("Inicializando nuevo cliente persistente de ChromaDB (path='db')...")
-                    _chroma_client = chromadb.PersistentClient(path="db")
+                    db_path = os.getenv("CHROMA_DB_PATH", "db")
+                    logger.info(f"Inicializando nuevo cliente persistente de ChromaDB (path='{db_path}')...")
+                    os.makedirs(db_path, exist_ok=True)
+                    _chroma_client = chromadb.PersistentClient(path=db_path)
                 except Exception as e:
                     logger.error(f"Error inicializando ChromaDB persistente: {e}", exc_info=True)
                     # Reintento único tras asegurar el directorio
                     try:
-                        os.makedirs("db", exist_ok=True)
-                        _chroma_client = chromadb.PersistentClient(path="db")
+                        db_path = os.getenv("CHROMA_DB_PATH", "db")
+                        os.makedirs(db_path, exist_ok=True)
+                        _chroma_client = chromadb.PersistentClient(path=db_path)
                     except Exception as e2:
                         logger.critical(f"Fallo crítico creando cliente ChromaDB: {e2}", exc_info=True)
                         raise

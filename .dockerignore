@@ -1,0 +1,17 @@
+venv
+__pycache__
+.pytest_cache
+.mypy_cache
+.DS_Store
+.git
+db
+uploads
+texts
+json
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.swo
+*.log
+node_modules

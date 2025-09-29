@@ -123,6 +123,13 @@ Referencias en código:
 - Ejecutar watcher con metadatos: `python watcher_with_metadata.py`
 - Generación offline de dos alternativas: `python offline_generate.py`
 - Resetear la memoria (dataset aprobado) de ChromaDB: `python reset_memory.py` (añade `-y` para omitir confirmación)
+ - Consultar stats vía HTTP (si se despliega el bot): `GET /stats?token=<ADMIN_API_TOKEN>` devuelve `{topics, memory}`.
+
+**Despliegue recomendado (Cloud Run + GCS)**
+- Imagen: usar el `Dockerfile` incluido; comando de arranque `gunicorn -b :8080 bot:app`.
+- Montar bucket con GCS FUSE en `/mnt/db` y configurar `CHROMA_DB_PATH=/mnt/db`.
+- Variables: `TELEGRAM_BOT_TOKEN`, `GOOGLE_API_KEY`, opcional `OPENROUTER_API_KEY`, `FALLBACK_PROVIDER_ORDER=gemini,openrouter`, `GEMINI_MODEL=gemini-2.5-pro`, `ADMIN_API_TOKEN`, `SHOW_TOPIC_ID=0`.
+- Escalado: `--min-instances 0 --max-instances 1` para evitar problemas de concurrencia de SQLite.
 
 **Buenas Prácticas**
 - Mantén `.env` fuera del control de versiones y rota claves si se exponen.

@@ -11,7 +11,7 @@ from urllib.parse import quote_plus
 # --- NUEVO: Importar el logger configurado ---
 from logger_config import logger
 
-from embeddings_manager import get_embedding, get_memory_collection
+from embeddings_manager import get_embedding, get_memory_collection, get_topics_collection
 from core_generator import find_relevant_topic, generate_tweet_from_topic, find_topic_by_id
 
 load_dotenv()
@@ -19,6 +19,7 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 app = Flask(__name__)
 TEMP_DIR = "/tmp"
 SHOW_TOPIC_ID = os.getenv("SHOW_TOPIC_ID", "0").lower() in ("1", "true", "yes", "y")
+ADMIN_API_TOKEN = os.getenv("ADMIN_API_TOKEN", "")
 
 # --- (Funciones de Telegram sin cambios) ---
 def get_new_tweet_keyboard():
@@ -302,3 +303,19 @@ def telegram_webhook():
 @app.route("/")
 def index():
     return "Bot is alive!", 200
+
+
+@app.route("/stats")
+def stats():
+    token = request.args.get("token", "")
+    if ADMIN_API_TOKEN and token != ADMIN_API_TOKEN:
+        return {"ok": False, "error": "forbidden"}, 403
+    try:
+        topics = get_topics_collection().count()  # type: ignore
+    except Exception:
+        topics = None
+    try:
+        memory = get_memory_collection().count()  # type: ignore
+    except Exception:
+        memory = None
+    return {"ok": True, "topics": topics, "memory": memory}, 200

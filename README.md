@@ -34,6 +34,8 @@
 - Otras (si usas integraciones):
   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
   - Credenciales de X/Twitter si se usan scripts relacionados
+ - Visualización opcional:
+   - `SHOW_TOPIC_ID` (`0` por defecto). Si `1`, muestra el ID de tema en el encabezado del mensaje del bot aun cuando exista `Origen`. Por defecto el ID queda oculto salvo que no haya `Origen`.
 
 Nota: `/.env` está en `.gitignore`. No subas tus claves.
 
@@ -88,6 +90,7 @@ Referencias en código:
 **Logging y Notificaciones**
 - Logger central: `logger_config.py:1` (nivel INFO por defecto). Todos los intentos de proveedor y fallbacks se registran.
 - Notificaciones de escritorio: `watcher*.py` usa `desktop-notifier` para avisos al finalizar.
+ - Mensajería Telegram: los mensajes de propuesta se envían en MarkdownV2 con escape seguro; incluyen Tema, Origen (si existe) y A/B con conteo `(N/280)`. El ID se oculta por defecto salvo que `SHOW_TOPIC_ID=1` o falte `Origen`.
 
 **Solución de Problemas**
 - OpenRouter sin créditos:

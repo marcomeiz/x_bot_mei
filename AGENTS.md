@@ -67,11 +67,11 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 ## Telegram: Mensajería y Callbacks
 
 - Mensaje de propuesta debe incluir:
-  - Encabezado con ID del tema.
-  - “Tema” (abstract completo) y “Origen” (nombre de PDF) si están disponibles.
+  - “Tema” (abstract) y “Origen” (nombre de PDF) si están disponibles.
   - Dos opciones con contador `(N/280)`.
+  - ID del tema opcional en encabezado: oculto por defecto para limpieza visual; se muestra si `SHOW_TOPIC_ID=1` o si no hay `Origen` (para trazabilidad).
 - Envío robusto:
-  - Intento con `parse_mode=Markdown`; si Telegram devuelve error de entidades, reintentar inmediatamente en texto plano.
+  - Se usa `parse_mode=MarkdownV2` con escape seguro; fallback a `Markdown` y luego a texto plano si fuese necesario.
   - Validar respuesta `ok` y `status_code`; loggear `description` en caso de error.
 - Callbacks:
   - Formato: `approve_A_<topic_id>`, `approve_B_<topic_id>`, `reject_<topic_id>`, `generate_new`.
@@ -168,4 +168,3 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 - [ ] Mantener metadatos `pdf` en temas nuevos.
 - [ ] Probado con `FALLBACK_PROVIDER_ORDER` actual.
 - [ ] Documentado en README si afecta a uso.
-

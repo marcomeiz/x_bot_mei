@@ -58,7 +58,7 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
   - Vía REPL de Python:
     - `python -i core_generator.py`
     - `generate_tweet_from_topic("<abstract del tema>")`
-  - Comportamiento: crea `[EN - A]` y `[EN - B]`, refina estilo y recorta si >280.
+  - Comportamiento: crea `[EN - A]` y `[EN - B]`, refina estilo y recorta si >280. Durante generación y refinado se carga y se inyecta el contrato `copywriter_contract.md` en los mensajes del LLM para garantizar el cumplimiento del tono y formato.
 
 - Generar dos variantes offline (sin LLM):
   - `python offline_generate.py`

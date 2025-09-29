@@ -19,6 +19,19 @@ GENERATION_MODEL = "anthropic/claude-3.5-sonnet"
 VALIDATION_MODEL = "anthropic/claude-3-haiku"
 SIMILARITY_THRESHOLD = 0.25
 
+# Cargar contrato creativo (usado en todos los prompts relevantes)
+CONTRACT_TEXT = ""
+try:
+    with open(CONTRACT_FILE, "r", encoding="utf-8") as _f:
+        CONTRACT_TEXT = _f.read().strip()
+        logger.info("Contrato de copywriter cargado correctamente.")
+except Exception as _e:
+    logger.warning(f"No se pudo leer '{CONTRACT_FILE}'. Usando instrucciones mínimas. Error: {_e}")
+    CONTRACT_TEXT = (
+        "Style: airy, personal, witty; 2-4 short paragraphs; personal voice; "
+        "subtle wit; show, don't announce; English only; <=280 chars; two variants A and B."
+    )
+
 # --- (Funciones auxiliares refine_... no cambian) ---
 def refine_and_shorten_tweet(tweet_text: str, model: str) -> str:
     prompt = f'Your task is to shorten the following text to be under 280 characters. This is a hard limit. Preserve the core message and tone. Original Text: "{tweet_text}"'
@@ -42,7 +55,11 @@ def refine_single_tweet_style(raw_text: str, model: str) -> str:
         f"The core insight MUST remain. RULES: 1) 2-4 short paragraphs. 2) Personal voice. 3) Subtle wit. 4) Do NOT wrap output in quotes. "
         f"5) Prefer concise phrasing. RAW TEXT: --- {raw_text} ---"
     )
-    system_message = "You are a world-class ghostwriter rewriting text into a specific style defined by a contract. Keep it concise."
+    system_message = (
+        "You are a world-class ghostwriter rewriting text into a specific style. "
+        "Follow the style contract exactly. Keep it concise.\n\n"
+        "<STYLE_CONTRACT>\n" + CONTRACT_TEXT + "\n</STYLE_CONTRACT>"
+    )
     try:
         text = llm.chat_text(
             model=model,
@@ -141,7 +158,17 @@ def generate_tweet_from_topic(topic_abstract: str):
             logger.info(f"Llamando al modelo de generación: {GENERATION_MODEL}.")
             raw_draft = llm.chat_text(
                 model=GENERATION_MODEL,
-                messages=[{"role": "user", "content": prompt}],
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a world-class ghostwriter creating two tweet drafts. "
+                            "Obey the following style contract.\n\n<STYLE_CONTRACT>\n"
+                            + CONTRACT_TEXT + "\n</STYLE_CONTRACT>"
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
                 temperature=0.75,
             )
 

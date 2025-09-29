@@ -251,12 +251,20 @@ def handle_callback_query(update):
             if tweet_embedding:
                 logger.info(f"[CHAT_ID: {chat_id}] Guardando tuit aprobado (ID: {topic_id}) en 'memory_collection'.")
                 memory_collection.add(embeddings=[tweet_embedding], documents=[chosen_tweet], ids=[topic_id])
-                logger.info(f"[CHAT_ID: {chat_id}] Tuit guardado con éxito en memoria.")
+                try:
+                    total_mem = memory_collection.count()
+                except Exception:
+                    total_mem = None
+                logger.info(f"[CHAT_ID: {chat_id}] Tuit guardado con éxito en memoria. Total ahora: {total_mem}.")
 
             intent_url = f"https://x.com/intent/tweet?text={quote_plus(chosen_tweet)}"
             keyboard = {"inline_keyboard": [[{"text": f"🚀 Publicar Opción {option}", "url": intent_url}]]}
 
             send_telegram_message(chat_id, escape_markdown_v2("Usa el siguiente botón para publicar:"), reply_markup=keyboard)
+            if total_mem is not None:
+                msg_saved = f"✅ Añadido a la memoria. Ya hay {total_mem} publicaciones." \
+                    if total_mem != 1 else "✅ Añadido a la memoria. Ya hay 1 publicación."
+                send_telegram_message(chat_id, escape_markdown_v2(msg_saved))
             send_telegram_message(chat_id, escape_markdown_v2("Listo para el siguiente."), reply_markup=get_new_tweet_keyboard())
 
             if os.path.exists(temp_file_path):

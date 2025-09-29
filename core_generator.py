@@ -3,7 +3,7 @@ import os
 import random
 import re
 from dotenv import load_dotenv
-from openai import OpenAI
+from llm_fallback import llm
 
 # --- NUEVO: Importar el logger configurado ---
 from logger_config import logger
@@ -12,7 +12,6 @@ from embeddings_manager import get_embedding, get_topics_collection, get_memory_
 
 load_dotenv()
 openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
-client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=openrouter_api_key)
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 CONTRACT_FILE = os.path.join(BASE_DIR, "copywriter_contract.md")
@@ -24,16 +23,30 @@ SIMILARITY_THRESHOLD = 0.25
 def refine_and_shorten_tweet(tweet_text: str, model: str) -> str:
     prompt = f'Your task is to shorten the following text to be under 280 characters. This is a hard limit. Preserve the core message and tone. Original Text: "{tweet_text}"'
     try:
-        response = client.chat.completions.create(model=model, messages=[{"role": "system", "content": "You are a ruthless text editor."}, {"role": "user", "content": prompt}], temperature=0.4)
-        return response.choices[0].message.content.strip()
+        text = llm.chat_text(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a ruthless text editor."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.4,
+        )
+        return text
     except Exception: return tweet_text
 
 def refine_single_tweet_style(raw_text: str, model: str) -> str:
     prompt = f'You are a style editor. Your task is to rewrite the dense text below to match a specific style (airy, personal, witty) defined by a contract. The core insight MUST remain. RULES: 1. Break into 2-4 short paragraphs. 2. Use a personal voice. 3. Add subtle wit. RAW TEXT: --- {raw_text} ---'
     system_message = "You are a world-class ghostwriter rewriting text into a specific style defined by a contract."
     try:
-        response = client.chat.completions.create(model=model, messages=[{"role": "system", "content": system_message}, {"role": "user", "content": prompt}], temperature=0.6)
-        return response.choices[0].message.content.strip()
+        text = llm.chat_text(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.6,
+        )
+        return text
     except Exception: return raw_text
 
 # --- FUNCIÓN DE PARSEO MODIFICADA ---
@@ -88,8 +101,11 @@ def generate_tweet_from_topic(topic_abstract: str):
             """
             
             logger.info(f"Llamando al modelo de generación: {GENERATION_MODEL}.")
-            response = client.chat.completions.create(model=GENERATION_MODEL, messages=[{"role": "user", "content": prompt}], temperature=0.75)
-            raw_draft = response.choices[0].message.content.strip()
+            raw_draft = llm.chat_text(
+                model=GENERATION_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.75,
+            )
 
             draft_a, draft_b = parse_final_drafts(raw_draft)
 

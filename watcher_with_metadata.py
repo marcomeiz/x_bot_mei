@@ -67,13 +67,13 @@ def chunk_text(text, chunk_size=3500, overlap=200):
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(3))
 def validate_topic(topic_abstract: str) -> bool:
-    prompt = f'Is this topic "{topic_abstract}" relevant for a COO persona? Respond ONLY with JSON: {{"is_relevant": boolean}}'
+    prompt = f'Is this topic "{topic_abstract}" relevant for a COO persona? Respond ONLY with JSON and include a boolean field named is_relevant.'
     try:
         data = llm.chat_json(
             model=VALIDATION_MODEL,
             messages=[
                 {"role": "system", "content": "You are a strict JSON editor."},
-                {"role": "user", "content": prompt},
+                {"role": "user", "content": prompt}
             ],
             temperature=0.0,
         )
@@ -84,21 +84,25 @@ def validate_topic(topic_abstract: str) -> bool:
 async def extract_and_validate_topics(text, pdf_name):
     chunks = chunk_text(text)
     all_validated_topics = []
-    
+
     total_extracted = 0
     total_approved = 0
-    
+
     topics_to_embed = []
+    seen_topic_ids = set()
 
     for i, chunk in enumerate(chunks):
-        print(f"[procesando] Chunk {i+1}/{len(chunks)} ({round(((i+1)/len(chunks))*100,1)}%)")
-        prompt_extract = f'Extract 8-12 tweet-worthy topics from this text chunk: "{chunk}". Respond ONLY with a JSON array of objects like [{{"abstract": "..."}}].'
+        print(f"[procesando] Chunk {i+1}/{len(chunks)} ({round(((i+1)/len(chunks))*100, 1)}%)")
+        prompt_extract = (
+            f'Extract 8-12 tweet-worthy topics from this text chunk: "{chunk}". '
+            'Respond ONLY with a JSON array of objects like [{"abstract": "..."}].'
+        )
         try:
             extracted_topics = llm.chat_json(
                 model=GENERATION_MODEL,
                 messages=[
                     {"role": "system", "content": "You are a concise JSON assistant."},
-                    {"role": "user", "content": prompt_extract},
+                    {"role": "user", "content": prompt_extract}
                 ],
                 temperature=0.7,
             )
@@ -109,62 +113,112 @@ async def extract_and_validate_topics(text, pdf_name):
             continue
 
         total_extracted += len(extracted_topics)
-        
+
         for topic in extracted_topics:
             abstract = topic.get("abstract", "")
-            if not abstract: continue
-            
+            if not abstract:
+                continue
+
             print(f"  [validando] '{abstract[:60]}...'")
             if validate_topic(abstract):
-                topic_id = hashlib.md5(abstract.encode()).hexdigest()[:10]
+                topic_id = hashlib.md5(f"{pdf_name}:{abstract}".encode()).hexdigest()[:10]
+                if topic_id in seen_topic_ids:
+                    print("    -> ⚠️ Duplicado dentro del mismo PDF. Se omite.")
+                    continue
+                seen_topic_ids.add(topic_id)
                 topic["topic_id"] = topic_id
+                topic["source_pdf"] = pdf_name
                 all_validated_topics.append(topic)
                 total_approved += 1
-                
-                topics_to_embed.append({
-                    "id": topic_id,
-                    "document": abstract
-                })
-                
-                print(f"    -> ✅ Aprobado")
+
+                topics_to_embed.append(
+                    {
+                        "id": topic_id,
+                        "document": abstract,
+                        "metadata": {"pdf": pdf_name},
+                    }
+                )
+
+                print("    -> ✅ Aprobado")
             else:
-                print(f"    -> ❌ Rechazado")
-    
+                print("    -> ❌ Rechazado")
+
     if topics_to_embed:
         print(f"\n[procesando embeddings] Generando {len(topics_to_embed)} embeddings para los temas aprobados...")
-        
+
         documents = [item["document"] for item in topics_to_embed]
         ids = [item["id"] for item in topics_to_embed]
-        
+        metadatas = [item["metadata"] for item in topics_to_embed]
+
         embeddings = [get_embedding(doc) for doc in documents]
-        
-        valid_embeddings = [emb for emb in embeddings if emb is not None]
-        
-        if valid_embeddings:
-            # --- MODIFICACIÓN 2: LLAMAR A LA FUNCIÓN ---
-            # Ahora llamamos a la función para obtener el objeto de la colección
+
+        valid_entries = [
+            (embedding, doc, topic_id, metadata)
+            for embedding, doc, topic_id, metadata in zip(embeddings, documents, ids, metadatas)
+            if embedding is not None
+        ]
+
+        if valid_entries:
             topics_collection = get_topics_collection()
-            topics_collection.add(
-                embeddings=valid_embeddings,
-                documents=documents,
-                ids=ids
-            )
-            print(f"✅ {len(valid_embeddings)} temas han sido añadidos a la base de datos vectorial 'topics_collection'.")
+
+            batch_unique_entries = []
+            batch_seen_ids = set()
+            for entry in valid_entries:
+                if entry[2] in batch_seen_ids:
+                    print("⚠️ ID duplicado detectado dentro del lote actual. Se omite.")
+                    continue
+                batch_seen_ids.add(entry[2])
+                batch_unique_entries.append(entry)
+
+            existing_ids = set()
+            try:
+                existing_response = topics_collection.get(ids=[entry[2] for entry in batch_unique_entries], include=[])
+                raw_ids = existing_response.get("ids")
+                if raw_ids:
+                    if isinstance(raw_ids[0], list):
+                        existing_ids = {id_ for sublist in raw_ids for id_ in sublist}
+                    else:
+                        existing_ids = set(raw_ids)
+            except Exception as e:
+                print(f"⚠️ No se pudo verificar duplicados en la base de datos: {e}")
+
+            entries_to_add = [entry for entry in batch_unique_entries if entry[2] not in existing_ids]
+
+            if not entries_to_add:
+                print("⚠️ No hay temas nuevos para añadir tras filtrar duplicados.")
+            else:
+                topics_collection.add(
+                    embeddings=[entry[0] for entry in entries_to_add],
+                    documents=[entry[1] for entry in entries_to_add],
+                    ids=[entry[2] for entry in entries_to_add],
+                    metadatas=[entry[3] for entry in entries_to_add],
+                )
+                skipped_existing = len(batch_unique_entries) - len(entries_to_add)
+                if skipped_existing:
+                    print(f"⚠️ Se omiten {skipped_existing} temas ya existentes en la base de datos.")
+                print(f"✅ {len(entries_to_add)} temas han sido añadidos a la base de datos vectorial 'topics_collection'.")
         else:
             print("⚠️ No se pudieron generar embeddings válidos para los temas.")
 
     out_path = os.path.join(JSON_DIR, f"{pdf_name}.json")
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump({"pdf_name": pdf_name, "extracted_topics": all_validated_topics}, f, indent=2, ensure_ascii=False)
-    
-    summary = f"Temas extraídos: {total_extracted}, Aprobados: {total_approved} ({round((total_approved/total_extracted)*100, 1) if total_extracted > 0 else 0}%)"
+
+    summary = (
+        f"Temas extraídos: {total_extracted}, Aprobados: {total_approved} "
+        f"({round((total_approved / total_extracted) * 100, 1) if total_extracted > 0 else 0}%)"
+    )
     print("-" * 50)
     print(f"[ok] Proceso completado para '{pdf_name}'")
     print(f"  -> {summary}")
     print(f"  -> Archivo guardado: {out_path}")
 
     if total_approved > 0:
-        await notifier.send(title=f"✅ Proceso Completado: {pdf_name}", message=f"Se han añadido {total_approved} nuevos temas a la base de datos.")
+        await notifier.send(
+            title=f"✅ Proceso Completado: {pdf_name}",
+            message=f"Se han añadido {total_approved} nuevos temas a la base de datos.",
+        )
+
 
 class PDFHandler(FileSystemEventHandler):
     def on_created(self, event):
@@ -175,11 +229,11 @@ class PDFHandler(FileSystemEventHandler):
             path = event.src_path
             if not path.lower().endswith(".pdf"):
                 return
-            
+
             print(f"\n[nuevo PDF detectado] {os.path.basename(path)}")
             basename = os.path.splitext(os.path.basename(path))[0]
             out_txt = os.path.join(TEXT_DIR, f"{basename}.txt")
-            
+
             # Esperar a que el archivo se copie completamente
             size1 = -1
             size2 = os.path.getsize(path)
@@ -196,6 +250,7 @@ class PDFHandler(FileSystemEventHandler):
                 print(f"[error] Fallo en el proceso principal para {path}: {e}")
 
         asyncio.run(_handle_async_creation())
+
 
 if __name__ == "__main__":
     print(f"Vigilando la carpeta: {UPLOAD_DIR} para nuevos PDFs...")

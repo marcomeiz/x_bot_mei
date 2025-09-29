@@ -142,10 +142,14 @@ def handle_callback_query(update):
     callback_data = query.get("data", "")
     logger.info(f"[CHAT_ID: {chat_id}] Callback recibido: '{callback_data}'")
 
-    action, _, topic_id = callback_data.partition('_')
-    option = "N/A"
-    if '_' in action:
-        action, option = action.split('_')
+    # Estructuras esperadas:
+    #  - approve_A_<topic_id>
+    #  - approve_B_<topic_id>
+    #  - reject_<topic_id>
+    parts = callback_data.split('_', 2)
+    action = parts[0] if parts else ""
+    option = parts[1] if len(parts) >= 2 and action == "approve" else ""
+    topic_id = parts[2] if len(parts) == 3 else (parts[1] if len(parts) == 2 else "")
 
     original_message_text = query["message"].get("text", "")
 
@@ -154,7 +158,10 @@ def handle_callback_query(update):
         logger.info(f"[CHAT_ID: {chat_id}] Aprobada Opción {option} para topic ID: {topic_id}.")
         edit_telegram_message(chat_id, message_id, original_message_text + f"\n\n✅ **¡Aprobada Opción {option}!**")
         try:
-            with open(temp_file_path, "r") as f: tweets = json.load(f)
+            if not os.path.exists(temp_file_path):
+                raise FileNotFoundError(f"Temp file missing: {temp_file_path}")
+            with open(temp_file_path, "r") as f:
+                tweets = json.load(f)
 
             chosen_tweet = tweets.get(f"draft_{option.lower()}", "")
             if not chosen_tweet: raise ValueError("Opción elegida no encontrada")
@@ -178,6 +185,7 @@ def handle_callback_query(update):
 
         except Exception as e:
             logger.error(f"[CHAT_ID: {chat_id}] Error crítico en el proceso de aprobación: {e}", exc_info=True)
+            send_telegram_message(chat_id, "⚠️ No pude recuperar el borrador aprobado (quizá expiró). Genera uno nuevo con el botón.", reply_markup=get_new_tweet_keyboard())
 
     elif action == "reject":
         logger.info(f"[CHAT_ID: {chat_id}] Ambas opciones rechazadas para topic ID: {topic_id}.")

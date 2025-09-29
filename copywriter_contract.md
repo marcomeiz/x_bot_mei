@@ -28,6 +28,16 @@ Estos son los pilares innegociables. Cada tuit debe sentirse como una reflexión
 * **Inspiración 4: La Observación Meta.** Comentar sobre la propia plataforma o el medio.
 * **Inspiración 5: La Aventura Narrativa.** Convertir la búsqueda de una solución en una historia personal.
 * **Inspiración 6: La Comparación de Escala.** Hacer tangible una métrica comparándola con algo del mundo real.
+* **Inspiración 7: La Autopsia del Error.** Analizar un fracaso (propio o ajeno) de forma fría y técnica, no para buscar una lección moralista, sino para extraer un protocolo o sistema que evite que vuelva a ocurrir. Cero drama, puro análisis funcional.
+* **Inspiración 8: El Puente Inesperado.** Conectar dos campos que aparentemente no tienen nada que ver. ¿Qué puede aprender un programador de un chef de sushi? ¿Qué paralelismos hay entre la gestión de una comunidad online y la jardinería? La magia está en la analogía sorprendente pero lógica.
+* **Inspiración 9: La Filosofía de la Herramienta.** En lugar de explicar *cómo* usar una herramienta o software, explicar la *filosofía* que hay detrás de *por qué* la usas. Revela tu forma de pensar y tus criterios, que es mucho más valioso que un simple tutorial.
+* **Inspiración 10: La Predicción Arriesgada.** Lanzar una predicción específica, con argumentos sólidos y un plazo de tiempo definido sobre tu nicho. No una tendencia obvia ("la IA es el futuro"), sino algo que te posicione y genere debate. Asumir el riesgo de equivocarse es clave.
+* **Inspiración 11: El Dogma Roto.** Elegir una "verdad universal" o un consejo que todo el mundo repite en tu sector y argumentar por qué está obsoleto o es directamente perjudicial. No es solo desmentir, es ejecutar públicamente una mala idea.
+* **Inspiración 12: El Trabajo Invisible.** Documentar y dar valor a una parte del proceso que es fundamental pero que nadie ve y, por tanto, nadie valora. La preparación, la limpieza, el mantenimiento, la documentación... Glorificar lo ingrato.
+* **Inspiración 13: La Deconstrucción Brutal.** Tomar un concepto complejo y sobrecargado de jerga en tu industria y desmontarlo hasta sus ladrillos más básicos, explicándolo con un lenguaje insultantemente simple. El objetivo es que un niño de 10 años pudiera entenderlo.
+* **Inspiración 14: La Paradoja Rentable.** Exponer una verdad contraintuitiva de tu campo que, aunque parezca ilógica al principio, es la estrategia más efectiva. Ej: "Para conseguir más clientes, rechaza a más clientes" o "La forma más rápida de avanzar es pararse a pensar".
+* **Inspiración 15: La Pregunta Imposible.** Plantear una pregunta abierta sobre tu nicho que no tiene una respuesta fácil, y en lugar de intentar responderla, explorar las posibles vías para empezar a buscar una solución. Fomenta el pensamiento crítico en la audiencia.
+* **Inspiración 16: El Detalle Obsesivo.** Aislar un detalle minúsculo de tu trabajo o de un producto que amas, y dedicar todo el contenido a explicar por qué ese detalle es un ejemplo de genialidad, buen diseño o maestría. Una celebración de la profundidad por encima de la superficialidad.
 
 ---
 

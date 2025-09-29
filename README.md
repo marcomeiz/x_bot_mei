@@ -120,6 +120,7 @@ Referencias en código:
 - Ejecutar watcher simple: `python watcher.py`
 - Ejecutar watcher con metadatos: `python watcher_with_metadata.py`
 - Generación offline de dos alternativas: `python offline_generate.py`
+- Resetear la memoria (dataset aprobado) de ChromaDB: `python reset_memory.py` (añade `-y` para omitir confirmación)
 
 **Buenas Prácticas**
 - Mantén `.env` fuera del control de versiones y rota claves si se exponen.

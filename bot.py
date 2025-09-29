@@ -85,6 +85,10 @@ def propose_tweet(chat_id, topic):
     with open(temp_file_path, "w") as f:
         json.dump({"draft_a": draft_a, "draft_b": draft_b}, f)
 
+    # Contadores de caracteres para visibilidad
+    len_a = len(draft_a)
+    len_b = len(draft_b)
+
     keyboard = {"inline_keyboard": [
         [
             {"text": "👍 Aprobar A", "callback_data": f"approve_A_{topic_id}"},
@@ -93,10 +97,17 @@ def propose_tweet(chat_id, topic):
         [{"text": "👎 Rechazar Ambos", "callback_data": f"reject_{topic_id}"}]
     ]}
 
+    header_lines = [f"**Borradores Propuestos (ID: {topic_id})**"]
+    if topic_abstract:
+        header_lines.append(f"Tema: {topic_abstract}")
+    if source_pdf:
+        header_lines.append(f"Origen: {source_pdf}")
+    header = "\n".join(header_lines)
+
     message_text = (
-        f"**Borradores Propuestos (ID: {topic_id}):**\n\n"
-        f"--- **Opción A** ---\n{draft_a}\n\n"
-        f"--- **Opción B** ---\n{draft_b}"
+        f"{header}\n\n"
+        f"--- **Opción A** ({len_a}/280) ---\n{draft_a}\n\n"
+        f"--- **Opción B** ({len_b}/280) ---\n{draft_b}"
     )
     logger.info(f"[CHAT_ID: {chat_id}] Enviando propuestas (A/B) al usuario para el topic ID: {topic_id}.")
     send_telegram_message(chat_id, message_text, reply_markup=keyboard)

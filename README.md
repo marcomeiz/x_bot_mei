@@ -1,3 +1,9 @@
+**Guía Rápida (4 pasos)**
+- 1) Instalar: `python -m venv venv && source venv/bin/activate && pip install -r requirements.txt`.
+- 2) Configurar `.env`: define `GOOGLE_API_KEY`, opcional `OPENROUTER_API_KEY`, y deja `FALLBACK_PROVIDER_ORDER=gemini,openrouter`, `GEMINI_MODEL=gemini-2.5-pro`.
+- 3) Iniciar watcher: `python watcher.py` y copia un PDF a `uploads/`. Se extraen, validan y guardan temas en `db/` + `json/`.
+- 4) Generar tweets: `python -i core_generator.py` y ejecuta `generate_tweet_from_topic("<abstract>")`.
+
 **Resumen**
 - Genera ideas de tweets a partir de PDFs, valida su relevancia para un perfil COO y almacena los temas en una base vectorial (ChromaDB).
 - A partir de un tema, crea dos alternativas de tweet refinadas y bajo 280 caracteres.
@@ -106,3 +112,10 @@ Referencias en código:
 - Ejecutar watcher con metadatos: `python watcher_with_metadata.py`
 - Generación offline de dos alternativas: `python offline_generate.py`
 
+**Buenas Prácticas**
+- Mantén `.env` fuera del control de versiones y rota claves si se exponen.
+- Usa `watcher_with_metadata.py` para enriquecer con metadatos y evitar duplicados al ingerir varios PDFs.
+- Ajusta `SIMILARITY_THRESHOLD` en `core_generator.py` si detectas demasiados/escasos “duplicados”.
+- Si OpenRouter no tiene créditos, prioriza temporalmente Gemini (`FALLBACK_PROVIDER_ORDER=gemini,openrouter`).
+- Para JSON estrictos, mantén indicaciones “Respond ONLY with strict JSON” en prompts y revisa logs si falla el parseo.
+- Actualiza `google-generativeai` periódicamente para acceder a modelos más nuevos (`gemini-2.5-*`).

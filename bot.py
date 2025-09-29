@@ -74,11 +74,11 @@ def propose_tweet(chat_id, topic):
     draft_a, draft_b = generate_tweet_from_topic(topic_abstract)
 
     if "Error: El tema es demasiado similar" in draft_a:
-        return False  # Devuelve False para que do_the_work sepa que debe reintentar
+        return False  # Reintentar con otro tema
     if "Error:" in draft_a:
         logger.error(f"[CHAT_ID: {chat_id}] Error recibido de 'generate_tweet_from_topic': {draft_a}")
         send_telegram_message(chat_id, f"Hubo un problema: {draft_a}", reply_markup=get_new_tweet_keyboard())
-        return True
+        return False  # Indicar al bucle que intente con otro tema
 
     temp_file_path = os.path.join(TEMP_DIR, f"{chat_id}_{topic_id}.tmp")
     logger.info(f"[CHAT_ID: {chat_id}] Guardando borradores en archivo temporal: {temp_file_path}")

@@ -1,5 +1,6 @@
 import os
 import google.generativeai as genai
+import threading
 import chromadb
 from dotenv import load_dotenv
 
@@ -19,14 +20,26 @@ except Exception as e:
 
 # Patrón para asegurar una única instancia del cliente por proceso
 _chroma_client = None
+_chroma_lock = threading.Lock()
 
 def get_chroma_client():
     """Devuelve una instancia única del cliente de ChromaDB, creándola si no existe."""
     global _chroma_client
     if _chroma_client is None:
-        # --- NUEVO: Registrar la inicialización del cliente ---
-        logger.info("Inicializando nuevo cliente persistente de ChromaDB (path='db')...")
-        _chroma_client = chromadb.PersistentClient(path="db")
+        with _chroma_lock:
+            if _chroma_client is None:
+                try:
+                    logger.info("Inicializando nuevo cliente persistente de ChromaDB (path='db')...")
+                    _chroma_client = chromadb.PersistentClient(path="db")
+                except Exception as e:
+                    logger.error(f"Error inicializando ChromaDB persistente: {e}", exc_info=True)
+                    # Reintento único tras asegurar el directorio
+                    try:
+                        os.makedirs("db", exist_ok=True)
+                        _chroma_client = chromadb.PersistentClient(path="db")
+                    except Exception as e2:
+                        logger.critical(f"Fallo crítico creando cliente ChromaDB: {e2}", exc_info=True)
+                        raise
     return _chroma_client
 
 def get_topics_collection():

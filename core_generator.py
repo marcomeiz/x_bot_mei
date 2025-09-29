@@ -34,6 +34,14 @@ def refine_and_shorten_tweet(tweet_text: str, model: str) -> str:
         return text
     except Exception: return tweet_text
 
+def _force_trim(s: str, limit: int = 280) -> str:
+    if len(s) <= limit:
+        return s
+    cut = s[: limit - 1]
+    if " " in cut:
+        cut = cut[: cut.rfind(" ")]
+    return cut + "…"
+
 def refine_single_tweet_style(raw_text: str, model: str) -> str:
     prompt = f'You are a style editor. Your task is to rewrite the dense text below to match a specific style (airy, personal, witty) defined by a contract. The core insight MUST remain. RULES: 1. Break into 2-4 short paragraphs. 2. Use a personal voice. 3. Add subtle wit. RAW TEXT: --- {raw_text} ---'
     system_message = "You are a world-class ghostwriter rewriting text into a specific style defined by a contract."
@@ -118,12 +126,17 @@ def generate_tweet_from_topic(topic_abstract: str):
             draft_a = refine_single_tweet_style(draft_a, VALIDATION_MODEL)
             draft_b = refine_single_tweet_style(draft_b, VALIDATION_MODEL)
 
-            if len(draft_a) > 280: draft_a = refine_and_shorten_tweet(draft_a, VALIDATION_MODEL)
-            if len(draft_b) > 280: draft_b = refine_and_shorten_tweet(draft_b, VALIDATION_MODEL)
-
-            if len(draft_a) > 280 or len(draft_b) > 280:
-                logger.warning(f"Intento {attempt + 1}: Alguna alternativa seguía siendo demasiado larga. Reintentando...")
-                continue
+            # Acortar si excede el límite usando LLM y, si persiste, recorte forzado
+            if len(draft_a) > 280:
+                draft_a = refine_and_shorten_tweet(draft_a, VALIDATION_MODEL)
+                if len(draft_a) > 280:
+                    logger.warning(f"Intento {attempt + 1}: A seguía >280 tras LLM. Aplicando recorte forzado.")
+                    draft_a = _force_trim(draft_a)
+            if len(draft_b) > 280:
+                draft_b = refine_and_shorten_tweet(draft_b, VALIDATION_MODEL)
+                if len(draft_b) > 280:
+                    logger.warning(f"Intento {attempt + 1}: B seguía >280 tras LLM. Aplicando recorte forzado.")
+                    draft_b = _force_trim(draft_b)
 
             logger.info(f"Intento {attempt + 1}: Borradores generados y validados con éxito.")
             return draft_a, draft_b

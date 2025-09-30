@@ -292,10 +292,66 @@ def handle_callback_query(update):
 @app.route(f"/{TELEGRAM_BOT_TOKEN}", methods=["POST"])
 def telegram_webhook():
     update = request.get_json()
-    if "message" in update and update["message"].get("text") == "/generate":
+    if "message" in update:
+        text = (update["message"].get("text") or "").strip()
         chat_id = update["message"]["chat"]["id"]
-        logger.info(f"[CHAT_ID: {chat_id}] Comando '/generate' recibido.")
-        threading.Thread(target=do_the_work, args=(chat_id,)).start()
+        if text == "/generate":
+            logger.info(f"[CHAT_ID: {chat_id}] Comando '/generate' recibido.")
+            threading.Thread(target=do_the_work, args=(chat_id,)).start()
+        elif text.startswith("/pdfs"):
+            logger.info(f"[CHAT_ID: {chat_id}] Comando '/pdfs' recibido.")
+            try:
+                coll = get_topics_collection()
+                raw = coll.get(include=[])
+                raw_ids = raw.get("ids") if isinstance(raw, dict) else None
+                if not raw_ids:
+                    send_telegram_message(chat_id, "*PDFs ingeridos*\nDistinct: 0\nTotal topics: 0")
+                else:
+                    if isinstance(raw_ids, list) and raw_ids and isinstance(raw_ids[0], list):
+                        ids = [x for sub in raw_ids for x in sub]
+                    else:
+                        ids = raw_ids
+
+                    pdf_counts = {}
+                    batch = 500
+                    for i in range(0, len(ids), batch):
+                        batch_ids = ids[i:i + batch]
+                        data = coll.get(ids=batch_ids, include=["metadatas"])  # type: ignore
+                        mds = data.get("metadatas") if isinstance(data, dict) else None
+                        if not mds:
+                            continue
+                        items = [m for sub in mds for m in sub] if (isinstance(mds, list) and mds and isinstance(mds[0], list)) else mds
+                        for md in items:
+                            pdf_name = None
+                            if isinstance(md, dict):
+                                pdf_name = md.get("pdf") or md.get("source_pdf")
+                            key = pdf_name if pdf_name else "(sin origen)"
+                            pdf_counts[key] = pdf_counts.get(key, 0) + 1
+
+                    try:
+                        total_topics = coll.count()
+                    except Exception:
+                        total_topics = 0
+                    distinct = len([k for k in pdf_counts.keys() if k != "(sin origen)"]) if pdf_counts else 0
+
+                    # Construir mensaje (MDV2), escapando solo contenido dinámico
+                    lines = ["*PDFs ingeridos*", f"Distinct: {distinct}", f"Total topics: {total_topics}"]
+                    if pdf_counts:
+                        lines.append("")
+                        top = sorted(pdf_counts.items(), key=lambda kv: kv[1], reverse=True)
+                        extra = 0
+                        if len(top) > 20:
+                            extra = len(top) - 20
+                            top = top[:20]
+                        for name, cnt in top:
+                            safe = escape_markdown_v2(name)
+                            lines.append(f"- {safe} · {cnt}")
+                        if extra:
+                            lines.append(escape_markdown_v2(f"… y {extra} más"))
+                    send_telegram_message(chat_id, "\n".join(lines))
+            except Exception as e:
+                logger.error(f"[CHAT_ID: {chat_id}] Error en /pdfs: {e}", exc_info=True)
+                send_telegram_message(chat_id, escape_markdown_v2("❌ No pude consultar la base de datos."))
     elif "callback_query" in update:
         handle_callback_query(update)
     return "ok", 200

@@ -38,8 +38,11 @@
  - Estilo (opcional):
    - `ENFORCE_STYLE_AUDIT` (`1` por defecto): activa la auditoría de estilo y revisión condicional.
    - `STYLE_REVISION_ROUNDS` (`1` por defecto): máximo de rondas de revisión automática por borrador.
- - Watchers (estilo):
-   - `WATCHER_ENFORCE_STYLE_AUDIT` (`1` por defecto): usa la auditoría de estilo para filtrar abstracts genéricos en la ingesta.
+- Watchers (estilo):
+  - `WATCHER_ENFORCE_STYLE_AUDIT` (`1` por defecto): activa auditoría de estilo al ingerir. Pon `0` para no filtrar por estilo.
+  - `WATCHER_JARGON_THRESHOLD` (`4` por defecto) y `WATCHER_CLICHE_THRESHOLD` (`4` por defecto): umbrales para rechazar solo si la voz es `boardroom` y alguno supera el umbral.
+ - Validación de temas:
+   - `WATCHER_LENIENT_VALIDATION` (`1` por defecto): aprueba salvo que el tema sea claramente ajeno al ámbito COO (operaciones, liderazgo, personas, procesos, sistemas, ejecución, productividad, org design, finanzas ops, product ops, portfolio/roadmap, growth). Pon `0` para validación estricta.
  - Persistencia (ruta ChromaDB):
    - `CHROMA_DB_PATH` (por defecto `db`): ruta de almacenamiento de ChromaDB. En despliegues con Cloud Run, monta un bucket GCS y usa `/mnt/db` como ruta.
 

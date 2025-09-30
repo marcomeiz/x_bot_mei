@@ -28,7 +28,14 @@ os.makedirs(JSON_DIR, exist_ok=True)
 
 # API Client
 load_dotenv()
-WATCHER_ENFORCE_STYLE_AUDIT = os.getenv("WATCHER_ENFORCE_STYLE_AUDIT", "1").lower() in ("1", "true", "yes", "y")
+# Por defecto priorizamos captar temas (tono se ajusta más tarde en generación),
+# por eso la auditoría de estilo queda desactivada salvo que se active explícitamente.
+WATCHER_ENFORCE_STYLE_AUDIT = os.getenv("WATCHER_ENFORCE_STYLE_AUDIT", "0").lower() in ("1", "true", "yes", "y")
+# Validación indulgente: aprobar salvo que sea claramente ajeno al ámbito del COO
+WATCHER_LENIENT_VALIDATION = os.getenv("WATCHER_LENIENT_VALIDATION", "1").lower() in ("1", "true", "yes", "y")
+# Relajar umbrales de estilo por configuración (valores más permisivos por defecto)
+JARGON_THRESHOLD = int(os.getenv("WATCHER_JARGON_THRESHOLD", "4"))
+CLICHE_THRESHOLD = int(os.getenv("WATCHER_CLICHE_THRESHOLD", "4"))
 
 # Modelos
 GENERATION_MODEL = "anthropic/claude-3.5-sonnet"
@@ -69,12 +76,20 @@ def chunk_text(text, chunk_size=3500, overlap=200):
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(3))
 def validate_topic(topic_abstract: str) -> bool:
-    prompt = f'Is this topic "{topic_abstract}" relevant for a COO persona? Respond ONLY with JSON and include a boolean field named is_relevant.'
+    if WATCHER_LENIENT_VALIDATION:
+        prompt = (
+            "Decide if this topic would be of practical interest to a COO. "
+            "Approve unless it is clearly unrelated to operations, leadership, people, systems, processes, execution, org design, productivity, finance ops, product ops, portfolio/roadmap, or growth. "
+            "If unsure, approve. Respond ONLY with JSON: {\"is_relevant\": true|false}.\n\n"
+            f"Topic: \"{topic_abstract}\""
+        )
+    else:
+        prompt = f'Is this topic "{topic_abstract}" relevant for a COO persona? Respond ONLY with JSON and include a boolean field named is_relevant.'
     try:
         data = llm.chat_json(
             model=VALIDATION_MODEL,
             messages=[
-                {"role": "system", "content": "You are a strict JSON editor."},
+                {"role": "system", "content": "You are a strict JSON editor. JSON only."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.0,
@@ -127,12 +142,26 @@ async def extract_and_validate_topics(text, pdf_name):
                 if WATCHER_ENFORCE_STYLE_AUDIT:
                     try:
                         audit = audit_style(abstract, CONTRACT_TEXT) or {}
-                        too_board = bool(audit.get("needs_revision", False)) and (
-                            audit.get("voice") == "boardroom" or int(audit.get("corporate_jargon_score", 0)) >= 3 or int(audit.get("cliche_score", 0)) >= 3
+                        corp = int(audit.get("corporate_jargon_score", 0) or 0)
+                        clich = int(audit.get("cliche_score", 0) or 0)
+                        voice = str(audit.get("voice", "") or "")
+                        needs_rev = bool(audit.get("needs_revision", False))
+
+                        # Nueva lógica (relajada): solo omitir si la voz es claramente "boardroom"
+                        # y al menos uno de los puntajes supera los umbrales configurables.
+                        too_board = needs_rev and (voice == "boardroom") and (
+                            corp >= JARGON_THRESHOLD or clich >= CLICHE_THRESHOLD
                         )
                         if too_board:
-                            print("    -> ⚠️ Estilo genérico/boardroom. Se omite.")
+                            print(
+                                f"    -> ⚠️ Estilo genérico/boardroom (voice={voice}, jargon={corp}, cliche={clich}). Se omite."
+                            )
                             continue
+                        # Si marca revisión pero no supera umbral, aceptamos y avisamos.
+                        if needs_rev:
+                            print(
+                                f"    -> ℹ️ Marcado como 'needs_revision' (voice={voice}, jargon={corp}, cliche={clich}) pero aceptado."
+                            )
                     except Exception:
                         pass
                 topic_id = hashlib.md5(f"{pdf_name}:{abstract}".encode()).hexdigest()[:10]

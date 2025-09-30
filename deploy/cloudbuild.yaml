@@ -22,7 +22,13 @@ steps:
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     id: commit-meta
     entrypoint: bash
-    args: ["-ceu", "bash ./deploy/scripts/commit_meta.sh"]
+    secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
+    args:
+      - -ceu
+      - |
+        set -euo pipefail
+        trap 'code=$?; echo "commit-meta failed ($code)"; bash ./deploy/scripts/notify_failure.sh "${_SERVICE}" "${_REGION}" "commit-meta"; exit $code' ERR
+        bash ./deploy/scripts/commit_meta.sh
 
   # Notify start to Telegram (lean + clean)
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
@@ -33,17 +39,29 @@ steps:
 
   # Build image
   - name: gcr.io/cloud-builders/docker
+    id: docker-build
+    entrypoint: bash
+    secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
     args:
-      ["build",
-       "-t",
-       "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA",
-       "."]
+      - -ceu
+      - |
+        set -euo pipefail
+        IMG="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA"
+        trap 'code=$?; echo "docker build failed ($code)"; bash ./deploy/scripts/notify_failure.sh "${_SERVICE}" "${_REGION}" "docker-build"; exit $code' ERR
+        docker build -t "$IMG" .
 
   # Push image
   - name: gcr.io/cloud-builders/docker
+    id: docker-push
+    entrypoint: bash
+    secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
     args:
-      ["push",
-       "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA"]
+      - -ceu
+      - |
+        set -euo pipefail
+        IMG="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA"
+        trap 'code=$?; echo "docker push failed ($code)"; bash ./deploy/scripts/notify_failure.sh "${_SERVICE}" "${_REGION}" "docker-push"; exit $code' ERR
+        docker push "$IMG"
 
   # Deploy to Cloud Run (idempotent). Requiere que los secretos existan.
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
@@ -53,6 +71,7 @@ steps:
       - -ceu
       - |
         set -euo pipefail
+        trap 'code=$?; echo "deploy failed ($code)"; bash ./deploy/scripts/notify_failure.sh "${_SERVICE}" "${_REGION}" "gcloud-run-deploy"; exit $code' ERR
         gcloud config set project "$PROJECT_ID"
         IMG="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA"
 

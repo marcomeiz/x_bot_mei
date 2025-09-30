@@ -41,6 +41,10 @@ CLICHE_THRESHOLD = int(os.getenv("WATCHER_CLICHE_THRESHOLD", "4"))
 # Remote sync (optional)
 REMOTE_INGEST_URL = os.getenv("REMOTE_INGEST_URL", "").strip()  # e.g., https://<service-url>/ingest_topics
 ADMIN_API_TOKEN = os.getenv("ADMIN_API_TOKEN", "").strip()
+# Ajustes de sincronización remota (chunking y tiempo de espera)
+REMOTE_INGEST_BATCH = int(os.getenv("REMOTE_INGEST_BATCH", "25") or 25)
+REMOTE_INGEST_TIMEOUT = int(os.getenv("REMOTE_INGEST_TIMEOUT", "120") or 120)
+REMOTE_INGEST_RETRIES = int(os.getenv("REMOTE_INGEST_RETRIES", "3") or 3)
 
 # Modelos
 GENERATION_MODEL = "anthropic/claude-3.5-sonnet"
@@ -246,13 +250,16 @@ async def extract_and_validate_topics(text, pdf_name):
                     print(f"⚠️ Se omiten {skipped_existing} temas ya existentes en la base de datos.")
                 print(f"✅ {len(entries_to_add)} temas han sido añadidos a la base de datos vectorial 'topics_collection'.")
 
-                # Remote sync (optional): push only the newly added entries to Cloud Run
+                # Remote sync (opcional) con chunking y reintentos: enviar solo los nuevos
                 if REMOTE_INGEST_URL and ADMIN_API_TOKEN and entries_to_add:
-                    try:
+                    total = len(entries_to_add)
+                    print(f"☁️  Sync remoto: enviando {total} temas en lotes de {REMOTE_INGEST_BATCH}…")
+                    for start in range(0, total, REMOTE_INGEST_BATCH):
+                        batch_entries = entries_to_add[start:start + REMOTE_INGEST_BATCH]
                         payload = {
                             "topics": [
                                 {"id": t_id, "abstract": doc, "pdf": (md or {}).get("pdf") if isinstance(md, dict) else None}
-                                for _, doc, t_id, md in entries_to_add
+                                for _, doc, t_id, md in batch_entries
                             ]
                         }
                         url = REMOTE_INGEST_URL
@@ -260,19 +267,35 @@ async def extract_and_validate_topics(text, pdf_name):
                             url = f"{url}&token={ADMIN_API_TOKEN}"
                         else:
                             url = f"{url}?token={ADMIN_API_TOKEN}"
-                        r = requests.post(url, json=payload, timeout=30)
-                        if r.status_code == 200:
+                        attempt = 0
+                        while True:
+                            attempt += 1
                             try:
-                                data = r.json()
-                            except Exception:
-                                data = {}
-                            added = data.get("added")
-                            skipped = data.get("skipped_existing")
-                            print(f"☁️  Sync remoto: added={added}, skipped={skipped}")
-                        else:
-                            print(f"⚠️ Falló sync remoto: HTTP {r.status_code} -> {r.text[:200]}")
-                    except Exception as e:
-                        print(f"⚠️ Error en sync remoto: {e}")
+                                r = requests.post(url, json=payload, timeout=REMOTE_INGEST_TIMEOUT)
+                                if r.status_code == 200:
+                                    try:
+                                        data = r.json()
+                                    except Exception:
+                                        data = {}
+                                    added = data.get("added")
+                                    skipped = data.get("skipped_existing")
+                                    print(
+                                        f"   · Lote {start//REMOTE_INGEST_BATCH + 1}: added={added}, skipped={skipped}"
+                                    )
+                                    break
+                                else:
+                                    print(
+                                        f"   · Lote {start//REMOTE_INGEST_BATCH + 1}: HTTP {r.status_code} -> {r.text[:200]}"
+                                    )
+                            except Exception as e:
+                                if attempt < REMOTE_INGEST_RETRIES:
+                                    print(
+                                        f"   · Lote {start//REMOTE_INGEST_BATCH + 1}: error '{e}'. Reintentando ({attempt}/{REMOTE_INGEST_RETRIES})…"
+                                    )
+                                    time.sleep(min(2 * attempt, 6))
+                                    continue
+                                print(f"   · Lote {start//REMOTE_INGEST_BATCH + 1}: fallo definitivo: {e}")
+                                break
         else:
             print("⚠️ No se pudieron generar embeddings válidos para los temas.")
 

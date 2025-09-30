@@ -22,34 +22,14 @@ steps:
   - name: gcr.io/cloud-builders/git
     id: commit-meta
     entrypoint: bash
-    args:
-      - -ceu
-      - |
-        git log -1 --pretty=%s > .cb_commit_subject || echo "" > .cb_commit_subject
-        git log -1 --pretty=%an > .cb_commit_author || echo "" > .cb_commit_author
-        (git rev-parse --abbrev-ref HEAD > .cb_branch 2>/dev/null || echo "${BRANCH_NAME:-main}" > .cb_branch)
+    args: ["-ceu", "./deploy/scripts/commit_meta.sh"]
 
   # Notify start to Telegram (lean + clean)
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     id: notify-start
     entrypoint: bash
     secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
-    args:
-      - -ceu
-      - |
-        set -euo pipefail
-        if [[ -z "${TELEGRAM_BOT_TOKEN:-}" || -z "${TELEGRAM_CHAT_ID:-}" ]]; then
-          echo "[notify-start] Skipping Telegram notification (missing secrets)"
-          exit 0
-        fi
-        SHORT="${SHORT_SHA:-${COMMIT_SHA:-${REVISION_ID:-unknown}}}"
-        SUBJECT="$(cat .cb_commit_subject 2>/dev/null || true)"; SUBJECT=${SUBJECT:-""}
-        AUTHOR="$(cat .cb_commit_author 2>/dev/null || true)"; AUTHOR=${AUTHOR:-""}
-        BRANCH="$(cat .cb_branch 2>/dev/null || true)"; BRANCH=${BRANCH:-"main"}
-        TEXT="🚀 Deploying ${_SERVICE} → ${_REGION}\nBranch: ${BRANCH}\nCommit: ${SHORT}\n${SUBJECT:+Subject: ${SUBJECT}\n}${AUTHOR:+Author: ${AUTHOR}}"
-        curl -fsS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-          -d chat_id="${TELEGRAM_CHAT_ID}" \
-          --data-urlencode text="${TEXT}"
+    args: ["-ceu", "./deploy/scripts/notify_start.sh", "${_SERVICE}", "${_REGION}"]
 
   # Build image
   - name: gcr.io/cloud-builders/docker
@@ -95,18 +75,7 @@ steps:
           --add-volume-mount=volume=dbvol,mount-path=/mnt/db
 
         # Notify success to Telegram (with service URL)
-        if [[ -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" ]]; then
-          RUN_URL=$(gcloud run services describe "${_SERVICE}" --region "${_REGION}" --format='value(status.url)')
-          SHORT="${SHORT_SHA:-${COMMIT_SHA:-${REVISION_ID:-unknown}}}"
-          SUBJECT="$(cat .cb_commit_subject 2>/dev/null || true)"; SUBJECT=${SUBJECT:-""}
-          TEXT="✅ Deployed ${_SERVICE} (${SHORT})\nURL: ${RUN_URL}"
-          if [[ -n "$SUBJECT" ]]; then TEXT+="\n${SUBJECT}"; fi
-          curl -fsS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-            -d chat_id="${TELEGRAM_CHAT_ID}" \
-            --data-urlencode text="${TEXT}" || true
-        else
-          echo "[notify-success] Skipping Telegram notification (missing secrets)"
-        fi
+        bash ./deploy/scripts/notify_success.sh "${_SERVICE}" "${_REGION}"
 
 images:
   - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA"

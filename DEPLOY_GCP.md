@@ -74,3 +74,9 @@ Notes
 - The pipeline doesn’t mutate IAM each run. Run the one‑time IAM grants above or keep the manual deploy script for first‑time setup.
 - OPENROUTER_API_KEY is injected only if the secret exists in the project.
 - If you prefer GitHub Actions, mirror these steps with Workload Identity Federation and the same gcloud commands.
+
+Current Trigger
+- Name: `activadorx`
+- Region: `europe-west1`
+- Manual run:
+  - `gcloud builds triggers run activadorx --project=xbot-473616 --region=europe-west1 --branch=main`

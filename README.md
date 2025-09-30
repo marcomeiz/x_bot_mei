@@ -142,3 +142,13 @@ Referencias en código:
 **Contribución**
 - Lee primero `AGENTS.md` para entender invariantes, flujo, políticas de LLM/Telegram/Chroma y el runbook operativo.
 - Usa commits pequeños (Conventional Commits) y propone antes de cambiar contratos (formato `[EN - A]/[EN - B]`, límite 280, etc.).
+
+**CI/CD (Cloud Build)**
+- Trigger: push a `main` despliega automáticamente a Cloud Run.
+- Config del pipeline: `deploy/cloudbuild.yaml` (usa volumen Cloud Storage, secretos de Secret Manager y env vars con coma escapada).
+- Trigger actual: nombre `activadorx`, región `europe-west1`.
+- Ejecutar build manual:
+  - `gcloud builds triggers run activadorx --project=xbot-473616 --region=europe-west1 --branch=main`
+- Ver estado del servicio y estadísticas:
+  - `gcloud run services describe x-bot-mei --region=europe-west1 --format='value(status.url)'`
+  - `curl "https://<service-url>/stats?token=<ADMIN_API_TOKEN>"`

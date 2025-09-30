@@ -15,6 +15,7 @@ Quick Start
 
 2) Export secrets (or let the script prompt):
    - export TELEGRAM_BOT_TOKEN="..."
+   - export TELEGRAM_CHAT_ID="..."     # chat or group id for build/deploy notifications
    - export GOOGLE_API_KEY="..."
    - export OPENROUTER_API_KEY="..."   # optional
    - export ADMIN_API_TOKEN="choose-a-strong-token"
@@ -29,6 +30,7 @@ What it does
 - Stores secrets in Secret Manager and injects them at runtime.
 - Sets Telegram webhook to https://<service-url>/<TELEGRAM_BOT_TOKEN>.
 - Prints /stats endpoint to verify counts.
+ - Sends Telegram notifications for deploy start/success (manual script and Cloud Build pipeline).
 
 Verify
 - curl "https://<service-url>/stats?token=$ADMIN_API_TOKEN"
@@ -59,7 +61,8 @@ Recommended: Cloud Build Trigger connected to your GitHub repo.
    - deploy/cloudbuild.yaml (already in repo) builds the image and deploys Cloud Run with:
      - GCS volume mount (type=cloud-storage) at /mnt/db
      - Env vars, including a comma value via gcloud escaping
-     - Secret references from Secret Manager
+     - Secret references from Secret Manager (including TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID for Telegram notifications)
+     - Notifications to Telegram at start and success with branch, short SHA and commit subject
 
 3) Create a Build Trigger (UI):
    - Cloud Build → Triggers → Create trigger
@@ -91,3 +94,6 @@ Troubleshooting (quick)
   - Use `--add-volume type=cloud-storage` and grant `roles/storage.objectAdmin` to the Cloud Run SA.
 - Forbidden on /stats:
   - Use the `ADMIN_API_TOKEN` value; rotate by uploading a new secret version.
+ - Telegram notifications missing:
+   - Ensure secrets TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID exist in Secret Manager and that the Cloud Build SA has `roles/secretmanager.secretAccessor`.
+   - Verify chat id is correct (use @userinfobot or a quick bot echo). Check Cloud Build logs for the notify steps `notify-start` and `Deploy to Cloud Run` tail.

@@ -28,6 +28,7 @@ TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
 GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
 OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
 ADMIN_API_TOKEN=${ADMIN_API_TOKEN:-}
+TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
 
 read_secret() {
   local var_name="$1"; shift
@@ -77,6 +78,7 @@ echo "Preparing secrets..."
 read_secret TELEGRAM_BOT_TOKEN
 read_secret GOOGLE_API_KEY
 read_secret ADMIN_API_TOKEN
+read_secret TELEGRAM_CHAT_ID
 
 ensure_secret() {
   local name="$1"; shift
@@ -94,6 +96,18 @@ if [[ -n "${OPENROUTER_API_KEY:-}" ]]; then
   ensure_secret OPENROUTER_API_KEY "$OPENROUTER_API_KEY"
 fi
 ensure_secret ADMIN_API_TOKEN "$ADMIN_API_TOKEN"
+ensure_secret TELEGRAM_CHAT_ID "$TELEGRAM_CHAT_ID"
+
+notify() {
+  local msg="$1"; shift || true
+  if [[ -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" ]]; then
+    curl -fsS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+      -d chat_id="${TELEGRAM_CHAT_ID}" \
+      --data-urlencode text="$msg" >/dev/null || true
+  else
+    echo "(notify) ${msg}"
+  fi
+}
 
 echo "Granting secret access to Cloud Run SA..."
 PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
@@ -105,6 +119,10 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
 echo "Building image via Cloud Build..."
 TAG=$(date +%Y%m%d-%H%M)
 IMG="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/$SERVICE:$TAG"
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
+SHORT=$(git rev-parse --short HEAD 2>/dev/null || echo "$TAG")
+SUBJECT=$(git log -1 --pretty=%s 2>/dev/null || echo "")
+notify "🚀 Deploying ${SERVICE} → ${REGION}\nBranch: ${BRANCH}\nCommit: ${SHORT}${SUBJECT:+\nSubject: ${SUBJECT}}"
 gcloud builds submit --tag "$IMG" .
 
 echo "Deploying to Cloud Run..."
@@ -149,5 +167,7 @@ echo "Webhook set to $RUN_URL/$TELEGRAM_BOT_TOKEN"
 echo "Stats:"
 curl -fsS "$RUN_URL/stats?token=$ADMIN_API_TOKEN" || true
 echo
+
+notify "✅ Deployed ${SERVICE} (${SHORT})\nURL: ${RUN_URL}${SUBJECT:+\n${SUBJECT}}"
 
 echo "Done. To back up code next time: bash deploy/deploy_cloud_run.sh backup"

@@ -14,6 +14,7 @@ from desktop_notifier import DesktopNotifier
 # --- MODIFICACIÓN 1: CORREGIR LA IMPORTACIÓN ---
 # Importamos la FUNCIÓN que nos da la colección, no la variable
 from embeddings_manager import get_embedding, get_topics_collection
+import requests
 from style_guard import audit_style, CONTRACT_TEXT
 
 # --- CONFIGURACIÓN ---
@@ -36,6 +37,10 @@ WATCHER_LENIENT_VALIDATION = os.getenv("WATCHER_LENIENT_VALIDATION", "1").lower(
 # Relajar umbrales de estilo por configuración (valores más permisivos por defecto)
 JARGON_THRESHOLD = int(os.getenv("WATCHER_JARGON_THRESHOLD", "4"))
 CLICHE_THRESHOLD = int(os.getenv("WATCHER_CLICHE_THRESHOLD", "4"))
+
+# Remote sync (optional)
+REMOTE_INGEST_URL = os.getenv("REMOTE_INGEST_URL", "").strip()  # e.g., https://<service-url>/ingest_topics
+ADMIN_API_TOKEN = os.getenv("ADMIN_API_TOKEN", "").strip()
 
 # Modelos
 GENERATION_MODEL = "anthropic/claude-3.5-sonnet"
@@ -240,6 +245,34 @@ async def extract_and_validate_topics(text, pdf_name):
                 if skipped_existing:
                     print(f"⚠️ Se omiten {skipped_existing} temas ya existentes en la base de datos.")
                 print(f"✅ {len(entries_to_add)} temas han sido añadidos a la base de datos vectorial 'topics_collection'.")
+
+                # Remote sync (optional): push only the newly added entries to Cloud Run
+                if REMOTE_INGEST_URL and ADMIN_API_TOKEN and entries_to_add:
+                    try:
+                        payload = {
+                            "topics": [
+                                {"id": t_id, "abstract": doc, "pdf": (md or {}).get("pdf") if isinstance(md, dict) else None}
+                                for _, doc, t_id, md in entries_to_add
+                            ]
+                        }
+                        url = REMOTE_INGEST_URL
+                        if "?" in url:
+                            url = f"{url}&token={ADMIN_API_TOKEN}"
+                        else:
+                            url = f"{url}?token={ADMIN_API_TOKEN}"
+                        r = requests.post(url, json=payload, timeout=30)
+                        if r.status_code == 200:
+                            try:
+                                data = r.json()
+                            except Exception:
+                                data = {}
+                            added = data.get("added")
+                            skipped = data.get("skipped_existing")
+                            print(f"☁️  Sync remoto: added={added}, skipped={skipped}")
+                        else:
+                            print(f"⚠️ Falló sync remoto: HTTP {r.status_code} -> {r.text[:200]}")
+                    except Exception as e:
+                        print(f"⚠️ Error en sync remoto: {e}")
         else:
             print("⚠️ No se pudieron generar embeddings válidos para los temas.")
 

@@ -427,3 +427,77 @@ def pdfs_stats():
     except Exception as e:
         logger.error(f"/pdfs failed: {e}", exc_info=True)
         return {"ok": False, "error": "server_error"}, 500
+
+
+@app.route("/ingest_topics", methods=["POST"])
+def ingest_topics():
+    """Admin endpoint to ingest topics into topics_collection on Cloud.
+
+    Body JSON: { "topics": [ {"id": "...", "abstract": "...", "pdf": "..."}, ... ] }
+    Secured with ADMIN_API_TOKEN via query param (?token=...).
+    Performs de-duplication by ID and embeds server-side.
+    """
+    token = request.args.get("token", "")
+    if ADMIN_API_TOKEN and token != ADMIN_API_TOKEN:
+        return {"ok": False, "error": "forbidden"}, 403
+
+    try:
+        data = request.get_json(force=True, silent=False) or {}
+        items = data.get("topics", [])
+        if not isinstance(items, list) or not items:
+            return {"ok": False, "error": "empty_payload"}, 400
+
+        # Normalize payload
+        normalized = []
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            tid = (it.get("id") or "").strip()
+            abstract = (it.get("abstract") or "").strip()
+            pdf = (it.get("pdf") or it.get("source_pdf") or "").strip() or None
+            if not tid or not abstract:
+                continue
+            normalized.append((tid, abstract, {"pdf": pdf} if pdf else {}))
+
+        if not normalized:
+            return {"ok": False, "error": "no_valid_topics"}, 400
+
+        coll = get_topics_collection()
+        ids = [tid for tid, _, _ in normalized]
+        existing_ids = set()
+        try:
+            resp = coll.get(ids=ids, include=[])
+            rid = resp.get("ids") if isinstance(resp, dict) else None
+            if rid:
+                if isinstance(rid, list) and rid and isinstance(rid[0], list):
+                    existing_ids = {x for sub in rid for x in sub}
+                else:
+                    existing_ids = set(rid)
+        except Exception:
+            pass
+
+        to_add = [(tid, abs_, md) for tid, abs_, md in normalized if tid not in existing_ids]
+        added = 0
+        skipped = len(normalized) - len(to_add)
+        errs = 0
+        if to_add:
+            embeddings = []
+            docs = []
+            tids = []
+            mds = []
+            for tid, abs_, md in to_add:
+                emb = get_embedding(abs_)
+                if emb is None:
+                    errs += 1
+                    continue
+                embeddings.append(emb)
+                docs.append(abs_)
+                tids.append(tid)
+                mds.append(md)
+            if embeddings:
+                coll.add(embeddings=embeddings, documents=docs, ids=tids, metadatas=mds)
+                added = len(embeddings)
+        return {"ok": True, "received": len(normalized), "added": added, "skipped_existing": skipped, "errors": errs}, 200
+    except Exception as e:
+        logger.error(f"/ingest_topics failed: {e}", exc_info=True)
+        return {"ok": False, "error": "server_error"}, 500

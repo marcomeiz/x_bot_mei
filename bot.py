@@ -319,3 +319,55 @@ def stats():
     except Exception:
         memory = None
     return {"ok": True, "topics": topics, "memory": memory}, 200
+
+
+@app.route("/pdfs")
+def pdfs_stats():
+    """Return distinct PDF count and per-PDF topic counts from topics_collection.
+
+    Secured with ADMIN_API_TOKEN. Does not expose content, only metadata counts.
+    """
+    token = request.args.get("token", "")
+    if ADMIN_API_TOKEN and token != ADMIN_API_TOKEN:
+        return {"ok": False, "error": "forbidden"}, 403
+
+    try:
+        coll = get_topics_collection()
+        # Retrieve all IDs first (no payload)
+        raw = coll.get(include=[])
+        raw_ids = raw.get("ids") if isinstance(raw, dict) else None
+        if not raw_ids:
+            return {"ok": True, "distinct_pdfs": 0, "total_topics": 0, "pdf_counts": {}}, 200
+
+        # Flatten ids if nested
+        if isinstance(raw_ids, list) and raw_ids and isinstance(raw_ids[0], list):
+            ids = [x for sub in raw_ids for x in sub]
+        else:
+            ids = raw_ids
+
+        pdf_counts = {}
+        batch = 500
+        for i in range(0, len(ids), batch):
+            batch_ids = ids[i:i + batch]
+            data = coll.get(ids=batch_ids, include=["metadatas"])  # type: ignore
+            mds = data.get("metadatas") if isinstance(data, dict) else None
+            if not mds:
+                continue
+            # Flatten if needed
+            items = [m for sub in mds for m in sub] if (isinstance(mds, list) and mds and isinstance(mds[0], list)) else mds
+            for md in items:
+                pdf_name = None
+                if isinstance(md, dict):
+                    pdf_name = md.get("pdf") or md.get("source_pdf")
+                key = pdf_name if pdf_name else "_unknown"
+                pdf_counts[key] = pdf_counts.get(key, 0) + 1
+
+        distinct = len([k for k in pdf_counts.keys() if k != "_unknown"]) if pdf_counts else 0
+        try:
+            total_topics = coll.count()
+        except Exception:
+            total_topics = None
+        return {"ok": True, "distinct_pdfs": distinct, "total_topics": total_topics, "pdf_counts": pdf_counts}, 200
+    except Exception as e:
+        logger.error(f"/pdfs failed: {e}", exc_info=True)
+        return {"ok": False, "error": "server_error"}, 500

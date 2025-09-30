@@ -345,7 +345,8 @@ def telegram_webhook():
                             top = top[:20]
                         for name, cnt in top:
                             safe = escape_markdown_v2(name)
-                            lines.append(f"- {safe} · {cnt}")
+                            # Evitar '-' como viñeta en MarkdownV2 (error 400). Usamos '•'.
+                            lines.append(f"• {safe} · {cnt}")
                         if extra:
                             lines.append(escape_markdown_v2(f"… y {extra} más"))
                     send_telegram_message(chat_id, "\n".join(lines))

@@ -108,13 +108,16 @@ Return ONLY strict JSON with fields:
 
 
 def revise_for_style(text: str, contract_text: str, hint: str = "") -> str:
-    """Rewrite the text to satisfy contract with subtle local flavor in natural English, without clichés or Spanish."""
+    """Rewrite the text to satisfy contract with subtle local flavor in natural English, without clichés or Spanish, and add punch."""
     user = f"""
-Rewrite the text to satisfy the style contract with a subtle, human local flavor in natural English.
+Rewrite the text to satisfy the style contract with a subtle, human local flavor in natural English — and sharper punch.
 - Preserve the same core insight.
+- Open with a punchy line (no hedging, no "Most people…").
+- Add one concrete image or tactical detail (micro‑visual) to ground it.
 - 2–4 short paragraphs (separated by a blank line).
 - No hashtags, emojis, or quotes. English only.
 - Avoid corporate tone and clichés. Sound like a person at a bar, not a boardroom.
+- Short sentences. Strong verbs. Cut qualifiers (seems, maybe, might).
 {('Hints: ' + hint) if hint else ''}
 
 Return ONLY the rewritten text (no commentary).

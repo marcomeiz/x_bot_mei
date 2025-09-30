@@ -52,13 +52,20 @@ def refine_and_shorten_tweet(tweet_text: str, model: str) -> str:
 
 def refine_single_tweet_style(raw_text: str, model: str) -> str:
     prompt = (
-        f"You are a style editor. Rewrite the text below to match a specific style (airy, personal, witty, NYC Style) defined by a contract. "
-        f"The core insight MUST remain. RULES: 1) 2-4 short paragraphs. 2) Personal voice. 3) Subtle wit. 4) Do NOT wrap output in quotes. "
-        f"5) Prefer concise phrasing. RAW TEXT: --- {raw_text} ---"
+        "Rewrite the text to hit a sharper, NYC bar voice — smart, direct, a bit impatient — without losing the core insight.\n"
+        "Do NOT add emojis or hashtags. Do NOT use Spanish.\n\n"
+        "Amplifiers (must do):\n"
+        "- Start with a punchy opener (no 'Most people…', no hedging).\n"
+        "- Include one concrete image or tactical detail (micro‑visual).\n"
+        "- Cut filler, adverbs, qualifiers (seems, maybe, might).\n"
+        "- Strong verbs, short sentences, no corporate wording.\n"
+        "- 2–4 short paragraphs separated by a blank line.\n"
+        "- Keep under 280 characters.\n\n"
+        f"RAW TEXT: --- {raw_text} ---"
     )
     system_message = (
         "You are a world-class ghostwriter rewriting text into a specific style. "
-        "Follow the style contract exactly. Keep it concise.\n\n"
+        "Follow the style contract exactly. Keep it concise and punchy.\n\n"
         "<STYLE_CONTRACT>\n" + CONTRACT_TEXT + "\n</STYLE_CONTRACT>"
     )
     try:
@@ -144,16 +151,21 @@ def generate_tweet_from_topic(topic_abstract: str):
             **Contract for style and tone:**
             {contract}
             ---
-            **Assignment:**
-            - **Topic:** {topic_abstract}
+            **Topic:** {topic_abstract}
+
+            **Style Amplifier (must do):**
+            - NYC bar voice: smart, direct, slightly impatient; zero corporate tone.
+            - Open with a punchy first line (no 'Most people…', no 'Counter‑intuitive truth:').
+            - Include one concrete image or tactical detail (micro‑visual) to make it feel real.
+            - No hedging or qualifiers (no seems/maybe/might). Strong verbs only.
+            - 2–4 short paragraphs separated by a blank line. English only. No quotes around the output. No emojis/hashtags.
+            - A and B MUST use different opening patterns (e.g., question vs. bold statement vs. vivid image).
 
             **CRITICAL OUTPUT REQUIREMENTS:**
-            1.  Provide two high-quality, distinct alternatives in English, NYC Style.
-            2.  Label the first alternative with `[EN - A]`.
-            3.  Label the second alternative with `[EN - B]`.
-            4.  Both alternatives MUST be under 280 characters. Do NOT wrap in quotes.
-
-            Provide ONLY the final text in the specified format (no extra commentary).
+            - Provide two high‑quality, distinct alternatives in English, labeled exactly as:
+              [EN - A]\n<text A>\n\n[EN - B]\n<text B>
+            - Both alternatives MUST be under 280 characters.
+            - Output ONLY the final text in the specified format (no commentary).
             """
             
             logger.info(f"Llamando al modelo de generación: {GENERATION_MODEL}.")

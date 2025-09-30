@@ -19,17 +19,17 @@ substitutions:
 
 steps:
   # Commit metadata for notifications (subject, author, branch)
-  - name: gcr.io/cloud-builders/git
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     id: commit-meta
     entrypoint: bash
-    args: ["-ceu", "./deploy/scripts/commit_meta.sh"]
+    args: ["-ceu", "bash ./deploy/scripts/commit_meta.sh"]
 
   # Notify start to Telegram (lean + clean)
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     id: notify-start
     entrypoint: bash
     secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
-    args: ["-ceu", "./deploy/scripts/notify_start.sh", "${_SERVICE}", "${_REGION}"]
+    args: ["-ceu", "bash ./deploy/scripts/notify_start.sh ${_SERVICE} ${_REGION}"]
 
   # Build image
   - name: gcr.io/cloud-builders/docker

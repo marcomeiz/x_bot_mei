@@ -38,7 +38,7 @@ steps:
         # Secret refs: no leen valores en build, solo referencian nombres/versions
         SECRET_LIST="TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN:latest,GOOGLE_API_KEY=GOOGLE_API_KEY:latest,ADMIN_API_TOKEN=ADMIN_API_TOKEN:latest"
         if gcloud secrets describe OPENROUTER_API_KEY >/dev/null 2>&1; then
-          SECRET_LIST="$SECRET_LIST,OPENROUTER_API_KEY=OPENROUTER_API_KEY:latest"
+          SECRET_LIST="$$SECRET_LIST,OPENROUTER_API_KEY=OPENROUTER_API_KEY:latest"
         fi
 
         # Escapar coma usando item-delimiter ^:^

@@ -29,7 +29,7 @@ try:
 except Exception as _e:
     logger.warning(f"No se pudo leer '{CONTRACT_FILE}'. Usando instrucciones mínimas. Error: {_e}")
     CONTRACT_TEXT = (
-        "Style: airy, personal, witty; 2-4 short paragraphs; personal voice; "
+        "Style: airy, personal, witty; 2-4 short paragraphs; personal voice; COO NY City style "
         "subtle wit; show, don't announce; English only; <=280 chars; two variants A and B."
     )
 
@@ -52,7 +52,7 @@ def refine_and_shorten_tweet(tweet_text: str, model: str) -> str:
 
 def refine_single_tweet_style(raw_text: str, model: str) -> str:
     prompt = (
-        f"You are a style editor. Rewrite the text below to match a specific style (airy, personal, witty) defined by a contract. "
+        f"You are a style editor. Rewrite the text below to match a specific style (airy, personal, witty, NYC Style) defined by a contract. "
         f"The core insight MUST remain. RULES: 1) 2-4 short paragraphs. 2) Personal voice. 3) Subtle wit. 4) Do NOT wrap output in quotes. "
         f"5) Prefer concise phrasing. RAW TEXT: --- {raw_text} ---"
     )
@@ -148,7 +148,7 @@ def generate_tweet_from_topic(topic_abstract: str):
             - **Topic:** {topic_abstract}
 
             **CRITICAL OUTPUT REQUIREMENTS:**
-            1.  Provide two high-quality, distinct alternatives in English.
+            1.  Provide two high-quality, distinct alternatives in English, NYC Style.
             2.  Label the first alternative with `[EN - A]`.
             3.  Label the second alternative with `[EN - B]`.
             4.  Both alternatives MUST be under 280 characters. Do NOT wrap in quotes.

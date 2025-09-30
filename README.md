@@ -53,6 +53,7 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
   - `python -m venv venv && source venv/bin/activate`
   - `pip install -r requirements.txt`
 - Crear `.env` en la raíz del proyecto con las variables anteriores.
+  - También puedes partir de `.env.example`.
 
 **Flujos Principales**
 - Extraer temas desde PDFs con validación y embeddings:

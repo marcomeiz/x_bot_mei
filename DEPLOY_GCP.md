@@ -80,3 +80,14 @@ Current Trigger
 - Region: `europe-west1`
 - Manual run:
   - `gcloud builds triggers run activadorx --project=xbot-473616 --region=europe-west1 --branch=main`
+
+Troubleshooting (quick)
+- Substitutions errors like "SECRET_LIST" or "IMG" not valid:
+  - Cloud Build substitutes `$VAR` in the YAML. We escape bash vars with `$$` inside `deploy/cloudbuild.yaml`.
+  - Ensure the file uses `$$IMG`, `$$ENV_VARS`, `$$SECRET_LIST` and appends with `"$$SECRET_LIST,..."`.
+- Secret Manager API disabled:
+  - Enable `secretmanager.googleapis.com`. The deploy script already enables it.
+- Cloud Run GCS mount errors:
+  - Use `--add-volume type=cloud-storage` and grant `roles/storage.objectAdmin` to the Cloud Run SA.
+- Forbidden on /stats:
+  - Use the `ADMIN_API_TOKEN` value; rotate by uploading a new secret version.

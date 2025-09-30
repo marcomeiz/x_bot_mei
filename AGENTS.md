@@ -11,13 +11,13 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 - Respeta las invariantes de negocio:
   - Tweets deben ser ≤ 280 caracteres sin recorte local: solo mediante LLM.
   - Mensajes de Telegram incluyen: tema (abstract), nombre del PDF origen si existe, y contadores `(N/280)` por opción.
-  - Los temas en ChromaDB incluyen metadatos `{"pdf": <nombre>}` cuando provienen de `watcher.py`/`watcher_with_metadata.py`.
+- Los temas en ChromaDB incluyen metadatos `{"pdf": <nombre>}` cuando provienen de `watcher_with_metadata.py`.
 - Fallback LLM: intentar OpenRouter y, si falla (402/401/403/429/insufficient), pasar a Gemini sin interrumpir el flujo.
 - Preferir seguridad y claridad sobre “optimización prematura”.
 
 ## Arquitectura (vista de 10.000 ft)
 
-- `watcher.py` / `watcher_with_metadata.py`
+- `watcher_with_metadata.py`
   - Observan `uploads/` para nuevos PDFs.
   - Extraen texto (PyMuPDF), trocean, piden 8–12 temas por chunk (JSON), validan relevancia COO, generan embeddings, y persisten en ChromaDB.
   - Guardan un JSON resumen por PDF en `json/`.
@@ -118,7 +118,7 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 - Listing de modelos Gemini (real):
   - `import google.generativeai as genai; genai.configure(api_key=...); list(genai.list_models())`.
 - Watcher local:
-  - Ejecuta `python watcher.py`, copia un PDF pequeño a `uploads/` y verifica `json/` + `db/` + notificación.
+  - Ejecuta `python watcher_with_metadata.py`, copia un PDF pequeño a `uploads/` y verifica `json/` + `db/` + notificación.
 - Bot:
   - Con `/generate` debe llegar propuesta con tema+PDF y conteos. Aprobación A/B debe crear intent URL de X y guardar en memoria.
 

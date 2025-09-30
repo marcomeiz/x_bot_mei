@@ -1,7 +1,7 @@
 **Guía Rápida (4 pasos)**
 - 1) Instalar: `python -m venv venv && source venv/bin/activate && pip install -r requirements.txt`.
 - 2) Configurar `.env`: define `GOOGLE_API_KEY`, opcional `OPENROUTER_API_KEY`, y deja `FALLBACK_PROVIDER_ORDER=gemini,openrouter`, `GEMINI_MODEL=gemini-2.5-pro`.
-- 3) Iniciar watcher: `python watcher.py` y copia un PDF a `uploads/`. Se extraen, validan y guardan temas en `db/` + `json/`.
+ - 3) Iniciar watcher: `python watcher_with_metadata.py` y copia un PDF a `uploads/`. Se extraen, validan y guardan temas en `db/` + `json/`.
 - 4) Generar tweets: `python -i core_generator.py` y ejecuta `generate_tweet_from_topic("<abstract>")`.
 
 **Resumen**
@@ -12,8 +12,7 @@
 **Componentes**
 - `llm_fallback.py`: capa común para LLM con orden de proveedores y manejo de JSON.
 - `embeddings_manager.py`: embeddings con Google Generative AI (`models/embedding-001`) y cliente persistente de ChromaDB.
-- `watcher.py`: observa `uploads/`, extrae texto de PDFs, genera y valida temas, y guarda en `json/` + `topics_collection`.
-- `watcher_with_metadata.py`: como `watcher.py`, pero añade metadatos (por ejemplo el nombre del PDF) y filtros de duplicados más estrictos.
+- `watcher_with_metadata.py`: observa `uploads/`, extrae texto de PDFs, valida temas y añade metadatos (por ejemplo el nombre del PDF) para trazabilidad y mejor deduplicación.
 - `core_generator.py`: dado un tema, genera dos borradores `[EN - A]` y `[EN - B]`, los refina y asegura < 280 caracteres.
 - `offline_generate.py`: genera 2 variantes de tweet sin LLM a partir de un tema aleatorio (útil para pruebas rápidas).
 - `bot.py`: utilidades para enviar/editar mensajes por Telegram (opcional).
@@ -54,7 +53,7 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
 
 **Flujos Principales**
 - Extraer temas desde PDFs con validación y embeddings:
-  - `python watcher.py`  o  `python watcher_with_metadata.py`
+  - `python watcher_with_metadata.py`
   - Copia PDFs a `uploads/`. El watcher:
     - Extrae texto (PyMuPDF), trocea en chunks y pide 8–12 temas por chunk al LLM.
     - Valida cada tema como “relevante para COO” devolviendo JSON.
@@ -85,9 +84,7 @@ Referencias en código:
 - `core_generator.py:23` `refine_and_shorten_tweet` → usa `llm.chat_text(...)`.
 - `core_generator.py:37` `refine_single_tweet_style` → usa `llm.chat_text(...)`.
 - `core_generator.py:104` generación de A/B → usa `llm.chat_text(...)`.
-- `watcher.py:68` validación `validate_topic` → usa `llm.chat_json(...)`.
-- `watcher.py:97` extracción de temas → usa `llm.chat_json(...)`.
-- `watcher_with_metadata.py:72` y `:97` → mismos cambios con metadatos y filtros de duplicado.
+- `watcher_with_metadata.py` → validación `validate_topic` y extracción de temas usan `llm.chat_json(...)`.
 
 **Detalles de Almacenamiento**
 - Vector DB: ChromaDB persistente en `db/`. Se crean dos colecciones:
@@ -119,8 +116,7 @@ Referencias en código:
 **Comandos Útiles**
 - Instalar deps: `pip install -r requirements.txt`
 - Ver modelos Gemini disponibles (Python): ver bloque en “Solución de Problemas”.
-- Ejecutar watcher simple: `python watcher.py`
-- Ejecutar watcher con metadatos: `python watcher_with_metadata.py`
+- Ejecutar watcher (con metadatos): `python watcher_with_metadata.py`
 - Generación offline de dos alternativas: `python offline_generate.py`
 - Resetear la memoria (dataset aprobado) de ChromaDB: `python reset_memory.py` (añade `-y` para omitir confirmación)
  - Consultar stats vía HTTP (si se despliega el bot): `GET /stats?token=<ADMIN_API_TOKEN>` devuelve `{topics, memory}`.

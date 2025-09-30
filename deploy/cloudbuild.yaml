@@ -45,7 +45,7 @@ steps:
         ENV_VARS="^:^FALLBACK_PROVIDER_ORDER=${_FALLBACK_PROVIDER_ORDER}:CHROMA_DB_PATH=/mnt/db:GEMINI_MODEL=gemini-2.5-pro:SHOW_TOPIC_ID=0"
 
         gcloud run deploy "${_SERVICE}" \
-          --image "$IMG" \
+          --image "$$IMG" \
           --region "${_REGION}" --allow-unauthenticated --port 8080 \
           --max-instances 1 --min-instances 0 \
           --set-env-vars "$$ENV_VARS" \

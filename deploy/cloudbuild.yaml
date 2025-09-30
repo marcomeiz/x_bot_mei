@@ -48,7 +48,7 @@ steps:
         set -euo pipefail
         IMG="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA"
         trap 'code=$?; echo "docker build failed ($code)"; bash ./deploy/scripts/notify_failure.sh "${_SERVICE}" "${_REGION}" "docker-build"; exit $code' ERR
-        docker build -t "$IMG" .
+        docker build -t "$$IMG" .
 
   # Push image
   - name: gcr.io/cloud-builders/docker
@@ -61,7 +61,7 @@ steps:
         set -euo pipefail
         IMG="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA"
         trap 'code=$?; echo "docker push failed ($code)"; bash ./deploy/scripts/notify_failure.sh "${_SERVICE}" "${_REGION}" "docker-push"; exit $code' ERR
-        docker push "$IMG"
+        docker push "$$IMG"
 
   # Deploy to Cloud Run (idempotent). Requiere que los secretos existan.
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim

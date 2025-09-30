@@ -48,11 +48,10 @@ steps:
           --image "$IMG" \
           --region "${_REGION}" --allow-unauthenticated --port 8080 \
           --max-instances 1 --min-instances 0 \
-          --set-env-vars "$ENV_VARS" \
-          --set-secrets "$SECRET_LIST" \
+          --set-env-vars "$$ENV_VARS" \
+          --set-secrets "$$SECRET_LIST" \
           --add-volume=name=dbvol,type=cloud-storage,bucket="${_BUCKET_DB}" \
           --add-volume-mount=volume=dbvol,mount-path=/mnt/db
 
 images:
   - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA"
-

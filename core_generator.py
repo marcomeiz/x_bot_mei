@@ -21,7 +21,8 @@ VALIDATION_MODEL = "anthropic/claude-3-haiku"
 SIMILARITY_THRESHOLD = 0.25
 
 # --- Post categories for third variant (English descriptions) ---
-POST_CATEGORIES = [
+# Default categories (used if JSON file is missing or invalid)
+DEFAULT_POST_CATEGORIES = [
     {
         "key": "contrast_statement",
         "name": "Declaración de Contraste",
@@ -158,8 +159,45 @@ POST_CATEGORIES = [
     },
 ]
 
+# Optional external categories file (JSON)
+POST_CATEGORIES_PATH = os.getenv(
+    "POST_CATEGORIES_PATH",
+    os.path.join(BASE_DIR, "config", "post_categories.json"),
+)
+
+_CACHED_POST_CATEGORIES = None
+
+def load_post_categories():
+    global _CACHED_POST_CATEGORIES
+    if _CACHED_POST_CATEGORIES is not None:
+        return _CACHED_POST_CATEGORIES
+    try:
+        if os.path.exists(POST_CATEGORIES_PATH):
+            import json
+            with open(POST_CATEGORIES_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            # Validate shape (list of {key,name,pattern})
+            valid = []
+            for it in data if isinstance(data, list) else []:
+                if not isinstance(it, dict):
+                    continue
+                k = (it.get("key") or "").strip()
+                nm = (it.get("name") or "").strip()
+                pt = (it.get("pattern") or "").strip()
+                if k and nm and pt:
+                    valid.append({"key": k, "name": nm, "pattern": pt})
+            if valid:
+                _CACHED_POST_CATEGORIES = valid
+                logger.info(f"Loaded {len(valid)} post categories from JSON.")
+                return _CACHED_POST_CATEGORIES
+    except Exception as e:
+        logger.warning(f"Failed to load post categories from '{POST_CATEGORIES_PATH}': {e}")
+    _CACHED_POST_CATEGORIES = DEFAULT_POST_CATEGORIES
+    return _CACHED_POST_CATEGORIES
+
 def pick_random_post_category():
-    return random.choice(POST_CATEGORIES)
+    categories = load_post_categories()
+    return random.choice(categories)
 
 # Cargar contrato creativo (usado en todos los prompts relevantes)
 CONTRACT_TEXT = ""

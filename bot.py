@@ -62,7 +62,15 @@ def clean_abstract(text: str, max_len: int = 160) -> str:
     return t
 
 
-def format_proposal_message(topic_id: str, abstract: str, source_pdf: str | None, draft_a: str, draft_b: str, draft_c: str | None = None) -> str:
+def format_proposal_message(
+    topic_id: str,
+    abstract: str,
+    source_pdf: str | None,
+    draft_a: str,
+    draft_b: str,
+    draft_c: str | None = None,
+    category_name: str | None = None,
+) -> str:
     """Devuelve el mensaje formateado en MarkdownV2 con A/B y contadores."""
     len_a = len(draft_a)
     len_b = len(draft_b)
@@ -73,6 +81,7 @@ def format_proposal_message(topic_id: str, abstract: str, source_pdf: str | None
     safe_source = escape_markdown_v2(source_pdf) if source_pdf else None
     safe_a = escape_markdown_v2(draft_a or "")
     safe_b = escape_markdown_v2(draft_b or "")
+    safe_category = escape_markdown_v2(category_name) if category_name else None
 
     lines = []
     # Cabecera: ocultar ID salvo que no haya source_pdf o la var SHOW_TOPIC_ID lo fuerce
@@ -83,6 +92,9 @@ def format_proposal_message(topic_id: str, abstract: str, source_pdf: str | None
         lines.append(f"*Tema:* {safe_abstract}")
     if safe_source:
         lines.append(f"*Origen:* {safe_source}")
+    # Mostrar categoría solo si existe variante C
+    if draft_c and safe_category:
+        lines.append(f"*Categoría (C):* {safe_category}")
 
     lines.append("")
     lines.append(f"*A* · {len_a}/280\n{safe_a}")
@@ -219,7 +231,7 @@ def propose_tweet(chat_id, topic):
     ]}
 
     # Formato limpio en MarkdownV2 (contenido escapado)
-    message_text = format_proposal_message(topic_id, topic_abstract or "", source_pdf, draft_a, draft_b, draft_c)
+    message_text = format_proposal_message(topic_id, topic_abstract or "", source_pdf, draft_a, draft_b, draft_c, category_name)
 
     logger.info(f"[CHAT_ID: {chat_id}] Enviando propuestas (A/B) al usuario para el topic ID: {topic_id}.")
     if send_telegram_message(chat_id, message_text, reply_markup=keyboard):

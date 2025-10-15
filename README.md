@@ -142,7 +142,7 @@ Referencias en código:
 **Buenas Prácticas**
 - Mantén `.env` fuera del control de versiones y rota claves si se exponen.
 - Usa `watcher_with_metadata.py` para enriquecer con metadatos y evitar duplicados al ingerir varios PDFs.
-- Ajusta `SIMILARITY_THRESHOLD` en `core_generator.py` si detectas demasiados/escasos “duplicados”.
+- Ajusta `SIMILARITY_THRESHOLD` (env var o en `core_generator.py`) si detectas demasiados/escasos “duplicados” (distancia coseno; menor = menos estricto).
 - Si OpenRouter no tiene créditos, prioriza temporalmente Gemini (`FALLBACK_PROVIDER_ORDER=gemini,openrouter`).
 - Para JSON estrictos, mantén indicaciones “Respond ONLY with strict JSON” en prompts y revisa logs si falla el parseo.
 - Actualiza `google-generativeai` periódicamente para acceder a modelos más nuevos (`gemini-2.5-*`).

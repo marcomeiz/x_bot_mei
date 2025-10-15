@@ -18,7 +18,8 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 CONTRACT_FILE = os.path.join(BASE_DIR, "copywriter_contract.md")
 GENERATION_MODEL = "anthropic/claude-3.5-sonnet"
 VALIDATION_MODEL = "anthropic/claude-3-haiku"
-SIMILARITY_THRESHOLD = 0.25
+# Less strict duplicate check by default; configurable via env
+SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.20") or 0.20)
 
 # --- Post categories for third variant (English descriptions) ---
 # Default categories (used if JSON file is missing or invalid)

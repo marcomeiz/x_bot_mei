@@ -16,6 +16,7 @@ openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 CONTRACT_FILE = os.path.join(BASE_DIR, "copywriter_contract.md")
+ICP_FILE = os.path.join(BASE_DIR, "config", "icp.md")
 GENERATION_MODEL = "anthropic/claude-3.5-sonnet"
 VALIDATION_MODEL = "anthropic/claude-3-haiku"
 # Less strict duplicate check by default; configurable via env
@@ -212,6 +213,7 @@ BULLET_CATEGORIES = {
 
 # Cargar contrato creativo (usado en todos los prompts relevantes)
 CONTRACT_TEXT = ""
+ICP_TEXT = ""
 try:
     with open(CONTRACT_FILE, "r", encoding="utf-8") as _f:
         CONTRACT_TEXT = _f.read().strip()
@@ -221,6 +223,21 @@ except Exception as _e:
     CONTRACT_TEXT = (
         "Style: airy, personal, witty; 2-4 short paragraphs; personal voice; COO NY City style "
         "subtle wit; show, don't announce; English only; <=280 chars; two variants A and B."
+    )
+
+# Load ICP (persona) from file or fallback
+ICP_PATH = os.getenv("ICP_PATH", ICP_FILE)
+try:
+    if os.path.exists(ICP_PATH):
+        with open(ICP_PATH, "r", encoding="utf-8") as _f:
+            ICP_TEXT = _f.read().strip()
+            logger.info("ICP cargado correctamente.")
+    else:
+        raise FileNotFoundError(ICP_PATH)
+except Exception as _e:
+    logger.warning(f"No se pudo leer ICP ('{ICP_PATH}'). Usando ICP mínimo. Error: {_e}")
+    ICP_TEXT = (
+        "ICP: Solo‑founders in day 1–year 1, overwhelmed by ops; want step‑zero, practical tools. Platform: fast, conversational."
     )
 
 # --- (Funciones auxiliares refine_... no cambian) ---
@@ -256,7 +273,8 @@ def refine_single_tweet_style(raw_text: str, model: str) -> str:
     system_message = (
         "You are a world-class ghostwriter rewriting text into a specific style. "
         "Follow the style contract exactly. Keep it concise and punchy.\n\n"
-        "<STYLE_CONTRACT>\n" + CONTRACT_TEXT + "\n</STYLE_CONTRACT>"
+        "<STYLE_CONTRACT>\n" + CONTRACT_TEXT + "\n</STYLE_CONTRACT>\n\n"
+        "Audience ICP:\n<ICP>\n" + ICP_TEXT + "\n</ICP>"
     )
     try:
         text = llm.chat_text(
@@ -296,7 +314,8 @@ def refine_single_tweet_style_flexible(raw_text: str, model: str) -> str:
     system_message = (
         "You are a world-class ghostwriter rewriting text into a specific style. "
         "Follow the style contract exactly, EXCEPT paragraph-count rules are explicitly overridden for this variant.\n\n"
-        "<STYLE_CONTRACT>\n" + CONTRACT_TEXT + "\n</STYLE_CONTRACT>"
+        "<STYLE_CONTRACT>\n" + CONTRACT_TEXT + "\n</STYLE_CONTRACT>\n\n"
+        "Audience ICP:\n<ICP>\n" + ICP_TEXT + "\n</ICP>"
     )
     try:
         text = llm.chat_text(
@@ -389,7 +408,8 @@ Topic: {topic_abstract}
 """
         system_message = (
             "You are a world-class ghostwriter. Obey the following style contract strictly.\n\n<STYLE_CONTRACT>\n"
-            + CONTRACT_TEXT + "\n</STYLE_CONTRACT>"
+            + CONTRACT_TEXT + "\n</STYLE_CONTRACT>\n\n"
+            "Audience ICP:\n<ICP>\n" + ICP_TEXT + "\n</ICP>"
         )
 
         raw_c = llm.chat_text(
@@ -476,7 +496,8 @@ def generate_tweet_from_topic(topic_abstract: str):
                         "content": (
                             "You are a world-class ghostwriter creating two tweet drafts. "
                             "Obey the following style contract.\n\n<STYLE_CONTRACT>\n"
-                            + CONTRACT_TEXT + "\n</STYLE_CONTRACT>"
+                            + CONTRACT_TEXT + "\n</STYLE_CONTRACT>\n\n"
+                            + "Audience ICP:\n<ICP>\n" + ICP_TEXT + "\n</ICP>"
                         ),
                     },
                     {"role": "user", "content": prompt},

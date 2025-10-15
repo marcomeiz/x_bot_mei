@@ -199,6 +199,13 @@ def pick_random_post_category():
     categories = load_post_categories()
     return random.choice(categories)
 
+# Categories where short bullet lists make sense for C
+BULLET_CATEGORIES = {
+    "hidden_benefits_reveal",
+    "values_manifesto",
+    "demonstrative_principle",
+}
+
 # Cargar contrato creativo (usado en todos los prompts relevantes)
 CONTRACT_TEXT = ""
 try:
@@ -278,6 +285,7 @@ def refine_single_tweet_style_flexible(raw_text: str, model: str) -> str:
         "- You MAY output a single hard‑hitting sentence.\n"
         "- Or 1–3 short sentences, same paragraph.\n"
         "- Or up to 2 very short paragraphs separated by one blank line.\n"
+        "- If using bullets, use the '• ' bullet character (not hyphens), max 3 bullets, tight lines.\n"
         "- Keep under 280 characters.\n\n"
         f"RAW TEXT: --- {raw_text} ---"
     )
@@ -352,6 +360,8 @@ def generate_third_tweet_variant(topic_abstract: str):
     cat_desc = cat["pattern"]
 
     try:
+        use_bullets = cat.get("key") in BULLET_CATEGORIES
+
         prompt = f"""
 Create ONE tweet in English for the topic below, following this post category pattern strictly.
 
@@ -362,7 +372,8 @@ Style and output rules (must follow):
 - NYC bar voice: smart, direct, slightly impatient; zero corporate tone.
 - Open with a punchy first line (no 'Most people…', no hedging).
 - Include one concrete image or tactical detail (micro-visual).
-- 2–4 short paragraphs separated by a blank line.
+- Structure is flexible for C: single hard-hitting sentence, 1–3 short sentences, or up to 2 very short paragraphs.
+- {'You MAY use 2–3 bullets prefixed with "• " (no hyphens or numbering), tight lines.' if use_bullets else 'Avoid list formatting unless absolutely necessary.'}
 - No emojis or hashtags. No quotes around the output. English only.
 - Keep under 280 characters (hard requirement).
 

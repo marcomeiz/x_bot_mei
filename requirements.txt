@@ -6,8 +6,6 @@ watchdog
 tenacity
 Flask
 gunicorn
-python-telegram-bot
 desktop-notifier
-tweepy
 google-generativeai
 chromadb

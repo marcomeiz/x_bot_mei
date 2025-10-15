@@ -37,7 +37,11 @@
    - `SHOW_TOPIC_ID` (`0` por defecto). Si `1`, muestra el ID de tema en el encabezado del mensaje del bot aun cuando exista `Origen`. Por defecto el ID queda oculto salvo que no haya `Origen`.
  - Estilo (opcional):
    - `ENFORCE_STYLE_AUDIT` (`1` por defecto): activa la auditoría de estilo y revisión condicional.
-   - `STYLE_REVISION_ROUNDS` (`1` por defecto): máximo de rondas de revisión automática por borrador.
+   - `STYLE_REVISION_ROUNDS` (`2` por defecto): máximo de rondas de revisión automática por borrador.
+   - `STYLE_HEDGING_THRESHOLD` (`1` por defecto): si detecta expresiones de duda (e.g., seems/maybe/might), fuerza revisión.
+   - `STYLE_JARGON_BLOCK_THRESHOLD` (`1` por defecto): si detecta jerga corporativa local (banlist), fuerza revisión.
+   - `STYLE_AUDIT_JARGON_SCORE_MIN` (`2` por defecto): si el auditor LLM puntúa jerga ≥ valor, fuerza revisión.
+   - `STYLE_AUDIT_CLICHE_SCORE_MIN` (`2` por defecto): si el auditor LLM puntúa clichés ≥ valor, fuerza revisión.
 - Watchers (estilo):
   - `WATCHER_ENFORCE_STYLE_AUDIT` (`1` por defecto): activa auditoría de estilo al ingerir. Pon `0` para no filtrar por estilo.
   - `WATCHER_JARGON_THRESHOLD` (`4` por defecto) y `WATCHER_CLICHE_THRESHOLD` (`4` por defecto): umbrales para rechazar solo si la voz es `boardroom` y alguno supera el umbral.

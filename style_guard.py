@@ -24,7 +24,17 @@ except Exception as _e:
     )
 
 ENFORCE_STYLE_AUDIT = os.getenv("ENFORCE_STYLE_AUDIT", "1").lower() in ("1", "true", "yes", "y")
-STYLE_REVISION_ROUNDS = int(os.getenv("STYLE_REVISION_ROUNDS", "1"))
+# Subimos la revisión por defecto para reforzar el tono humano sin cambiar interfaces
+STYLE_REVISION_ROUNDS = int(os.getenv("STYLE_REVISION_ROUNDS", "2"))
+
+# Umbrales configurables (defensas adicionales)
+# Si aparece lenguaje dubitativo (hedging) >= umbral → revisar
+STYLE_HEDGING_THRESHOLD = int(os.getenv("STYLE_HEDGING_THRESHOLD", "1") or 1)
+# Si aparece jerga corporativa detectada localmente >= umbral → revisar
+STYLE_JARGON_BLOCK_THRESHOLD = int(os.getenv("STYLE_JARGON_BLOCK_THRESHOLD", "1") or 1)
+# Si el auditor LLM marca puntajes altos, gatillar revisión
+STYLE_AUDIT_JARGON_SCORE_MIN = int(os.getenv("STYLE_AUDIT_JARGON_SCORE_MIN", "2") or 2)
+STYLE_AUDIT_CLICHE_SCORE_MIN = int(os.getenv("STYLE_AUDIT_CLICHE_SCORE_MIN", "2") or 2)
 
 
 _JARGON_LIST = {
@@ -33,6 +43,9 @@ _JARGON_LIST = {
     "empower", "optimize", "optimization", "enablement", "alignment",
     "ecosystem", "best practices", "bandwidth", "low-hanging fruit",
     "wheelhouse", "move the needle", "game changer", "thought leadership",
+    "unlock value", "utilize", "enable", "value proposition", "roadmap",
+    "north star", "mission-critical", "best-in-class", "future-proof",
+    "top-down", "scalable", "framework", "streamline", "stakeholders",
 }
 
 
@@ -43,6 +56,19 @@ def _detect_corporate_jargon(text: str) -> int:
         if w in t:
             hits += 1
     return hits
+
+
+# Hedging/downtoning (voz poco decidida)
+_HEDGING = {
+    "seems", "maybe", "might", "could", "perhaps", "probably",
+    "i think", "i believe", "i guess", "appears", "likely",
+    "try to", "aim to", "strive to", "in order to", "should",
+}
+
+
+def _detect_hedging(text: str) -> int:
+    t = text.lower()
+    return sum(1 for h in _HEDGING if h in t)
 
 
 def _style_similarity_to_memory(text: str) -> float:
@@ -146,17 +172,26 @@ def improve_style(text: str, contract_text: str, rounds: int = STYLE_REVISION_RO
 
     # Heuristic quick checks
     jargon_hits = _detect_corporate_jargon(text)
+    hedge_hits = _detect_hedging(text)
     style_sim = _style_similarity_to_memory(text)
 
     audit = audit_style(text, contract_text)
     needs = False
     if isinstance(audit, dict):
         needs = bool(audit.get("needs_revision", False)) or not bool(audit.get("english_only", True))
-        # Encourage revision if too corporate/jargon/cliché
-        if int(audit.get("corporate_jargon_score", 0)) >= 3 or int(audit.get("cliche_score", 0)) >= 3:
+        # Endurecer: si la voz es "boardroom", forzar revisión
+        if str(audit.get("voice", "")).lower() == "boardroom":
+            needs = True
+        # Endurecer por puntajes LLM
+        if int(audit.get("corporate_jargon_score", 0)) >= STYLE_AUDIT_JARGON_SCORE_MIN:
+            needs = True
+        if int(audit.get("cliche_score", 0)) >= STYLE_AUDIT_CLICHE_SCORE_MIN:
             needs = True
 
-    if jargon_hits >= 2:
+    # Endurecer por heurísticos locales
+    if jargon_hits >= STYLE_JARGON_BLOCK_THRESHOLD:
+        needs = True
+    if hedge_hits >= STYLE_HEDGING_THRESHOLD:
         needs = True
 
     # If memory is available and similarity too low, nudge a revision
@@ -170,5 +205,12 @@ def improve_style(text: str, contract_text: str, rounds: int = STYLE_REVISION_RO
         revised = revise_for_style(revised, contract_text, hint=hint)
         audit = audit_style(revised, contract_text)
         needs = bool(audit.get("needs_revision", False)) if isinstance(audit, dict) else False
+
+        # Reaplicar heurísticos tras nueva revisión
+        if not needs:
+            j2 = _detect_corporate_jargon(revised)
+            h2 = _detect_hedging(revised)
+            if j2 >= STYLE_JARGON_BLOCK_THRESHOLD or h2 >= STYLE_HEDGING_THRESHOLD:
+                needs = True
 
     return revised, (audit if isinstance(audit, dict) else {})

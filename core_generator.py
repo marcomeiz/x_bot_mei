@@ -20,6 +20,46 @@ GENERATION_MODEL = "anthropic/claude-3.5-sonnet"
 VALIDATION_MODEL = "anthropic/claude-3-haiku"
 SIMILARITY_THRESHOLD = 0.25
 
+# --- Post categories for third variant (English descriptions) ---
+POST_CATEGORIES = [
+    {
+        "key": "contrast_statement",
+        "name": "Contrast Statement",
+        "description": (
+            "Present two opposing ideas to create an instant reveal. "
+            "Invalidate a common approach (Don't do X), then present a stronger alternative (Do Y) — "
+            "position Y as the obvious solution."
+        ),
+    },
+    {
+        "key": "perspective_reframe",
+        "name": "Perspective Reframe",
+        "description": (
+            "Start with a universal truth the reader recognizes. Then introduce a twist that reframes the truth — "
+            "turn a negative (struggle) into a necessary element for a positive outcome (victory)."
+        ),
+    },
+    {
+        "key": "friction_reduction",
+        "name": "Friction Reduction Argument",
+        "description": (
+            "Directly address analysis paralysis or fear to start. Break an intimidating goal into an absurdly small, "
+            "manageable first step that motivates immediate action."
+        ),
+    },
+    {
+        "key": "identity_redefinition",
+        "name": "Identity Redefinition",
+        "description": (
+            "Dismantle a limiting label (e.g., 'I'm not a salesperson'). Replace it with a simpler, authentic requirement "
+            "that feels attainable and aligned with the reader's identity."
+        ),
+    },
+]
+
+def pick_random_post_category():
+    return random.choice(POST_CATEGORIES)
+
 # Cargar contrato creativo (usado en todos los prompts relevantes)
 CONTRACT_TEXT = ""
 try:
@@ -122,6 +162,64 @@ def parse_final_drafts(draft: str) -> (str, str):
     english_b = draft_b_match.group(1).strip() if draft_b_match else ""
 
     return english_a, english_b
+
+
+def generate_third_tweet_variant(topic_abstract: str):
+    """Generate a third tweet variant (EN - C) using a random post category pattern.
+
+    Returns: (draft_c: str, category_name: str)
+    """
+    cat = pick_random_post_category()
+    cat_name = cat["name"]
+    cat_desc = cat["description"]
+
+    try:
+        prompt = f"""
+Create ONE tweet in English for the topic below, following this post category pattern strictly.
+
+Category: {cat_name}
+Pattern definition: {cat_desc}
+
+Style and output rules (must follow):
+- NYC bar voice: smart, direct, slightly impatient; zero corporate tone.
+- Open with a punchy first line (no 'Most people…', no hedging).
+- Include one concrete image or tactical detail (micro-visual).
+- 2–4 short paragraphs separated by a blank line.
+- No emojis or hashtags. No quotes around the output. English only.
+- Keep under 280 characters (hard requirement).
+
+Topic: {topic_abstract}
+"""
+        system_message = (
+            "You are a world-class ghostwriter. Obey the following style contract strictly.\n\n<STYLE_CONTRACT>\n"
+            + CONTRACT_TEXT + "\n</STYLE_CONTRACT>"
+        )
+
+        raw_c = llm.chat_text(
+            model=GENERATION_MODEL,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.75,
+        )
+
+        # Refine and audit style
+        c1 = refine_single_tweet_style(raw_c, VALIDATION_MODEL)
+        try:
+            improved_c, audit_c = improve_style(c1, CONTRACT_TEXT)
+            c2 = improved_c or c1
+        except Exception:
+            c2 = c1
+
+        # Ensure character limit
+        if len(c2) > 280:
+            c2 = ensure_under_limit_via_llm(c2, VALIDATION_MODEL, 280, attempts=4)
+
+        return c2.strip(), cat_name
+    except Exception as e:
+        logger.error(f"Error generating third variant: {e}", exc_info=True)
+        return "", cat_name
 
 # --- FUNCIÓN DE GENERACIÓN MODIFICADA ---
 def generate_tweet_from_topic(topic_abstract: str):

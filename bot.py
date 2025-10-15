@@ -12,7 +12,12 @@ from urllib.parse import quote_plus
 from logger_config import logger
 
 from embeddings_manager import get_embedding, get_memory_collection, get_topics_collection
-from core_generator import find_relevant_topic, generate_tweet_from_topic, find_topic_by_id
+from core_generator import (
+    find_relevant_topic,
+    generate_tweet_from_topic,
+    find_topic_by_id,
+    generate_third_tweet_variant,
+)
 
 load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -57,10 +62,11 @@ def clean_abstract(text: str, max_len: int = 160) -> str:
     return t
 
 
-def format_proposal_message(topic_id: str, abstract: str, source_pdf: str | None, draft_a: str, draft_b: str) -> str:
+def format_proposal_message(topic_id: str, abstract: str, source_pdf: str | None, draft_a: str, draft_b: str, draft_c: str | None = None) -> str:
     """Devuelve el mensaje formateado en MarkdownV2 con A/B y contadores."""
     len_a = len(draft_a)
     len_b = len(draft_b)
+    len_c = len(draft_c) if draft_c else 0
 
     safe_id = escape_markdown_v2(topic_id or "-")
     safe_abstract = escape_markdown_v2(clean_abstract(abstract or ""))
@@ -82,6 +88,10 @@ def format_proposal_message(topic_id: str, abstract: str, source_pdf: str | None
     lines.append(f"*A* · {len_a}/280\n{safe_a}")
     lines.append("")
     lines.append(f"*B* · {len_b}/280\n{safe_b}")
+    if draft_c:
+        safe_c = escape_markdown_v2(draft_c or "")
+        lines.append("")
+        lines.append(f"*C* · {len_c}/280\n{safe_c}")
     return "\n".join(lines).strip()
 
 def _post_telegram(url, payload, chat_id):
@@ -173,10 +183,11 @@ def propose_tweet(chat_id, topic):
     ]
     if source_pdf:
         pre_lines.append(f"📄 Origen: {source_pdf}")
-    pre_lines.append("Generando 2 alternativas…")
+    pre_lines.append("Generando 3 alternativas…")
     send_telegram_message(chat_id, escape_markdown_v2("\n".join(pre_lines)))
 
     draft_a, draft_b = generate_tweet_from_topic(topic_abstract)
+    draft_c, category_name = generate_third_tweet_variant(topic_abstract)
 
     if "Error: El tema es demasiado similar" in draft_a:
         return False  # Reintentar con otro tema
@@ -188,23 +199,27 @@ def propose_tweet(chat_id, topic):
     temp_file_path = os.path.join(TEMP_DIR, f"{chat_id}_{topic_id}.tmp")
     logger.info(f"[CHAT_ID: {chat_id}] Guardando borradores en archivo temporal: {temp_file_path}")
     with open(temp_file_path, "w") as f:
-        json.dump({"draft_a": draft_a, "draft_b": draft_b}, f)
+        json.dump({"draft_a": draft_a, "draft_b": draft_b, "draft_c": draft_c, "category": category_name}, f)
 
     # Contadores de caracteres para visibilidad
     len_a = len(draft_a)
     len_b = len(draft_b)
+    len_c = len(draft_c)
 
     keyboard = {"inline_keyboard": [
         [
             {"text": "👍 Aprobar A", "callback_data": f"approve_A_{topic_id}"},
             {"text": "👍 Aprobar B", "callback_data": f"approve_B_{topic_id}"},
         ],
-        [{"text": "👎 Rechazar Ambos", "callback_data": f"reject_{topic_id}"}],
+        [
+            {"text": "👍 Aprobar C", "callback_data": f"approve_C_{topic_id}"},
+        ],
+        [{"text": "👎 Rechazar Todos", "callback_data": f"reject_{topic_id}"}],
         [{"text": "🔁 Generar Nuevo", "callback_data": "generate_new"}],
     ]}
 
     # Formato limpio en MarkdownV2 (contenido escapado)
-    message_text = format_proposal_message(topic_id, topic_abstract or "", source_pdf, draft_a, draft_b)
+    message_text = format_proposal_message(topic_id, topic_abstract or "", source_pdf, draft_a, draft_b, draft_c)
 
     logger.info(f"[CHAT_ID: {chat_id}] Enviando propuestas (A/B) al usuario para el topic ID: {topic_id}.")
     if send_telegram_message(chat_id, message_text, reply_markup=keyboard):
@@ -222,6 +237,7 @@ def handle_callback_query(update):
     # Estructuras esperadas:
     #  - approve_A_<topic_id>
     #  - approve_B_<topic_id>
+    #  - approve_C_<topic_id>
     #  - reject_<topic_id>
     parts = callback_data.split('_', 2)
     action = parts[0] if parts else ""

@@ -24,35 +24,136 @@ SIMILARITY_THRESHOLD = 0.25
 POST_CATEGORIES = [
     {
         "key": "contrast_statement",
-        "name": "Contrast Statement",
-        "description": (
-            "Present two opposing ideas to create an instant reveal. "
-            "Invalidate a common approach (Don't do X), then present a stronger alternative (Do Y) — "
-            "position Y as the obvious solution."
+        "name": "Declaración de Contraste",
+        "pattern": (
+            "Present two opposing ideas to create an instant reveal. Invalidate a common approach (Don't do X), then "
+            "present a stronger alternative (Do Y) — position Y as the obvious solution."
         ),
     },
     {
         "key": "perspective_reframe",
-        "name": "Perspective Reframe",
-        "description": (
-            "Start with a universal truth the reader recognizes. Then introduce a twist that reframes the truth — "
-            "turn a negative (struggle) into a necessary element for a positive outcome (victory)."
+        "name": "Reencuadre de Perspectiva",
+        "pattern": (
+            "Start with a universal truth the reader recognizes. Introduce a twist that reframes it — turn a negative "
+            "(struggle) into a necessary element for a positive outcome (victory)."
         ),
     },
     {
         "key": "friction_reduction",
-        "name": "Friction Reduction Argument",
-        "description": (
+        "name": "Argumento de Reducción de Fricción",
+        "pattern": (
             "Directly address analysis paralysis or fear to start. Break an intimidating goal into an absurdly small, "
             "manageable first step that motivates immediate action."
         ),
     },
     {
         "key": "identity_redefinition",
-        "name": "Identity Redefinition",
-        "description": (
+        "name": "Redefinición de Identidad",
+        "pattern": (
             "Dismantle a limiting label (e.g., 'I'm not a salesperson'). Replace it with a simpler, authentic requirement "
             "that feels attainable and aligned with the reader's identity."
+        ),
+    },
+    {
+        "key": "parallel_contrast_aphorism",
+        "name": "Aforismo de Contraste Paralelo",
+        "pattern": (
+            "Use parallel, aphoristic contrast to juxtapose two ideas. Start from a familiar saying (If A is B), then "
+            "present a surprising counterpart (then C is D). Keep symmetry and punch."
+        ),
+    },
+    {
+        "key": "demonstrative_principle",
+        "name": "Principio Demostrativo",
+        "pattern": (
+            "Teach a copywriting rule by showing. Contrast a 'bad' version (feature) with a 'good' version (benefit), "
+            "then conclude with the principle demonstrated."
+        ),
+    },
+    {
+        "key": "counterintuitive_principle",
+        "name": "Principio Contraintuitivo",
+        "pattern": (
+            "State a counterintuitive rule as a near-universal law that challenges a popular belief. Push the reader to "
+            "adopt a more effective method by reframing the goal."
+        ),
+    },
+    {
+        "key": "process_promise",
+        "name": "Promesa de Proceso",
+        "pattern": (
+            "Validate the reader's frustration: change isn't instant. Offer a future promise — tiny, consistent effort adds up "
+            "to a total transformation. Encourage patience and trust in the process."
+        ),
+    },
+    {
+        "key": "common_villain_exposure",
+        "name": "Exposición del Villano Común",
+        "pattern": (
+            "Recreate a recognizable negative scenario the reader detests. Expose and criticize the shared villain to build "
+            "instant trust, positioning the writer as an ally."
+        ),
+    },
+    {
+        "key": "hidden_benefits_reveal",
+        "name": "Revelación de Beneficios Ocultos",
+        "pattern": (
+            "Start with a promise to reveal the non-obvious value of an action. Use a short list to enumerate specific, "
+            "unexpected benefits — make the abstract tangible."
+        ),
+    },
+    {
+        "key": "values_manifesto",
+        "name": "Manifiesto de Valores",
+        "pattern": (
+            "Redefine a popular idea with a value hierarchy in a compact list. Use A > B comparisons to prioritize deep "
+            "principles over superficial alternatives."
+        ),
+    },
+    {
+        "key": "delayed_gratification_formula",
+        "name": "Fórmula de Gratificación Aplazada",
+        "pattern": (
+            "State a direct cause-effect between present sacrifice and future reward. Structure like: Do the hard thing today, "
+            "get the desired outcome tomorrow. Motivate disciplined action."
+        ),
+    },
+    {
+        "key": "excuse_invalidation",
+        "name": "Invalidación de Excusa",
+        "pattern": (
+            "Identify a common external excuse (the blamed villain). Then absolve it and redirect responsibility to an internal "
+            "action or inaction, empowering the reader."
+        ),
+    },
+    {
+        "key": "revealing_definition",
+        "name": "Definición Reveladora",
+        "pattern": (
+            "Redefine a known concept with a sharp metaphor that reveals its overlooked essence, raising its perceived value."
+        ),
+    },
+    {
+        "key": "fundamental_maxim",
+        "name": "Máxima Fundamental",
+        "pattern": (
+            "Present a core principle as a non-negotiable rule of the domain. Reset priorities by exposing the true hierarchy."
+        ),
+    },
+    {
+        "key": "paradox_statement",
+        "name": "Declaración Paradójica",
+        "pattern": (
+            "Drop a claim that sounds self-contradictory to break the reader's pattern. Hook curiosity, then resolve the paradox "
+            "with a practical insight."
+        ),
+    },
+    {
+        "key": "shared_standard_appeal",
+        "name": "Apelación al Estándar Compartido",
+        "pattern": (
+            "Establish a shared standard of excellence or value (If you do X...). Then present the call to action (...then we should do Y) "
+            "as the logical consequence for those who belong to that group."
         ),
     },
 ]
@@ -171,7 +272,7 @@ def generate_third_tweet_variant(topic_abstract: str):
     """
     cat = pick_random_post_category()
     cat_name = cat["name"]
-    cat_desc = cat["description"]
+    cat_desc = cat["pattern"]
 
     try:
         prompt = f"""

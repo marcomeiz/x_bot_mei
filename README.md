@@ -44,7 +44,7 @@
    - `STYLE_AUDIT_CLICHE_SCORE_MIN` (`2` por defecto): si el auditor LLM puntúa clichés ≥ valor, fuerza revisión.
  - Variante C (categorías):
    - Las categorías para la variante C se cargan desde `config/post_categories.json` por defecto (puedes sobreescribir con `POST_CATEGORIES_PATH`).
-   - Formato por categoría: `{ "key": "...", "name": "Nombre en español", "pattern": "Definición/patrón en inglés" }`.
+   - Formato por categoría: `{ "key": "...", "name": "Nombre en español", "pattern": "Definición/patrón en inglés", "structure": "Análisis de la estructura (EN)", "why": "Descripción de la técnica (EN)" }`.
    - El bot muestra el `name` en el mensaje ("Categoría (C): …"). El `pattern` guía al LLM (salida siempre en inglés).
 - Watchers (estilo):
   - `WATCHER_ENFORCE_STYLE_AUDIT` (`1` por defecto): activa auditoría de estilo al ingerir. Pon `0` para no filtrar por estilo.

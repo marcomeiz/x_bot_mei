@@ -184,8 +184,10 @@ def load_post_categories():
                 k = (it.get("key") or "").strip()
                 nm = (it.get("name") or "").strip()
                 pt = (it.get("pattern") or "").strip()
+                st = (it.get("structure") or "").strip()
+                wy = (it.get("why") or "").strip()
                 if k and nm and pt:
-                    valid.append({"key": k, "name": nm, "pattern": pt})
+                    valid.append({"key": k, "name": nm, "pattern": pt, "structure": st, "why": wy})
             if valid:
                 _CACHED_POST_CATEGORIES = valid
                 logger.info(f"Loaded {len(valid)} post categories from JSON.")
@@ -204,6 +206,7 @@ BULLET_CATEGORIES = {
     "hidden_benefits_reveal",
     "values_manifesto",
     "demonstrative_principle",
+    "friction_reduction",
 }
 
 # Cargar contrato creativo (usado en todos los prompts relevantes)
@@ -358,6 +361,8 @@ def generate_third_tweet_variant(topic_abstract: str):
     cat = pick_random_post_category()
     cat_name = cat["name"]
     cat_desc = cat["pattern"]
+    cat_struct = (cat.get("structure") or "").strip()
+    cat_why = (cat.get("why") or "").strip()
 
     try:
         use_bullets = cat.get("key") in BULLET_CATEGORIES
@@ -367,6 +372,8 @@ Create ONE tweet in English for the topic below, following this post category pa
 
 Category: {cat_name}
 Pattern definition: {cat_desc}
+{('Structure template: ' + cat_struct) if cat_struct else ''}
+{('Technique rationale: ' + cat_why) if cat_why else ''}
 
 Style and output rules (must follow):
 - NYC bar voice: smart, direct, slightly impatient; zero corporate tone.

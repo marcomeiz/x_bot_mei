@@ -259,6 +259,45 @@ def refine_single_tweet_style(raw_text: str, model: str) -> str:
         return text
     except Exception: return raw_text
 
+
+def refine_single_tweet_style_flexible(raw_text: str, model: str) -> str:
+    """Refine text to NYC bar voice without enforcing paragraph count.
+
+    Allows a single punchy sentence, 1–3 short sentences, or up to 2 short paragraphs.
+    Keeps <=280 char rule.
+    """
+    prompt = (
+        "Rewrite the text to hit a sharper, NYC bar voice — smart, direct, a bit impatient — without losing the core insight.\n"
+        "Do NOT add emojis or hashtags. Do NOT use Spanish.\n\n"
+        "Amplifiers (must do):\n"
+        "- Start with a punchy opener (no hedging).\n"
+        "- Include one concrete image or tactical detail (micro‑visual).\n"
+        "- Cut filler, adverbs, qualifiers (seems, maybe, might).\n"
+        "- Strong verbs, short sentences, no corporate wording.\n\n"
+        "Structure (flexible for C):\n"
+        "- You MAY output a single hard‑hitting sentence.\n"
+        "- Or 1–3 short sentences, same paragraph.\n"
+        "- Or up to 2 very short paragraphs separated by one blank line.\n"
+        "- Keep under 280 characters.\n\n"
+        f"RAW TEXT: --- {raw_text} ---"
+    )
+    system_message = (
+        "You are a world-class ghostwriter rewriting text into a specific style. "
+        "Follow the style contract exactly, EXCEPT paragraph-count rules are explicitly overridden for this variant.\n\n"
+        "<STYLE_CONTRACT>\n" + CONTRACT_TEXT + "\n</STYLE_CONTRACT>"
+    )
+    try:
+        text = llm.chat_text(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.6,
+        )
+        return text
+    except Exception: return raw_text
+
 def ensure_under_limit_via_llm(text: str, model: str, limit: int = 280, attempts: int = 4) -> str:
     """Itera con LLM hasta obtener un texto <= limit, sin recorte local."""
     attempt = 0
@@ -338,13 +377,17 @@ Topic: {topic_abstract}
             model=GENERATION_MODEL,
             messages=[
                 {"role": "system", "content": system_message},
-                {"role": "user", "content": prompt},
+                {"role": "user", "content": (
+                    prompt
+                    + "\n\nOverride for C: Ignore any paragraph-count constraints from the style contract. "
+                      "You may output a single strong sentence, 1–3 short sentences, or up to 2 very short paragraphs."
+                )},
             ],
             temperature=0.75,
         )
 
-        # Refine and audit style
-        c1 = refine_single_tweet_style(raw_c, VALIDATION_MODEL)
+        # Refine (flexible) and audit style
+        c1 = refine_single_tweet_style_flexible(raw_c, VALIDATION_MODEL)
         try:
             improved_c, audit_c = improve_style(c1, CONTRACT_TEXT)
             c2 = improved_c or c1

@@ -31,7 +31,8 @@ def get_new_tweet_keyboard():
     return {"inline_keyboard": [[{"text": "🚀 Generar Nuevo Tuit", "callback_data": "generate_new"}]]}
 
 # --- Helpers de formato (MarkdownV2) ---
-MDV2_SPECIALS = r"_[]()~`>#+-=|{}.!*"
+# Keep escaping minimal to avoid visible backslashes in prose; '.' and '!' are safe to leave unescaped for our use cases
+MDV2_SPECIALS = r"_[]()~`>#+-=|{}*"
 
 
 def escape_markdown_v2(text: str) -> str:

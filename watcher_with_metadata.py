@@ -27,6 +27,10 @@ class Topic(BaseModel):
 class TopicList(BaseModel):
     topics: List[Topic] = Field(..., description="A list of 8-12 extracted topics.")
 
+class ValidationResponse(BaseModel):
+    is_relevant: bool = Field(..., description="True if the topic is relevant to a COO, False otherwise.")
+
+
 
 # --- CONFIGURACIÓN ---
 # Folders
@@ -100,22 +104,25 @@ def validate_topic(topic_abstract: str) -> bool:
         prompt = (
             "Decide if this topic would be of practical interest to a COO. "
             "Approve unless it is clearly unrelated to operations, leadership, people, systems, processes, execution, org design, productivity, finance ops, product ops, portfolio/roadmap, or growth. "
-            "If unsure, approve. Respond ONLY with JSON: {\"is_relevant\": true|false}.\n\n"
-            f"Topic: \"{topic_abstract}\""
+            "If unsure, approve.\n\n"
+            f'Topic: "{topic_abstract}"'
         )
     else:
-        prompt = f'Is this topic "{topic_abstract}" relevant for a COO persona? Respond ONLY with JSON and include a boolean field named is_relevant.'
+        prompt = f'Is this topic "{topic_abstract}" relevant for a COO persona?'
     try:
-        data = llm.chat_json(
-            model=VALIDATION_MODEL,
+        # Use local model for validation for speed and cost savings
+        response = llm.chat_structured(
+            model="ollama/phi3", 
             messages=[
-                {"role": "system", "content": "You are a strict JSON editor. JSON only."},
+                {"role": "system", "content": "You are a strict validation assistant. You must decide if the topic is relevant."},
                 {"role": "user", "content": prompt}
             ],
+            response_model=ValidationResponse,
             temperature=0.0,
         )
-        return bool(data.get("is_relevant", False)) if isinstance(data, dict) else False
-    except Exception:
+        return response.is_relevant if response else False
+    except Exception as e:
+        logger.error(f"Topic validation failed for '{topic_abstract[:30]}...': {e}")
         return False
 
 async def extract_and_validate_topics(text, pdf_name):

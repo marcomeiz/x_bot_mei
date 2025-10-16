@@ -70,7 +70,11 @@ def _parse_json_robust(text: str) -> Any:
 
 class LLMFallback:
     def __init__(self) -> None:
-        self.provider_order = [p.strip() for p in os.getenv("FALLBACK_PROVIDER_ORDER", "openrouter,gemini").split(",") if p.strip()]
+        self.provider_order = [p.strip() for p in os.getenv("FALLBACK_PROVIDER_ORDER", "ollama,openrouter,gemini").split(",") if p.strip()]
+
+        # Ollama
+        self._ollama_host = os.getenv("OLLAMA_HOST")
+        self._ollama_client: Optional[OpenAI] = None
 
         # OpenRouter
         self._openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
@@ -82,13 +86,23 @@ class LLMFallback:
         self._gemini_model: Optional[Any] = None
 
     # --- Inicializadores perezosos ---
+    def _ensure_ollama(self) -> bool:
+        if not self._ollama_host:
+            logger.debug("OLLAMA_HOST no configurada; saltando Ollama.")
+            return False
+        if self._ollama_client is None:
+            logger.info(f"Conectando al host de Ollama en: {self._ollama_host}")
+            self._ollama_client = OpenAI(base_url=f"{self._ollama_host}/v1", api_key="ollama")
+            self._ollama_client = instructor.patch(self._ollama_client, mode=instructor.Mode.TOOLS)
+            logger.info("Instructor patch applied to Ollama client.")
+        return True
+
     def _ensure_openrouter(self) -> bool:
         if not self._openrouter_api_key:
             logger.warning("OPENROUTER_API_KEY no configurada; saltando OpenRouter.")
             return False
         if self._openrouter_client is None:
             self._openrouter_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=self._openrouter_api_key)
-            # Patch client with instructor
             self._openrouter_client = instructor.patch(self._openrouter_client, mode=instructor.Mode.TOOLS)
             logger.info("Instructor patch applied to OpenRouter client.")
         return True
@@ -107,8 +121,7 @@ class LLMFallback:
             return False
 
     # --- Proveedores ---
-    def _openrouter_chat(self, *, model: str, messages: List[Dict[str, str]], temperature: float, json_mode: bool) -> str:
-        assert self._openrouter_client is not None
+    def _create_chat_completion(self, client: OpenAI, model: str, messages: List[Dict[str, str]], temperature: float, json_mode: bool) -> str:
         kwargs: Dict[str, Any] = {
             "model": model,
             "messages": messages,
@@ -116,7 +129,7 @@ class LLMFallback:
         }
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
-        response = self._openrouter_client.chat.completions.create(**kwargs)
+        response = client.chat.completions.create(**kwargs)
         return response.choices[0].message.content.strip()
 
     def _gemini_chat(self, *, messages: List[Dict[str, str]], temperature: float, json_mode: bool) -> str:
@@ -133,7 +146,6 @@ class LLMFallback:
         if json_mode:
             gen_cfg["response_mime_type"] = "application/json"
 
-        # Intento con el modelo actual; si falla por modelo no soportado, probar alternativos
         try:
             resp = self._gemini_model.generate_content(prompt, generation_config=gen_cfg)
             return (getattr(resp, "text", None) or "").strip()
@@ -142,12 +154,7 @@ class LLMFallback:
             needs_alt = any(t in msg for t in ["not found", "is not supported for generatecontent", "404", "listmodels"])
             if not needs_alt:
                 raise
-            # Probar lista de modelos alternativos según versiones del SDK
-            alt_names = [
-                "gemini-1.5-pro-latest",
-                "gemini-1.5-flash-latest",
-                "gemini-pro",
-            ]
+            alt_names = ["gemini-1.5-pro-latest", "gemini-1.5-flash-latest", "gemini-pro"]
             for name in alt_names:
                 try:
                     logger.warning(f"Modelo Gemini '{self._gemini_model_name}' no disponible; probando alternativo '{name}'.")
@@ -157,22 +164,29 @@ class LLMFallback:
                     return (getattr(resp, "text", None) or "").strip()
                 except Exception:
                     continue
-            # Si ninguno funcionó, relanzar el error original
             raise e
 
     # --- API pública ---
     def chat_text(self, *, model: str, messages: List[Dict[str, str]], temperature: float = 0.7) -> str:
         last_err: Optional[Exception] = None
         for provider in self.provider_order:
+            if provider == "ollama" and self._ensure_ollama():
+                try:
+                    ollama_model_name = model.split('/')[-1] if '/' in model else model
+                    logger.info(f"LLM provider: Ollama ({ollama_model_name})")
+                    return self._create_chat_completion(self._ollama_client, ollama_model_name, messages, temperature, False)
+                except Exception as e:
+                    last_err = e
+                    logger.warning(f"Falló Ollama, aplicando fallback: {e}")
+
             if provider == "openrouter" and self._ensure_openrouter():
                 try:
                     logger.info(f"LLM provider: OpenRouter ({model})")
-                    return self._openrouter_chat(model=model, messages=messages, temperature=temperature, json_mode=False)
+                    return self._create_chat_completion(self._openrouter_client, model, messages, temperature, False)
                 except Exception as e:
                     last_err = e
                     if _should_fallback_for_error(e):
-                        logger.warning(f"Falló OpenRouter, aplicando fallback a Gemini: {e}")
-                        # continuar a siguiente proveedor
+                        logger.warning(f"Falló OpenRouter, aplicando fallback: {e}")
                     else:
                         logger.error(f"Error no recuperable en OpenRouter: {e}")
                         raise
@@ -181,18 +195,27 @@ class LLMFallback:
                 logger.info(f"LLM provider: Gemini ({self._gemini_model_name})")
                 return self._gemini_chat(messages=messages, temperature=temperature, json_mode=False)
 
-        # Si llegamos aquí, no hay proveedor utilizable
         if last_err:
             raise last_err
-        raise RuntimeError("No hay proveedor LLM disponible (OpenRouter/Gemini)")
+        raise RuntimeError("No hay proveedor LLM disponible")
 
     def chat_json(self, *, model: str, messages: List[Dict[str, str]], temperature: float = 0.2) -> Any:
         last_err: Optional[Exception] = None
         for provider in self.provider_order:
+            if provider == "ollama" and self._ensure_ollama():
+                try:
+                    ollama_model_name = model.split('/')[-1] if '/' in model else model
+                    logger.info(f"LLM provider (JSON): Ollama ({ollama_model_name})")
+                    text = self._create_chat_completion(self._ollama_client, ollama_model_name, messages, temperature, True)
+                    return _parse_json_robust(text)
+                except Exception as e:
+                    last_err = e
+                    logger.warning(f"Falló Ollama (JSON), aplicando fallback: {e}")
+
             if provider == "openrouter" and self._ensure_openrouter():
                 try:
                     logger.info(f"LLM provider (JSON): OpenRouter ({model})")
-                    text = self._openrouter_chat(model=model, messages=messages, temperature=temperature, json_mode=True)
+                    text = self._create_chat_completion(self._openrouter_client, model, messages, temperature, True)
                     return _parse_json_robust(text)
                 except Exception as e:
                     last_err = e
@@ -212,17 +235,40 @@ class LLMFallback:
         raise RuntimeError("No hay proveedor LLM disponible para salida JSON")
 
     def chat_structured(self, *, model: str, messages: List[Dict[str, str]], response_model: Type[BaseModel], temperature: float = 0.7) -> BaseModel:
-        # For now, this only supports OpenRouter. Fallback will be added later.
-        if self._ensure_openrouter():
-            logger.info(f"LLM provider (Structured): OpenRouter ({model})")
-            assert self._openrouter_client is not None
-            return self._openrouter_client.chat.completions.create(
-                model=model,
-                messages=messages,
-                temperature=temperature,
-                response_model=response_model,
-            )
-        raise RuntimeError("OpenRouter is not available for structured output.")
+        last_err: Optional[Exception] = None
+        for provider in self.provider_order:
+            client: Optional[OpenAI] = None
+            provider_model_name = model
+
+            if provider == "ollama" and self._ensure_ollama():
+                client = self._ollama_client
+                provider_model_name = model.split('/')[-1] if '/' in model else model
+                logger.info(f"LLM provider (Structured): Ollama ({provider_model_name})")
+            
+            elif provider == "openrouter" and self._ensure_openrouter():
+                client = self._openrouter_client
+                logger.info(f"LLM provider (Structured): OpenRouter ({model})")
+
+            if client:
+                try:
+                    return client.chat.completions.create(
+                        model=provider_model_name,
+                        messages=messages,
+                        temperature=temperature,
+                        response_model=response_model,
+                    )
+                except Exception as e:
+                    last_err = e
+                    if provider == "openrouter" and not _should_fallback_for_error(e):
+                        logger.error(f"Error no recuperable en OpenRouter (Structured): {e}")
+                        raise
+                    logger.warning(f"Falló el proveedor '{provider}' (Structured), aplicando fallback: {e}")
+
+        # Add Gemini fallback for structured data here in the future if needed.
+
+        if last_err:
+            raise last_err
+        raise RuntimeError("No hay proveedor LLM disponible para salida estructurada")
 
 
 

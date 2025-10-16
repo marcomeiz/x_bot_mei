@@ -13,12 +13,11 @@ substitutions:
   _REGION: europe-west1
   _SERVICE: x-bot-mei
   _REPO: x-bot-mei
-  # Ajusta el bucket existente con tu proyecto
   _BUCKET_DB: xbot-473616-x-bot-mei-db
-  _FALLBACK_PROVIDER_ORDER: gemini,openrouter
+  _FALLBACK_PROVIDER_ORDER: ollama,gemini,openrouter
 
 steps:
-  # Commit metadata for notifications (subject, author, branch)
+  # Commit metadata for notifications
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     id: commit-meta
     entrypoint: bash
@@ -30,7 +29,7 @@ steps:
         trap 'code=$?; echo "commit-meta failed ($code)"; bash ./deploy/scripts/notify_failure.sh "${_SERVICE}" "${_REGION}" "commit-meta"; exit $code' ERR
         bash ./deploy/scripts/commit_meta.sh
 
-  # Notify start to Telegram (lean + clean)
+  # Notify start
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     id: notify-start
     entrypoint: bash
@@ -41,29 +40,23 @@ steps:
   - name: gcr.io/cloud-builders/docker
     id: docker-build
     entrypoint: bash
-    secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
     args:
-      - -ceu
+      - -c
       - |
-        set -euo pipefail
         IMG="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA"
-        trap 'code=$?; echo "docker build failed ($code)"; bash ./deploy/scripts/notify_failure.sh "${_SERVICE}" "${_REGION}" "docker-build"; exit $code' ERR
         docker build -t "$$IMG" .
 
   # Push image
   - name: gcr.io/cloud-builders/docker
     id: docker-push
     entrypoint: bash
-    secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
     args:
-      - -ceu
+      - -c
       - |
-        set -euo pipefail
         IMG="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA"
-        trap 'code=$?; echo "docker push failed ($code)"; bash ./deploy/scripts/notify_failure.sh "${_SERVICE}" "${_REGION}" "docker-push"; exit $code' ERR
         docker push "$$IMG"
 
-  # Deploy to Cloud Run (idempotent). Requiere que los secretos existan.
+  # Deploy to Cloud Run with Ollama Sidecar
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     entrypoint: bash
     secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
@@ -75,25 +68,31 @@ steps:
         gcloud config set project "$PROJECT_ID"
         IMG="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA"
 
-        # Secret refs: no leen valores en build, solo referencian nombres/versions
         SECRET_LIST="TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN:latest,GOOGLE_API_KEY=GOOGLE_API_KEY:latest,ADMIN_API_TOKEN=ADMIN_API_TOKEN:latest"
-        if gcloud secrets describe OPENROUTER_API_KEY >/dev/null 2>&1; then
+        if gcloud secrets describe OPENROUTER_API_KEY >/dev/null 2>&1;
           SECRET_LIST="$$SECRET_LIST,OPENROUTER_API_KEY=OPENROUTER_API_KEY:latest"
         fi
 
-        # Escapar coma usando item-delimiter ^:^
-        ENV_VARS="^:^FALLBACK_PROVIDER_ORDER=${_FALLBACK_PROVIDER_ORDER}:CHROMA_DB_PATH=/mnt/db:GEMINI_MODEL=gemini-2.5-pro:SHOW_TOPIC_ID=0"
+        ENV_VARS="^:^FALLBACK_PROVIDER_ORDER=${_FALLBACK_PROVIDER_ORDER}:CHROMA_DB_PATH=/mnt/db:GEMINI_MODEL=gemini-1.5-pro-latest:SHOW_TOPIC_ID=0:OLLAMA_HOST=http://localhost:11434"
 
         gcloud run deploy "${_SERVICE}" \
-          --image "$$IMG" \
-          --region "${_REGION}" --allow-unauthenticated --port 8080 \
+          --region "${_REGION}" --allow-unauthenticated \
           --max-instances 1 --min-instances 0 \
+          --add-volume=name=dbvol,type=cloud-storage,bucket="${_BUCKET_DB}" \
+          --container app \
+          --image "$$IMG" \
+          --port 8080 \
           --set-env-vars "$$ENV_VARS" \
           --set-secrets "$$SECRET_LIST" \
-          --add-volume=name=dbvol,type=cloud-storage,bucket="${_BUCKET_DB}" \
-          --add-volume-mount=volume=dbvol,mount-path=/mnt/db
+          --add-volume-mount=volume=dbvol,mount-path=/mnt/db \
+          --resources "cpu=1,memory=1Gi" \
+          --container ollama \
+          --image "ollama/ollama" \
+          --command "/bin/sh" \
+          --args "-c" \
+          --args "ollama serve & PID=$! && ollama pull phi3 && wait $PID" \
+          --resources "cpu=1,memory=2Gi"
 
-        # Notify success to Telegram (with service URL)
         bash ./deploy/scripts/notify_success.sh "${_SERVICE}" "${_REGION}"
 
 images:

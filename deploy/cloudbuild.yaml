@@ -1,4 +1,4 @@
-timeout: "1800s"
+timeout: "3600s"
 options:
   logging: CLOUD_LOGGING_ONLY
 
@@ -43,7 +43,8 @@ steps:
     args:
       - -c
       - |
-        IMG="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA"
+        TAG="$${SHORT_SHA:-$${COMMIT_SHA:-$${REVISION_ID:-manual}}}"
+        IMG="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$${TAG}"
         docker build -t "$$IMG" .
 
   # Push image
@@ -53,7 +54,8 @@ steps:
     args:
       - -c
       - |
-        IMG="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA"
+        TAG="$${SHORT_SHA:-$${COMMIT_SHA:-$${REVISION_ID:-manual}}}"
+        IMG="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$${TAG}"
         docker push "$$IMG"
 
   # Deploy to Cloud Run with Ollama Sidecar
@@ -66,10 +68,11 @@ steps:
         set -euo pipefail
         trap 'code=$?; echo "deploy failed ($code)"; bash ./deploy/scripts/notify_failure.sh "${_SERVICE}" "${_REGION}" "gcloud-run-deploy"; exit $code' ERR
         gcloud config set project "$PROJECT_ID"
-        IMG="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA"
+        TAG="$${SHORT_SHA:-$${COMMIT_SHA:-$${REVISION_ID:-manual}}}"
+        IMG="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$${TAG}"
 
         SECRET_LIST="TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN:latest,GOOGLE_API_KEY=GOOGLE_API_KEY:latest,ADMIN_API_TOKEN=ADMIN_API_TOKEN:latest"
-        if gcloud secrets describe OPENROUTER_API_KEY >/dev/null 2>&1;
+        if gcloud secrets describe OPENROUTER_API_KEY >/dev/null 2>&1; then
           SECRET_LIST="$$SECRET_LIST,OPENROUTER_API_KEY=OPENROUTER_API_KEY:latest"
         fi
 
@@ -90,10 +93,7 @@ steps:
           --image "ollama/ollama" \
           --command "/bin/sh" \
           --args "-c" \
-          --args "ollama serve & PID=$! && ollama pull phi3 && wait $PID" \
+          --args "ollama serve & PID=$$! && ollama pull phi3 && wait $$PID" \
           --resources "cpu=1,memory=2Gi"
 
         bash ./deploy/scripts/notify_success.sh "${_SERVICE}" "${_REGION}"
-
-images:
-  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$SHORT_SHA"

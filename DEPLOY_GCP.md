@@ -44,7 +44,7 @@ Back up code snapshot
 
 CI/CD (auto‑deploy on push)
 
-Recommended: Cloud Build Trigger connected to your GitHub repo.
+Recommended: GitHub Actions + Workload Identity Federation (WIF) calling Cloud Build. This keeps the full pipeline in-repo and avoids long‑lived keys. Alternatively, a Cloud Build Trigger also works.
 
 1) Prepare once (project‑level):
    - Ensure APIs are enabled (already done by the script): Run, Artifact Registry, Cloud Build, Secret Manager, Cloud Storage.
@@ -64,14 +64,29 @@ Recommended: Cloud Build Trigger connected to your GitHub repo.
      - Secret references from Secret Manager (including TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID for Telegram notifications)
      - Notifications to Telegram at start and success with branch, short SHA and commit subject
 
-3) Create a Build Trigger (UI):
-   - Cloud Build → Triggers → Create trigger
+GitHub Actions (recommended)
+1) Create a deploy Service Account (SA) and grant roles:
+   - SA: <deploy‑sa>@$PROJECT_ID.iam.gserviceaccount.com
+   - roles: run.admin, artifactregistry.writer, secretmanager.secretAccessor
+   - Ensure Cloud Run SA (PROJECT_NUMBER-compute@developer.gserviceaccount.com) has: secretmanager.secretAccessor, storage.objectAdmin
+2) Create a Workload Identity Pool + Provider (OIDC for GitHub) and bind the SA:
+   - Pool: github-pool, Provider: github-provider (issuer https://token.actions.githubusercontent.com)
+   - Attribute mapping must include repository and ref.
+   - Bind WIF to the repo: roles/iam.workloadIdentityUser for attribute.repository=<OWNER>/<REPO>
+3) Add GitHub repository Secrets/Variables:
+   - Secrets: GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT_EMAIL
+   - Variables: GCP_PROJECT_ID, GCP_REGION (europe-west1), CLOUD_RUN_SERVICE (x-bot-mei), ARTIFACT_REPO (x-bot-mei), DB_BUCKET (x-bot-mei-db)
+4) The workflow .github/workflows/deploy.yml (added) authenticates via WIF and runs:
+   - gcloud builds submit --config deploy/cloudbuild.yaml --substitutions=_REGION,_SERVICE,_REPO,_BUCKET_DB
+5) Push to main → GitHub Actions triggers Cloud Build → deploys to Cloud Run with Telegram notifications.
+
+Cloud Build Trigger (alternative)
+1) Cloud Build → Triggers → Create trigger
    - Source: Connect GitHub repository (via Google Cloud Build GitHub App)
    - Event: Push to a branch (e.g., main)
    - Configuration: Use a YAML file → Path: deploy/cloudbuild.yaml
    - Substitutions (_REGION, _SERVICE, _REPO, _BUCKET_DB) as desired
-
-4) Commit to main → auto‑build and auto‑deploy.
+2) Commit to main → auto‑build and auto‑deploy.
 
 Notes
 - The pipeline doesn’t mutate IAM each run. Run the one‑time IAM grants above or keep the manual deploy script for first‑time setup.

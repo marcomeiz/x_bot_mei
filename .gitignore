@@ -4,4 +4,5 @@ __pycache__/
 .DS_Store
 uploads/
 texts/
-
+db/
+json/

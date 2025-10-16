@@ -17,6 +17,9 @@ from embeddings_manager import get_embedding, get_topics_collection
 import requests
 from style_guard import audit_style, CONTRACT_TEXT
 
+from llama_index.core import Document, VectorStoreIndex, Settings
+from llama_index.llms.openai import OpenAI as LlamaOpenAI
+
 # --- Pydantic Schemas for Structured Output ---
 from typing import List
 from pydantic import BaseModel, Field
@@ -24,12 +27,19 @@ from pydantic import BaseModel, Field
 class Topic(BaseModel):
     abstract: str = Field(..., description="The concise, tweet-worthy topic extracted from the text.")
 
-class TopicList(BaseModel):
-    topics: List[Topic] = Field(..., description="A list of 8-12 extracted topics.")
+class RagTopicList(BaseModel):
+    """A list of high-quality topics extracted from a document."""
+    topics: List[Topic]
 
 class ValidationResponse(BaseModel):
     is_relevant: bool = Field(..., description="True if the topic is relevant to a COO, False otherwise.")
 
+# Configure LlamaIndex to use our local Ollama model for RAG queries
+# This makes the extraction process much faster and free.
+ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+Settings.llm = LlamaOpenAI(api_base=f"{ollama_host}/v1", api_key="ollama", model="phi3")
+# We will continue to use Google for the final embeddings for consistency
+# Settings.embed_model is configured elsewhere or uses defaults
 
 
 # --- CONFIGURACIÓN ---
@@ -126,93 +136,87 @@ def validate_topic(topic_abstract: str) -> bool:
         return False
 
 async def extract_and_validate_topics(text, pdf_name):
-    chunks = chunk_text(text)
+    print("\n[procesando] Iniciando extracción de temas con LlamaIndex...")
     all_validated_topics = []
-
     total_extracted = 0
     total_approved = 0
-
     topics_to_embed = []
     seen_topic_ids = set()
 
-    for i, chunk in enumerate(chunks):
-        print(f"[procesando] Chunk {i+1}/{len(chunks)} ({round(((i+1)/len(chunks))*100, 1)}%)")
-        prompt_extract = (
-            f'Extract 8-12 tweet-worthy topics from this text chunk: "{chunk}".'
+    try:
+        # 1. Create LlamaIndex Document and Index
+        documents = [Document(text=text)]
+        index = VectorStoreIndex.from_documents(documents)
+
+        # 2. Create a query engine with structured output capabilities
+        query_engine = index.as_query_engine(
+            output_cls=RagTopicList,
+            response_mode="compact",
         )
-        try:
-            # Use instructor for structured output
-            extracted_topic_list = llm.chat_structured(
-                model=GENERATION_MODEL,
-                messages=[
-                    {"role": "system", "content": "You are a topic extraction expert."},
-                    {"role": "user", "content": prompt_extract}
-                ],
-                response_model=TopicList,
-                temperature=0.7,
-            )
-            extracted_topics = extracted_topic_list.topics if extracted_topic_list else []
-        except Exception as e:
-            print(f"Extraction API call failed for chunk {i+1}: {e}")
+
+        # 3. Define a single, powerful query to extract high-quality topics
+        query = (
+            "Extract 8-12 high-quality, tweet-worthy topics from the document. "
+            "Focus on counter-intuitive insights, practical advice, or strong opinions relevant to a COO. "
+            "Each topic should be a concise, self-contained statement."
+        )
+
+        # 4. Execute the query
+        response = query_engine.query(query)
+        extracted_topics = response.topics if response and response.topics else []
+        total_extracted = len(extracted_topics)
+        print(f"[procesando] LlamaIndex extrajo {total_extracted} temas potenciales.")
+
+    except Exception as e:
+        logger.error(f"LlamaIndex RAG pipeline failed: {e}", exc_info=True)
+        extracted_topics = []
+
+    # 5. Process the extracted topics (validation, deduplication, storage)
+    for topic in extracted_topics:
+        abstract = topic.abstract
+        if not abstract:
             continue
 
-        total_extracted += len(extracted_topics)
-
-        for topic in extracted_topics:
-            abstract = topic.abstract
-            if not abstract:
+        print(f"  [validando] '{abstract[:60]}...'")
+        if validate_topic(abstract):
+            if WATCHER_ENFORCE_STYLE_AUDIT:
+                try:
+                    audit = audit_style(abstract, CONTRACT_TEXT) or {}
+                    corp = int(audit.get("corporate_jargon_score", 0) or 0)
+                    clich = int(audit.get("cliche_score", 0) or 0)
+                    voice = str(audit.get("voice", "") or "")
+                    needs_rev = bool(audit.get("needs_revision", False))
+                    too_board = needs_rev and (voice == "boardroom") and (corp >= JARGON_THRESHOLD or clich >= CLICHE_THRESHOLD)
+                    if too_board:
+                        print(f"    -> ⚠️ Estilo genérico/boardroom (voice={voice}, jargon={corp}, cliche={clich}). Se omite.")
+                        continue
+                    if needs_rev:
+                        print(f"    -> ℹ️ Marcado como 'needs_revision' (voice={voice}, jargon={corp}, cliche={clich}) pero aceptado.")
+                except Exception:
+                    pass
+            
+            topic_id = hashlib.md5(f"{pdf_name}:{abstract}".encode()).hexdigest()[:10]
+            if topic_id in seen_topic_ids:
+                print("    -> ⚠️ Duplicado dentro del mismo PDF. Se omite.")
                 continue
+            seen_topic_ids.add(topic_id)
+            
+            # The Pydantic model doesn't support item assignment, so we create a dict
+            topic_dict = {"abstract": abstract, "topic_id": topic_id, "source_pdf": pdf_name}
+            all_validated_topics.append(topic_dict)
+            total_approved += 1
 
-            print(f"  [validando] '{abstract[:60]}...'")
-            if validate_topic(abstract):
-                # Auditoría de estilo opcional para filtrar abstracts demasiado "boardroom"
-                if WATCHER_ENFORCE_STYLE_AUDIT:
-                    try:
-                        audit = audit_style(abstract, CONTRACT_TEXT) or {}
-                        corp = int(audit.get("corporate_jargon_score", 0) or 0)
-                        clich = int(audit.get("cliche_score", 0) or 0)
-                        voice = str(audit.get("voice", "") or "")
-                        needs_rev = bool(audit.get("needs_revision", False))
+            topics_to_embed.append({
+                "id": topic_id,
+                "document": abstract,
+                "metadata": {"pdf": pdf_name},
+            })
 
-                        # Nueva lógica (relajada): solo omitir si la voz es claramente "boardroom"
-                        # y al menos uno de los puntajes supera los umbrales configurables.
-                        too_board = needs_rev and (voice == "boardroom") and (
-                            corp >= JARGON_THRESHOLD or clich >= CLICHE_THRESHOLD
-                        )
-                        if too_board:
-                            print(
-                                f"    -> ⚠️ Estilo genérico/boardroom (voice={voice}, jargon={corp}, cliche={clich}). Se omite."
-                            )
-                            continue
-                        # Si marca revisión pero no supera umbral, aceptamos y avisamos.
-                        if needs_rev:
-                            print(
-                                f"    -> ℹ️ Marcado como 'needs_revision' (voice={voice}, jargon={corp}, cliche={clich}) pero aceptado."
-                            )
-                    except Exception:
-                        pass
-                topic_id = hashlib.md5(f"{pdf_name}:{abstract}".encode()).hexdigest()[:10]
-                if topic_id in seen_topic_ids:
-                    print("    -> ⚠️ Duplicado dentro del mismo PDF. Se omite.")
-                    continue
-                seen_topic_ids.add(topic_id)
-                topic["topic_id"] = topic_id
-                topic["source_pdf"] = pdf_name
-                all_validated_topics.append(topic)
-                total_approved += 1
+            print("    -> ✅ Aprobado")
+        else:
+            print("    -> ❌ Rechazado")
 
-                topics_to_embed.append(
-                    {
-                        "id": topic_id,
-                        "document": abstract,
-                        "metadata": {"pdf": pdf_name},
-                    }
-                )
-
-                print("    -> ✅ Aprobado")
-            else:
-                print("    -> ❌ Rechazado")
-
+    # ... (The rest of the function for embedding and saving remains the same)
     if topics_to_embed:
         print(f"\n[procesando embeddings] Generando {len(topics_to_embed)} embeddings para los temas aprobados...")
 

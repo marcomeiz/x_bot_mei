@@ -374,24 +374,38 @@ def parse_final_drafts(draft: str) -> (str, str):
 
 
 def generate_third_tweet_variant(topic_abstract: str):
-    """Generate a third tweet variant (EN - C) as a direct, forceful statement.
+    """Generate a third tweet variant (EN - C) using a random post category pattern.
 
     Returns: (draft_c: str, category_name: str)
     """
-    category_name = "Declaración Directa"
+    cat = pick_random_post_category()
+    cat_name = cat["name"]
+    cat_desc = cat["pattern"]
+    cat_struct = (cat.get("structure") or "").strip()
+    cat_why = (cat.get("why") or "").strip()
 
     try:
+        use_bullets = cat.get("key") in BULLET_CATEGORIES
+
         prompt = f"""
-Create ONE tweet in English for the topic below.
+Create ONE tweet in English for the topic below, following this post category pattern strictly.
 
-**Style and output rules (must follow):**
-- **Structure:** One or two forceful sentences. That's it.
-- **Tone:** A direct, non-figurative statement. Do NOT use metaphors, analogies, or other figurative language.
-- **Voice:** NYC bar voice: smart, direct, slightly impatient; zero corporate tone.
-- **Format:** No emojis or hashtags. No quotes around the output. English only.
-- **Length:** Keep under 280 characters (hard requirement).
+Category: {cat_name}
+Pattern definition: {cat_desc}
+{('Structure template: ' + cat_struct) if cat_struct else ''}
+{('Technique rationale: ' + cat_why) if cat_why else ''}
 
-**Topic:** {topic_abstract}
+Style and output rules (must follow):
+- NYC bar voice: smart, direct, slightly impatient; zero corporate tone.
+- Open with a punchy first line (no 'Most people…', no hedging).
+- Include one concrete image or tactical detail (micro-visual).
+- **Constraint:** Avoid using metaphors or analogies unrelated to the core business/operational topic (e.g., no references to war, cooking, assassins, etc.). The tone must remain grounded in a professional, operational context.
+- Structure is flexible for C: single hard-hitting sentence, 1–3 short sentences, or up to 2 very short paragraphs.
+- {'You MAY use 2–3 bullets prefixed with "• " (no hyphens or numbering), tight lines.' if use_bullets else 'Avoid list formatting unless absolutely necessary.'}
+- No emojis or hashtags. No quotes around the output. English only.
+- Keep under 280 characters (hard requirement).
+
+Topic: {topic_abstract}
 """
         system_message = (
             "You are a world-class ghostwriter. Obey the following style contract strictly.\n\n<STYLE_CONTRACT>\n"
@@ -403,15 +417,18 @@ Create ONE tweet in English for the topic below.
             model=GENERATION_MODEL,
             messages=[
                 {"role": "system", "content": system_message},
-                {"role": "user", "content": prompt},
+                {"role": "user", "content": (
+                    prompt
+                    + "\n\nOverride for C: Ignore any paragraph-count constraints from the style contract. "
+                      "You may output a single strong sentence, 1–3 short sentences, or up to 2 very short paragraphs."
+                )},
             ],
-            temperature=0.6,  # Lower temperature for more directness
+            temperature=0.75,
         )
 
         # Refine (flexible) and audit style
         c1 = refine_single_tweet_style_flexible(raw_c, VALIDATION_MODEL)
         try:
-            # We still run improve_style to catch other style issues, even if metaphors are disallowed by the prompt.
             improved_c, audit_c = improve_style(c1, CONTRACT_TEXT)
             c2 = improved_c or c1
         except Exception:
@@ -421,10 +438,10 @@ Create ONE tweet in English for the topic below.
         if len(c2) > 280:
             c2 = ensure_under_limit_via_llm(c2, VALIDATION_MODEL, 280, attempts=4)
 
-        return c2.strip(), category_name
+        return c2.strip(), cat_name
     except Exception as e:
         logger.error(f"Error generating third variant: {e}", exc_info=True)
-        return "", category_name
+        return "", cat_name
 
 # --- FUNCIÓN DE GENERACIÓN MODIFICADA ---
 def generate_tweet_from_topic(topic_abstract: str):

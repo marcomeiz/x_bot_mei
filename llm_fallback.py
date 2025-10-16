@@ -1,6 +1,9 @@
 import os
 import json
-from typing import Any, Dict, List, Optional, Union
+import instructor
+from pydantic import BaseModel
+from typing import Any, Dict, List, Optional, Union, Type
+
 
 from dotenv import load_dotenv
 
@@ -75,7 +78,7 @@ class LLMFallback:
 
         # Gemini
         self._google_api_key = os.getenv("GOOGLE_API_KEY")
-        self._gemini_model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+        self._gemini_model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-pro-latest")
         self._gemini_model: Optional[Any] = None
 
     # --- Inicializadores perezosos ---
@@ -85,6 +88,9 @@ class LLMFallback:
             return False
         if self._openrouter_client is None:
             self._openrouter_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=self._openrouter_api_key)
+            # Patch client with instructor
+            self._openrouter_client = instructor.patch(self._openrouter_client, mode=instructor.Mode.TOOLS)
+            logger.info("Instructor patch applied to OpenRouter client.")
         return True
 
     def _ensure_gemini(self) -> bool:
@@ -138,16 +144,9 @@ class LLMFallback:
                 raise
             # Probar lista de modelos alternativos según versiones del SDK
             alt_names = [
-                "gemini-2.5-pro",
-                "gemini-2.5-flash",
-                "gemini-2.0-flash",
-                "gemini-2.0-pro-exp",
-                "gemini-2.0-flash-lite",
                 "gemini-1.5-pro-latest",
-                "gemini-pro",
-                "gemini-1.0-pro",
-                "gemini-1.5-flash",
                 "gemini-1.5-flash-latest",
+                "gemini-pro",
             ]
             for name in alt_names:
                 try:
@@ -211,6 +210,20 @@ class LLMFallback:
         if last_err:
             raise last_err
         raise RuntimeError("No hay proveedor LLM disponible para salida JSON")
+
+    def chat_structured(self, *, model: str, messages: List[Dict[str, str]], response_model: Type[BaseModel], temperature: float = 0.7) -> BaseModel:
+        # For now, this only supports OpenRouter. Fallback will be added later.
+        if self._ensure_openrouter():
+            logger.info(f"LLM provider (Structured): OpenRouter ({model})")
+            assert self._openrouter_client is not None
+            return self._openrouter_client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                response_model=response_model,
+            )
+        raise RuntimeError("OpenRouter is not available for structured output.")
+
 
 
 # Instancia lista para importar

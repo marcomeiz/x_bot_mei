@@ -11,6 +11,15 @@ from logger_config import logger
 from embeddings_manager import get_embedding, get_topics_collection, get_memory_collection
 from style_guard import improve_style
 
+# --- Pydantic Schemas for Structured Output ---
+from typing import List
+from pydantic import BaseModel, Field
+
+class TweetDrafts(BaseModel):
+    draft_a: str = Field(..., description="The first tweet draft, labeled as A.")
+    draft_b: str = Field(..., description="The second tweet draft, labeled as B.")
+
+
 load_dotenv()
 openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
 
@@ -361,16 +370,6 @@ def ensure_under_limit_via_llm(text: str, model: str, limit: int = 280, attempts
             pass
     return best
 
-# --- FUNCIÓN DE PARSEO MODIFICADA ---
-def parse_final_drafts(draft: str) -> (str, str):
-    """Parsea dos alternativas en inglés, [EN - A] y [EN - B]."""
-    draft_a_match = re.search(r"\[EN\s*-\s*A\]\s*(.*)", draft, re.DOTALL | re.IGNORECASE)
-    draft_b_match = re.search(r"\[EN\s*-\s*B\]\s*(.*)", draft, re.DOTALL | re.IGNORECASE)
-
-    english_a = draft_a_match.group(1).split("[EN - B]")[0].strip() if draft_a_match else ""
-    english_b = draft_b_match.group(1).strip() if draft_b_match else ""
-
-    return english_a, english_b
 
 
 def generate_third_tweet_variant(topic_abstract: str):
@@ -482,34 +481,38 @@ def generate_tweet_from_topic(topic_abstract: str):
             - A and B MUST use different opening patterns (e.g., question vs. bold statement vs. vivid image).
 
             **CRITICAL OUTPUT REQUIREMENTS:**
-            - Provide two high‑quality, distinct alternatives in English, labeled exactly as:
-              [EN - A]\n<text A>\n\n[EN - B]\n<text B>
+            - Provide two high‑quality, distinct alternatives in English.
             - Both alternatives MUST be under 280 characters.
-            - Output ONLY the final text in the specified format (no commentary).
+            - The output will be automatically structured, so do not add any labels like [EN - A] or [EN - B].
             """
             
             logger.info(f"Llamando al modelo de generación: {GENERATION_MODEL}.")
-            raw_draft = llm.chat_text(
+            
+            # Use instructor for structured output
+            draft_object = llm.chat_structured(
                 model=GENERATION_MODEL,
                 messages=[
                     {
                         "role": "system",
                         "content": (
                             "You are a world-class ghostwriter creating two tweet drafts. "
-                            "Obey the following style contract.\n\n<STYLE_CONTRACT>\n"
-                            + CONTRACT_TEXT + "\n</STYLE_CONTRACT>\n\n"
-                            + "Audience ICP:\n<ICP>\n" + ICP_TEXT + "\n</ICP>"
+                            "Obey the following style contract and return the two drafts structured as requested."
                         ),
                     },
                     {"role": "user", "content": prompt},
                 ],
+                response_model=TweetDrafts,
                 temperature=0.75,
             )
 
-            draft_a, draft_b = parse_final_drafts(raw_draft)
+            if not draft_object:
+                logger.warning(f"Intento {attempt + 1}: El modelo no devolvió un objeto de borradores válido. Reintentando...")
+                continue
+
+            draft_a, draft_b = draft_object.draft_a, draft_object.draft_b
 
             if not draft_a or not draft_b:
-                logger.warning(f"Intento {attempt + 1}: El borrador no contenía las dos alternativas [EN - A] y [EN - B]. Reintentando...")
+                logger.warning(f"Intento {attempt + 1}: El modelo no generó una o ambas alternativas. Reintentando...")
                 continue
             
             logger.info(f"Intento {attempt + 1}: Borradores A y B parseados. Iniciando refinamiento.")

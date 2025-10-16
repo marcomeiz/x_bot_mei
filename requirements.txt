@@ -9,3 +9,5 @@ gunicorn
 desktop-notifier
 google-generativeai
 chromadb
+pydantic
+instructor

@@ -17,6 +17,17 @@ from embeddings_manager import get_embedding, get_topics_collection
 import requests
 from style_guard import audit_style, CONTRACT_TEXT
 
+# --- Pydantic Schemas for Structured Output ---
+from typing import List
+from pydantic import BaseModel, Field
+
+class Topic(BaseModel):
+    abstract: str = Field(..., description="The concise, tweet-worthy topic extracted from the text.")
+
+class TopicList(BaseModel):
+    topics: List[Topic] = Field(..., description="A list of 8-12 extracted topics.")
+
+
 # --- CONFIGURACIÓN ---
 # Folders
 UPLOAD_DIR = "uploads"
@@ -120,20 +131,20 @@ async def extract_and_validate_topics(text, pdf_name):
     for i, chunk in enumerate(chunks):
         print(f"[procesando] Chunk {i+1}/{len(chunks)} ({round(((i+1)/len(chunks))*100, 1)}%)")
         prompt_extract = (
-            f'Extract 8-12 tweet-worthy topics from this text chunk: "{chunk}". '
-            'Respond ONLY with a JSON array of objects like [{"abstract": "..."}].'
+            f'Extract 8-12 tweet-worthy topics from this text chunk: "{chunk}".'
         )
         try:
-            extracted_topics = llm.chat_json(
+            # Use instructor for structured output
+            extracted_topic_list = llm.chat_structured(
                 model=GENERATION_MODEL,
                 messages=[
-                    {"role": "system", "content": "You are a concise JSON assistant."},
+                    {"role": "system", "content": "You are a topic extraction expert."},
                     {"role": "user", "content": prompt_extract}
                 ],
+                response_model=TopicList,
                 temperature=0.7,
             )
-            if not isinstance(extracted_topics, list):
-                extracted_topics = []
+            extracted_topics = extracted_topic_list.topics if extracted_topic_list else []
         except Exception as e:
             print(f"Extraction API call failed for chunk {i+1}: {e}")
             continue
@@ -141,7 +152,7 @@ async def extract_and_validate_topics(text, pdf_name):
         total_extracted += len(extracted_topics)
 
         for topic in extracted_topics:
-            abstract = topic.get("abstract", "")
+            abstract = topic.abstract
             if not abstract:
                 continue
 

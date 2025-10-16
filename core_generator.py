@@ -388,7 +388,7 @@ def generate_third_tweet_variant(topic_abstract: str):
         use_bullets = cat.get("key") in BULLET_CATEGORIES
 
         prompt = f"""
-Create ONE tweet in English for the topic below, following the provided post category.
+**Audience:** Remember you are talking to a friend who fits the Ideal Customer Profile (ICP) below. Your tone should be like giving direct, valuable advice to them.
 
 **Core Task:** Your goal is to follow the *spirit* and *rationale* of the category. The 'why' and 'pattern' are more important than a rigid adherence to the 'structure'. The output should make the reader feel a certain way or see *themselves* differently, as described in the category's rationale.
 
@@ -399,11 +399,11 @@ Create ONE tweet in English for the topic below, following the provided post cat
 - Rationale: {('Technique rationale: ' + cat_why) if cat_why else ''}
 
 **Style and Output Rules:**
-- NYC bar voice: smart, direct, slightly impatient; zero corporate tone.
-- **Constraint:** Avoid using metaphors or analogies unrelated to the core business/operational topic (e.g., no war, cooking, etc.). The tone must remain grounded in a professional, operational context.
-- Structure is flexible: single hard-hitting sentence, 1–3 short sentences, or up to 2 very short paragraphs.
-- No emojis or hashtags. No quotes around the output. English only.
-- Keep under 280 characters (hard requirement).
+- **CRITICAL Constraint:** You MUST NOT use metaphors or analogies, even if they seem relevant. Express the idea in direct, literal language. The goal is a powerful, factual statement.
+- Voice: NYC bar voice: smart, direct, slightly impatient; zero corporate tone.
+- Structure: single hard-hitting sentence, 1–3 short sentences, or up to 2 very short paragraphs.
+- Format: No emojis or hashtags. No quotes around the output. English only.
+- Length: Keep under 280 characters (hard requirement).
 
 **Topic:** {topic_abstract}
 """

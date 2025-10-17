@@ -181,10 +181,16 @@ def do_the_work(chat_id):
             logger.error(f"[CHAT_ID: {chat_id}] No se pudo encontrar un tema relevante en la base de datos.")
             send_telegram_message(chat_id, escape_markdown_v2("❌ No pude encontrar un tema relevante."), reply_markup=get_new_tweet_keyboard())
             return
-    logger.error(f"[CHAT_ID: {chat_id}] No se pudo encontrar un tema único tras {max_retries} intentos.")
-    send_telegram_message(chat_id, escape_markdown_v2(f"❌ No pude encontrar un tema único tras {max_retries} intentos."), reply_markup=get_new_tweet_keyboard())
+    # Fallback: permitir similitud si tras N intentos no hubo tema único
+    logger.warning(f"[CHAT_ID: {chat_id}] No se encontró tema único tras {max_retries} intentos. Intentando con similitud permitida…")
+    topic = find_relevant_topic()
+    if topic and propose_tweet(chat_id, topic, ignore_similarity=True):
+        logger.info(f"[CHAT_ID: {chat_id}] Propuesta enviada con similitud permitida.")
+        return
+    logger.error(f"[CHAT_ID: {chat_id}] No se pudo generar propuesta ni con similitud permitida.")
+    send_telegram_message(chat_id, escape_markdown_v2("❌ No pude generar propuesta, incluso permitiendo similitud."), reply_markup=get_new_tweet_keyboard())
 
-def propose_tweet(chat_id, topic):
+def propose_tweet(chat_id, topic, ignore_similarity: bool = False):
     topic_abstract = topic.get("abstract")
     topic_id = topic.get("topic_id")
     source_pdf = topic.get("source_pdf")
@@ -199,7 +205,7 @@ def propose_tweet(chat_id, topic):
     pre_lines.append("Generando 3 alternativas…")
     send_telegram_message(chat_id, escape_markdown_v2("\n".join(pre_lines)))
 
-    draft_a, draft_b = generate_tweet_from_topic(topic_abstract)
+    draft_a, draft_b = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
     draft_c, category_name = generate_third_tweet_variant(topic_abstract)
 
     if "Error: El tema es demasiado similar" in draft_a:

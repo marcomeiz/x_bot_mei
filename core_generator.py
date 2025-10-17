@@ -443,19 +443,26 @@ def generate_third_tweet_variant(topic_abstract: str):
         return "", cat_name
 
 # --- FUNCIÓN DE GENERACIÓN MODIFICADA ---
-def generate_tweet_from_topic(topic_abstract: str):
+def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = False):
     # --- Comprobación de Memoria ---
-    logger.info("Iniciando comprobación de similitud en memoria.")
-    memory_collection = get_memory_collection()
-    topic_embedding = get_embedding(topic_abstract)
-    if topic_embedding and memory_collection.count() > 0:
-        results = memory_collection.query(query_embeddings=[topic_embedding], n_results=1)
-        if results and results['distances'][0][0] < SIMILARITY_THRESHOLD:
-            distance = results['distances'][0][0]
-            similar_id = results['ids'][0][0]
-            logger.warning(f"Similitud detectada. Distancia: {distance:.4f} (Umbral: {SIMILARITY_THRESHOLD}). Tuit similar ID: {similar_id}.")
-            return f"Error: El tema es demasiado similar a un tuit ya publicado.", ""
-    logger.info("Comprobación de similitud superada. El tema es original.")
+    if ignore_similarity:
+        logger.info("Saltando comprobación de similitud por 'ignore_similarity=True'.")
+    else:
+        logger.info("Iniciando comprobación de similitud en memoria.")
+        memory_collection = get_memory_collection()
+        topic_embedding = get_embedding(topic_abstract)
+        if topic_embedding and memory_collection.count() > 0:
+            results = memory_collection.query(query_embeddings=[topic_embedding], n_results=1)
+            try:
+                distance = results and results['distances'][0][0]
+                similar_id = results and results['ids'][0][0]
+            except Exception:
+                distance = None
+                similar_id = None
+            if isinstance(distance, (int, float)) and distance < SIMILARITY_THRESHOLD:
+                logger.warning(f"Similitud detectada. Distancia: {distance:.4f} (Umbral: {SIMILARITY_THRESHOLD}). Tuit similar ID: {similar_id}.")
+                return f"Error: El tema es demasiado similar a un tuit ya publicado.", ""
+        logger.info("Comprobación de similitud superada. El tema es original o no hay memoria.")
 
     MAX_ATTEMPTS = 3
     for attempt in range(MAX_ATTEMPTS):

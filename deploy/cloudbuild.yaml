@@ -92,7 +92,7 @@ steps:
           --container app \
           --image "$$IMG" \
           --port 8080 \
-          --set-env-vars "$$ENV_VARS" \
+          --set-env-vars="$$ENV_VARS" \
           --set-secrets "$$SECRET_LIST" \
           --add-volume-mount=volume=dbvol,mount-path=/mnt/db \
           --resources "cpu=1,memory=1Gi" \

@@ -17,6 +17,8 @@ substitutions:
   _FALLBACK_PROVIDER_ORDER: ollama,gemini,openrouter
   _SHORT_SHA: manual
   _BRANCH: main
+  _SHORT_SHA: manual
+  _BRANCH: main
 
 steps:
   # Commit metadata for notifications
@@ -24,6 +26,7 @@ steps:
     id: commit-meta
     entrypoint: bash
     secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
+    env: ["SHORT_SHA=${_SHORT_SHA}", "BRANCH_NAME=${_BRANCH}"]
     env: ["BRANCH_NAME=${_BRANCH}", "COMMIT_SHA=${_SHORT_SHA}"]
     args:
       - -ceu
@@ -37,6 +40,7 @@ steps:
     id: notify-start
     entrypoint: bash
     secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
+    env: ["SHORT_SHA=${_SHORT_SHA}", "BRANCH_NAME=${_BRANCH}"]
     env: ["BRANCH_NAME=${_BRANCH}", "COMMIT_SHA=${_SHORT_SHA}"]
     args: ["-ceu", "bash ./deploy/scripts/notify_start.sh ${_SERVICE} ${_REGION}"]
 
@@ -68,6 +72,7 @@ steps:
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     entrypoint: bash
     secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
+    env: ["SHORT_SHA=${_SHORT_SHA}", "BRANCH_NAME=${_BRANCH}"]
     env: ["COMMIT_SHA=${_SHORT_SHA}"]
     args:
       - -ceu

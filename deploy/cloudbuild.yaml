@@ -100,7 +100,7 @@ steps:
           --image "ollama/ollama" \
           --command "/bin/sh" \
           --args '-c' \
-          --args 'ollama serve & PID=$! && ollama pull phi3 && wait $PID' \
+          --args 'ollama serve & PID=$$! && ollama pull phi3 && wait $$PID' \
           --resources "cpu=1,memory=2Gi"
 
         bash ./deploy/scripts/notify_success.sh "${_SERVICE}" "${_REGION}"

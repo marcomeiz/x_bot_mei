@@ -24,7 +24,8 @@ gcloud services enable \
   artifactregistry.googleapis.com \
   cloudbuild.googleapis.com \
   storage.googleapis.com \
-  secretmanager.googleapis.com >/dev/null
+  secretmanager.googleapis.com \
+  cloudresourcemanager.googleapis.com >/dev/null
 
 PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
 CB_SA_EMAIL="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"

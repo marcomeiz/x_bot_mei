@@ -495,34 +495,62 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
             
             logger.info(f"Llamando al modelo de generación (Gemini JSON): {GENERATION_MODEL}.")
 
-            # Solicitar JSON estricto con draft_a y draft_b (Gemini)
-            resp = llm.chat_json(
-                model=GENERATION_MODEL,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a world-class ghostwriter creating two tweet drafts. "
-                            "Return ONLY strict JSON with exactly two string properties: draft_a and draft_b."
-                        ),
-                    },
-                    {
-                        "role": "user",
-                        "content": (
+            draft_a = ""
+            draft_b = ""
+            try:
+                # Solicitar JSON estricto con draft_a y draft_b (Gemini)
+                resp = llm.chat_json(
+                    model=GENERATION_MODEL,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": (
+                                "You are a world-class ghostwriter creating two tweet drafts. "
+                                "Return ONLY strict JSON with exactly two string properties: draft_a and draft_b."
+                            ),
+                        },
+                        {
+                            "role": "user",
+                            "content": (
+                                prompt
+                                + "\n\nOutput format (strict JSON): {\n  \"draft_a\": \"...\",\n  \"draft_b\": \"...\"\n}"
+                            ),
+                        },
+                    ],
+                    temperature=0.65,
+                )
+                if isinstance(resp, dict):
+                    draft_a = str(resp.get("draft_a", "")).strip()
+                    draft_b = str(resp.get("draft_b", "")).strip()
+            except Exception as e_json:
+                logger.warning(f"Intento {attempt + 1}: JSON generation failed, falling back to text parse: {e_json}")
+                # Fallback: pedir dos variantes separadas por un delimitador claro
+                plain = llm.chat_text(
+                    model=GENERATION_MODEL,
+                    messages=[
+                        {"role": "system", "content": "You are a world-class ghostwriter creating two tweet drafts."},
+                        {"role": "user", "content": (
                             prompt
-                            + "\n\nOutput format (strict JSON): {\n  \"draft_a\": \"...\",\n  \"draft_b\": \"...\"\n}"
-                        ),
-                    },
-                ],
-                temperature=0.75,
-            )
-
-            if not resp or not isinstance(resp, dict):
-                logger.warning(f"Intento {attempt + 1}: El modelo no devolvió JSON válido. Reintentando...")
-                continue
-
-            draft_a = str(resp.get("draft_a", "")).strip()
-            draft_b = str(resp.get("draft_b", "")).strip()
+                            + "\n\nReturn two alternatives under 280 chars each."
+                            + " Use the exact delimiter on a single line between them: ---"
+                        )},
+                    ],
+                    temperature=0.65,
+                )
+                if isinstance(plain, str) and plain.strip():
+                    if "\n---\n" in plain:
+                        pA, pB = plain.split("\n---\n", 1)
+                        draft_a = pA.strip()
+                        draft_b = pB.strip()
+                    else:
+                        # Heurística: separar por doble salto de línea si no vino el delimitador
+                        parts = [p.strip() for p in plain.split("\n\n") if p.strip()]
+                        if len(parts) >= 2:
+                            draft_a, draft_b = parts[0], parts[1]
+                        else:
+                            # última red: usa todo como A y reescribe B con leve variación
+                            draft_a = plain.strip()
+                            draft_b = plain.strip()[: max(0, len(plain.strip()) - 1)]
 
             if not draft_a or not draft_b:
                 logger.warning(f"Intento {attempt + 1}: El modelo no generó una o ambas alternativas. Reintentando...")

@@ -70,7 +70,7 @@ def _parse_json_robust(text: str) -> Any:
 
 class LLMFallback:
     def __init__(self) -> None:
-        self.provider_order = [p.strip() for p in os.getenv("FALLBACK_PROVIDER_ORDER", "ollama,openrouter,gemini").split(",") if p.strip()]
+        self.provider_order = [p.strip() for p in os.getenv("FALLBACK_PROVIDER_ORDER", "gemini,openrouter").split(",") if p.strip()]
 
         # Ollama
         self._ollama_host = os.getenv("OLLAMA_HOST")

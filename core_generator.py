@@ -493,30 +493,36 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Fal
             - The output will be automatically structured, so do not add any labels like [EN - A] or [EN - B].
             """
             
-            logger.info(f"Llamando al modelo de generación: {GENERATION_MODEL}.")
-            
-            # Use instructor for structured output
-            draft_object = llm.chat_structured(
+            logger.info(f"Llamando al modelo de generación (Gemini JSON): {GENERATION_MODEL}.")
+
+            # Solicitar JSON estricto con draft_a y draft_b (Gemini)
+            resp = llm.chat_json(
                 model=GENERATION_MODEL,
                 messages=[
                     {
                         "role": "system",
                         "content": (
                             "You are a world-class ghostwriter creating two tweet drafts. "
-                            "Obey the following style contract and return the two drafts structured as requested."
+                            "Return ONLY strict JSON with exactly two string properties: draft_a and draft_b."
                         ),
                     },
-                    {"role": "user", "content": prompt},
+                    {
+                        "role": "user",
+                        "content": (
+                            prompt
+                            + "\n\nOutput format (strict JSON): {\n  \"draft_a\": \"...\",\n  \"draft_b\": \"...\"\n}"
+                        ),
+                    },
                 ],
-                response_model=TweetDrafts,
                 temperature=0.75,
             )
 
-            if not draft_object:
-                logger.warning(f"Intento {attempt + 1}: El modelo no devolvió un objeto de borradores válido. Reintentando...")
+            if not resp or not isinstance(resp, dict):
+                logger.warning(f"Intento {attempt + 1}: El modelo no devolvió JSON válido. Reintentando...")
                 continue
 
-            draft_a, draft_b = draft_object.draft_a, draft_object.draft_b
+            draft_a = str(resp.get("draft_a", "")).strip()
+            draft_b = str(resp.get("draft_b", "")).strip()
 
             if not draft_a or not draft_b:
                 logger.warning(f"Intento {attempt + 1}: El modelo no generó una o ambas alternativas. Reintentando...")

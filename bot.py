@@ -25,6 +25,7 @@ app = Flask(__name__)
 TEMP_DIR = "/tmp"
 SHOW_TOPIC_ID = os.getenv("SHOW_TOPIC_ID", "0").lower() in ("1", "true", "yes", "y")
 ADMIN_API_TOKEN = os.getenv("ADMIN_API_TOKEN", "")
+SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.20") or 0.20)
 
 # --- (Funciones de Telegram sin cambios) ---
 def get_new_tweet_keyboard():
@@ -282,8 +283,32 @@ def handle_callback_query(update):
             chosen_tweet = tweets.get(f"draft_{option.lower()}", "")
             if not chosen_tweet: raise ValueError("Opción elegida no encontrada")
 
+            # Similaridad en aprobación: si es muy parecido, pedir confirmación.
             memory_collection = get_memory_collection()
             tweet_embedding = get_embedding(chosen_tweet)
+            if tweet_embedding and memory_collection.count() > 0:
+                try:
+                    q = memory_collection.query(query_embeddings=[tweet_embedding], n_results=1)
+                    dist = q and q.get('distances') and q['distances'][0][0]
+                    dist_val = float(dist) if isinstance(dist, (int, float)) else 1.0
+                except Exception:
+                    dist_val = 1.0
+                if dist_val < SIMILARITY_THRESHOLD:
+                    logger.warning(f"[CHAT_ID: {chat_id}] Borrador muy similar (dist={dist_val:.4f} < {SIMILARITY_THRESHOLD}); solicitando confirmación.")
+                    warn = (
+                        f"⚠️ El borrador elegido parece muy similar a una publicación previa.\n"
+                        f"Distancia: {dist_val:.4f} (umbral {SIMILARITY_THRESHOLD}).\n"
+                        f"¿Confirmas guardarlo igualmente?"
+                    )
+                    kb = {"inline_keyboard": [[
+                        {"text": f"✅ Confirmar {option}", "callback_data": f"confirm_{option}_{topic_id}"},
+                        {"text": "Cancelar", "callback_data": f"cancel_{topic_id}"}
+                    ]]}
+                    send_telegram_message(chat_id, escape_markdown_v2(warn), reply_markup=kb)
+                    return
+
+            # Guardado inmediato (no similar o sin memoria)
+            total_mem = None
             if tweet_embedding:
                 logger.info(f"[CHAT_ID: {chat_id}] Guardando tuit aprobado (ID: {topic_id}) en 'memory_collection'.")
                 memory_collection.add(embeddings=[tweet_embedding], documents=[chosen_tweet], ids=[topic_id])
@@ -310,6 +335,43 @@ def handle_callback_query(update):
         except Exception as e:
             logger.error(f"[CHAT_ID: {chat_id}] Error crítico en el proceso de aprobación: {e}", exc_info=True)
             send_telegram_message(chat_id, "⚠️ No pude recuperar el borrador aprobado (quizá expiró). Genera uno nuevo con el botón.", reply_markup=get_new_tweet_keyboard())
+
+    elif action == "confirm":
+        # Confirmación tras advertencia de similitud
+        temp_file_path = os.path.join(TEMP_DIR, f"{chat_id}_{topic_id}.tmp")
+        logger.info(f"[CHAT_ID: {chat_id}] Confirmación recibida para opción {option} (topic ID: {topic_id}).")
+        try:
+            if not os.path.exists(temp_file_path):
+                raise FileNotFoundError(f"Temp file missing: {temp_file_path}")
+            with open(temp_file_path, "r") as f:
+                tweets = json.load(f)
+            chosen_tweet = tweets.get(f"draft_{option.lower()}", "")
+            if not chosen_tweet:
+                raise ValueError("Opción elegida no encontrada")
+            memory_collection = get_memory_collection()
+            tweet_embedding = get_embedding(chosen_tweet)
+            total_mem = None
+            if tweet_embedding:
+                memory_collection.add(embeddings=[tweet_embedding], documents=[chosen_tweet], ids=[topic_id])
+                try:
+                    total_mem = memory_collection.count()
+                except Exception:
+                    total_mem = None
+            intent_url = f"https://x.com/intent/tweet?text={quote_plus(chosen_tweet)}"
+            keyboard = {"inline_keyboard": [[{"text": f"🚀 Publicar Opción {option}", "url": intent_url}]]}
+            send_telegram_message(chat_id, escape_markdown_v2("Guardado pese a similitud."))
+            send_telegram_message(chat_id, escape_markdown_v2("Usa el siguiente botón para publicar:"), reply_markup=keyboard)
+            if total_mem is not None:
+                msg_saved = f"✅ Añadido a la memoria. Ya hay {total_mem} publicaciones."
+                send_telegram_message(chat_id, escape_markdown_v2(msg_saved))
+            send_telegram_message(chat_id, escape_markdown_v2("Listo para el siguiente."), reply_markup=get_new_tweet_keyboard())
+        except Exception as e:
+            logger.error(f"[CHAT_ID: {chat_id}] Error en confirmación de similitud: {e}", exc_info=True)
+            send_telegram_message(chat_id, escape_markdown_v2("⚠️ No pude completar la confirmación. Genera uno nuevo."), reply_markup=get_new_tweet_keyboard())
+
+    elif action == "cancel":
+        logger.info(f"[CHAT_ID: {chat_id}] Confirmación cancelada por el usuario (topic ID: {topic_id}).")
+        send_telegram_message(chat_id, escape_markdown_v2("Operación cancelada."), reply_markup=get_new_tweet_keyboard())
 
     elif action == "reject":
         logger.info(f"[CHAT_ID: {chat_id}] Ambas opciones rechazadas para topic ID: {topic_id}.")

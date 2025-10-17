@@ -443,7 +443,7 @@ def generate_third_tweet_variant(topic_abstract: str):
         return "", cat_name
 
 # --- FUNCIÓN DE GENERACIÓN MODIFICADA ---
-def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = False):
+def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = True):
     # --- Comprobación de Memoria ---
     if ignore_similarity:
         logger.info("Saltando comprobación de similitud por 'ignore_similarity=True'.")
@@ -461,8 +461,8 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Fal
                 similar_id = None
             if isinstance(distance, (int, float)) and distance < SIMILARITY_THRESHOLD:
                 logger.warning(f"Similitud detectada. Distancia: {distance:.4f} (Umbral: {SIMILARITY_THRESHOLD}). Tuit similar ID: {similar_id}.")
-                return f"Error: El tema es demasiado similar a un tuit ya publicado.", ""
-        logger.info("Comprobación de similitud superada. El tema es original o no hay memoria.")
+                # No bloquear la generación; solo loggear. La aprobación validará de nuevo.
+        logger.info("Comprobación de similitud finalizada.")
 
     MAX_ATTEMPTS = 3
     for attempt in range(MAX_ATTEMPTS):
@@ -572,31 +572,78 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Fal
     return "Error: No se pudo generar un borrador válido tras varios intentos.", ""
 
 # --- (find_relevant_topic y find_topic_by_id no cambian en su lógica principal) ---
-def find_relevant_topic():
-    logger.info("Buscando un tema aleatorio en 'topics_collection'...")
+def find_relevant_topic(sample_size: int = 5):
+    """Devuelve un tema. Si hay memoria, elige entre una muestra el menos similar a memoria."""
+    logger.info("Buscando tema en 'topics_collection' (preferir menos similar a memoria)…")
     topics_collection = get_topics_collection()
     try:
-        all_ids = topics_collection.get(include=[])['ids']
+        raw = topics_collection.get(include=[])  # type: ignore
+        all_ids = raw.get('ids') if isinstance(raw, dict) else None
         if not all_ids:
             logger.warning("'topics_collection' está vacía. No se pueden encontrar temas.")
             return None
-        random_id = random.choice(all_ids)
-        logger.info(f"ID de tema aleatorio seleccionado: {random_id}")
-        topic_data = topics_collection.get(ids=[random_id], include=["documents", "metadatas"])  # type: ignore
-        if topic_data and topic_data.get('documents'):
-            docs = topic_data['documents']
-            mds = topic_data.get('metadatas') or []
-            # Compatibilidad con formatos (lista o lista de listas)
-            topic_abstract = docs[0][0] if docs and isinstance(docs[0], list) else docs[0]
-            pdf_name = None
-            if mds:
-                first_md = mds[0][0] if isinstance(mds[0], list) and mds[0] else (mds[0] if isinstance(mds, list) else None)
-                if isinstance(first_md, dict):
-                    pdf_name = first_md.get('pdf') or first_md.get('source_pdf')
-            topic = {"topic_id": random_id, "abstract": topic_abstract}
-            if pdf_name:
-                topic["source_pdf"] = pdf_name
-            return topic
+        # Aplanar si hiciera falta
+        if isinstance(all_ids, list) and all_ids and isinstance(all_ids[0], list):
+            ids = [x for sub in all_ids for x in sub]
+        else:
+            ids = all_ids
+
+        # Muestra aleatoria
+        candidates = random.sample(ids, min(sample_size, len(ids)))
+        memory_collection = get_memory_collection()
+        has_memory = False
+        try:
+            has_memory = memory_collection.count() > 0
+        except Exception:
+            has_memory = False
+
+        best = None
+        best_dist = -1.0
+
+        for cid in candidates:
+            td = topics_collection.get(ids=[cid], include=["documents", "metadatas"])  # type: ignore
+            docs = td.get('documents') if isinstance(td, dict) else None
+            if not docs:
+                continue
+            abstract = docs[0][0] if isinstance(docs[0], list) else docs[0]
+
+            if has_memory:
+                emb = get_embedding(abstract)
+                if emb is not None:
+                    try:
+                        q = memory_collection.query(query_embeddings=[emb], n_results=1)
+                        dist = q and q.get('distances') and q['distances'][0][0]
+                        dist_val = float(dist) if isinstance(dist, (int, float)) else 0.0
+                    except Exception:
+                        dist_val = 0.0
+                else:
+                    dist_val = 0.0
+            else:
+                dist_val = 1.0  # sin memoria, cualquiera vale
+
+            if dist_val > best_dist:
+                best_dist = dist_val
+                md = td.get('metadatas') or []
+                pdf_name = None
+                if md:
+                    first_md = md[0][0] if isinstance(md[0], list) and md[0] else (md[0] if isinstance(md, list) else None)
+                    if isinstance(first_md, dict):
+                        pdf_name = first_md.get('pdf') or first_md.get('source_pdf')
+                best = {"topic_id": cid, "abstract": abstract}
+                if pdf_name:
+                    best["source_pdf"] = pdf_name
+
+        if best:
+            logger.info(f"Tema seleccionado (menos similar en muestra {len(candidates)}), distancia≈{best_dist:.4f}")
+            return best
+
+        # Fallback total: random
+        rid = random.choice(ids)
+        td = topics_collection.get(ids=[rid], include=["documents"])  # type: ignore
+        docs = td.get('documents') if isinstance(td, dict) else None
+        if docs:
+            abstract = docs[0][0] if isinstance(docs[0], list) else docs[0]
+            return {"topic_id": rid, "abstract": abstract}
     except Exception as e:
         logger.error(f"Error al buscar un tema en ChromaDB: {e}", exc_info=True)
     return None

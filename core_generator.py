@@ -26,8 +26,11 @@ openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 CONTRACT_FILE = os.path.join(BASE_DIR, "copywriter_contract.md")
 ICP_FILE = os.path.join(BASE_DIR, "config", "icp.md")
-GENERATION_MODEL = "anthropic/claude-3.5-sonnet"
-VALIDATION_MODEL = "anthropic/claude-3-haiku"
+# For production we use Gemini Pro for both generation and refinement.
+# The actual Gemini model used is resolved by llm_fallback via GOOGLE_API_KEY,
+# but we pass an indicative name for logs; chat_* ignores this for Gemini.
+GENERATION_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+VALIDATION_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
 # Less strict duplicate check by default; configurable via env
 SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.20") or 0.20)
 
@@ -493,7 +496,8 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
             - The output will be automatically structured, so do not add any labels like [EN - A] or [EN - B].
             """
             
-            logger.info(f"Llamando al modelo de generación (Gemini JSON): {GENERATION_MODEL}.")
+            _gm = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+            logger.info(f"Llamando al modelo de generación (Gemini JSON): {_gm}.")
 
             draft_a = ""
             draft_b = ""

@@ -1,6 +1,6 @@
 **Guía Rápida (4 pasos)**
 - 1) Instalar: `python -m venv venv && source venv/bin/activate && pip install -r requirements.txt`.
-- 2) Configurar `.env`: define `GOOGLE_API_KEY`, opcional `OPENROUTER_API_KEY`, y deja `FALLBACK_PROVIDER_ORDER=gemini,openrouter`, `GEMINI_MODEL=gemini-1.5-pro-latest`.
+- 2) Configurar `.env`: define `GOOGLE_API_KEY`, opcional `OPENROUTER_API_KEY`, y deja `FALLBACK_PROVIDER_ORDER=gemini,openrouter`, `GEMINI_MODEL=gemini-2.5-pro`.
  - 3) Iniciar watcher: `python watcher_with_metadata.py` y copia un PDF a `uploads/`. Se extraen, validan y guardan temas en `db/` + `json/`.
 - 4) Generar tweets: `python -i core_generator.py` y ejecuta `generate_tweet_from_topic("<abstract>")`.
 
@@ -29,7 +29,7 @@
   - `GOOGLE_API_KEY` (requerido para embeddings y fallback Gemini)
 - Variables recomendadas para el fallback:
   - `FALLBACK_PROVIDER_ORDER` (por defecto `gemini,openrouter`)
-  - `GEMINI_MODEL` (por defecto `gemini-1.5-pro-latest`)
+  - `GEMINI_MODEL` (por defecto `gemini-2.5-pro`)
 - Otras (si usas integraciones):
   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
   - Credenciales de X/Twitter si se usan scripts relacionados
@@ -88,7 +88,7 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
 - Orden por defecto (ajustable en `.env`): `FALLBACK_PROVIDER_ORDER=gemini,openrouter`.
 - Modelos:
   - OpenRouter: usa tus modelos actuales (p. ej., `anthropic/claude-3.5-sonnet`, `anthropic/claude-3-haiku`).
-- Gemini: por defecto `gemini-1.5-pro-latest`. Si el modelo no está disponible, ajusta `GEMINI_MODEL` a uno listado en tu cuenta.
+- Gemini: por defecto `gemini-2.5-pro`. Si ese modelo no está disponible en tu cuenta, ajusta `GEMINI_MODEL` a uno listado.
 - Detección de fallos que activan fallback: errores de crédito (402), rate limit (429), 401/403, y mensajes típicos de “insufficient/quota/credit/billing”.
 - Salida JSON robusta: con OpenRouter se usa `response_format={"type":"json_object"}`; con Gemini se fuerza “ONLY strict JSON” y se parsea buscando el primer bloque JSON válido.
 
@@ -136,7 +136,7 @@ Referencias en código:
 **Despliegue recomendado (Cloud Run + GCS)**
 - Imagen: usar el `Dockerfile` incluido; comando de arranque `gunicorn -b :8080 bot:app`.
 - Montar bucket con GCS FUSE en `/mnt/db` y configurar `CHROMA_DB_PATH=/mnt/db`.
-- Variables: `TELEGRAM_BOT_TOKEN`, `GOOGLE_API_KEY`, opcional `OPENROUTER_API_KEY`, `FALLBACK_PROVIDER_ORDER=gemini,openrouter`, `GEMINI_MODEL=gemini-1.5-pro-latest`, `ADMIN_API_TOKEN`, `SHOW_TOPIC_ID=0`.
+- Variables: `TELEGRAM_BOT_TOKEN`, `GOOGLE_API_KEY`, opcional `OPENROUTER_API_KEY`, `FALLBACK_PROVIDER_ORDER=gemini,openrouter`, `GEMINI_MODEL=gemini-2.5-pro`, `ADMIN_API_TOKEN`, `SHOW_TOPIC_ID=0`.
 - Escalado: `--min-instances 0 --max-instances 1` para evitar problemas de concurrencia de SQLite.
 
 **Buenas Prácticas**

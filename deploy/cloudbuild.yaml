@@ -84,7 +84,7 @@ steps:
           SECRET_LIST="$$SECRET_LIST,OPENROUTER_API_KEY=OPENROUTER_API_KEY:latest"
         fi
 
-        ENV_VARS="^~^FALLBACK_PROVIDER_ORDER=${_FALLBACK_PROVIDER_ORDER}~CHROMA_DB_PATH=/mnt/db~GEMINI_MODEL=gemini-1.5-pro-latest~SHOW_TOPIC_ID=0"
+        ENV_VARS="^~^FALLBACK_PROVIDER_ORDER=${_FALLBACK_PROVIDER_ORDER}~CHROMA_DB_PATH=/mnt/db~GEMINI_MODEL=gemini-2.5-pro~SHOW_TOPIC_ID=0"
 
         gcloud run deploy "${_SERVICE}" \
           --region "${_REGION}" --allow-unauthenticated \

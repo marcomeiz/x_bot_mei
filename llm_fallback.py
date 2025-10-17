@@ -82,7 +82,8 @@ class LLMFallback:
 
         # Gemini
         self._google_api_key = os.getenv("GOOGLE_API_KEY")
-        self._gemini_model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-pro-latest")
+        # Always prefer the most advanced non-Flash Gemini by default.
+        self._gemini_model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
         self._gemini_model: Optional[Any] = None
 
     # --- Inicializadores perezosos ---
@@ -151,10 +152,20 @@ class LLMFallback:
             return (getattr(resp, "text", None) or "").strip()
         except Exception as e:
             msg = str(e).lower()
-            needs_alt = any(t in msg for t in ["not found", "is not supported for generatecontent", "404", "listmodels"])
+            needs_alt = any(t in msg for t in [
+                "not found",
+                "is not supported for generatecontent",
+                "404",
+                "listmodels",
+            ])
             if not needs_alt:
                 raise
-            alt_names = ["gemini-1.5-pro-latest", "gemini-1.5-flash-latest", "gemini-pro"]
+            # Try stable non-Flash variants only. Avoid deprecated 'gemini-pro'.
+            alt_names = [
+                os.getenv("GEMINI_MODEL", "gemini-2.5-pro"),
+                "gemini-2.5-pro",
+                "gemini-1.5-pro-latest",
+            ]
             for name in alt_names:
                 try:
                     logger.warning(f"Modelo Gemini '{self._gemini_model_name}' no disponible; probando alternativo '{name}'.")

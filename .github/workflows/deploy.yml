@@ -49,4 +49,4 @@ jobs:
 
           gcloud builds submit \
             --config deploy/cloudbuild.yaml \
-            --substitutions _REGION="$REGION",_SERVICE="$SERVICE",_REPO="$ARTIFACT_REPO",_BUCKET_DB="$DB_BUCKET"
+            --substitutions _REGION="$REGION",_SERVICE="$SERVICE",_REPO="$ARTIFACT_REPO",_BUCKET_DB="$DB_BUCKET",_SHORT_SHA="${{ github.sha }}",_BRANCH="${{ github.ref_name }}"

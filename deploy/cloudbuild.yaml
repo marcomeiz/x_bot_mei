@@ -14,7 +14,7 @@ substitutions:
   _SERVICE: x-bot-mei
   _REPO: x-bot-mei
   _BUCKET_DB: xbot-473616-x-bot-mei-db
-  _FALLBACK_PROVIDER_ORDER: ollama,gemini,openrouter
+  _FALLBACK_PROVIDER_ORDER: gemini,openrouter
   _SHORT_SHA: manual
   _BRANCH: main
 
@@ -84,19 +84,16 @@ steps:
           SECRET_LIST="$$SECRET_LIST,OPENROUTER_API_KEY=OPENROUTER_API_KEY:latest"
         fi
 
-        ENV_VARS="^~^FALLBACK_PROVIDER_ORDER=${_FALLBACK_PROVIDER_ORDER}~CHROMA_DB_PATH=/mnt/db~GEMINI_MODEL=gemini-1.5-pro-latest~SHOW_TOPIC_ID=0~OLLAMA_HOST=http://localhost:11434"
+        ENV_VARS="^~^FALLBACK_PROVIDER_ORDER=${_FALLBACK_PROVIDER_ORDER}~CHROMA_DB_PATH=/mnt/db~GEMINI_MODEL=gemini-1.5-pro-latest~SHOW_TOPIC_ID=0"
 
         gcloud run deploy "${_SERVICE}" \
           --region "${_REGION}" --allow-unauthenticated \
           --max-instances 1 --min-instances 0 \
-          --add-volume=name=dbvol,type=cloud-storage,bucket="${_BUCKET_DB}" \
-          --container app \
           --image "$$IMG" \
           --port 8080 \
           --set-env-vars="$$ENV_VARS" \
           --set-secrets "$$SECRET_LIST" \
-          --add-volume-mount=volume=dbvol,mount-path=/mnt/db \
-          --container ollama \
-          --image "ollama/ollama"
+          --add-volume=name=dbvol,type=cloud-storage,bucket="${_BUCKET_DB}" \
+          --add-volume-mount=volume=dbvol,mount-path=/mnt/db
 
         bash ./deploy/scripts/notify_success.sh "${_SERVICE}" "${_REGION}"

@@ -43,7 +43,7 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
   - `GOOGLE_API_KEY` (obligatoria para embeddings y Gemini)
   - `OPENROUTER_API_KEY` (opcional; si falta, se usa Gemini)
   - `FALLBACK_PROVIDER_ORDER` (por defecto `gemini,openrouter`)
-  - `GEMINI_MODEL` (por defecto `gemini-2.5-pro`)
+  - `GEMINI_MODEL` (por defecto `gemini-1.5-pro-latest`)
   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (si usas el bot)
 
 ## Flujo de Datos (camino feliz)

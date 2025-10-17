@@ -1,0 +1,10 @@
+Flask
+gunicorn
+requests
+google-generativeai
+chromadb
+pydantic
+instructor
+openai
+tenacity
+

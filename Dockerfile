@@ -11,12 +11,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt ./
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# Instala solo dependencias de runtime para el servicio en Cloud Run.
+# Las dependencias de watchers (llama-index, PyMuPDF, watchdog, etc.)
+# permanecen en requirements.txt para uso local, pero no se instalan en la imagen.
+COPY requirements.runtime.txt ./
+RUN pip install --upgrade pip && pip install -r requirements.runtime.txt
 
 COPY . .
 
 EXPOSE 8080
 
 CMD ["gunicorn", "-b", ":8080", "bot:app"]
-

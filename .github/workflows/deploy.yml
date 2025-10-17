@@ -30,6 +30,26 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Preflight vars summary
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          REGION: ${{ vars.GCP_REGION }}
+          SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+          ARTIFACT_REPO: ${{ vars.ARTIFACT_REPO }}
+          DB_BUCKET: ${{ vars.DB_BUCKET }}
+        run: |
+          set -euo pipefail
+          : "${GCP_PROJECT_ID:=xbot-473616}"
+          : "${REGION:=europe-west1}"
+          : "${SERVICE:=x-bot-mei}"
+          : "${ARTIFACT_REPO:=x-bot-mei}"
+          : "${DB_BUCKET:=xbot-473616-x-bot-mei-db}"
+          echo "Project:   $GCP_PROJECT_ID"
+          echo "Region:    $REGION"
+          echo "Service:   $SERVICE"
+          echo "Repo:      $ARTIFACT_REPO"
+          echo "DB bucket: $DB_BUCKET"
+
       - name: Submit Cloud Build using repo pipeline
         env:
           GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}

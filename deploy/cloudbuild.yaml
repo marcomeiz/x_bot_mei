@@ -104,7 +104,7 @@ steps:
                   bucket: "${_BUCKET_DB}"
               containers:
               - name: app
-                image: "$IMG"
+                image: "$$IMG"
                 ports:
                 - containerPort: 8080
                 env:

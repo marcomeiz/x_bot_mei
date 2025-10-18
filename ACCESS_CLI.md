@@ -10,6 +10,7 @@ Git + GitHub (SSH)
 - Clonar: git clone git@github.com:marcomeiz/x_bot_mei.git
 - Remoto actual (verificar): git remote -v → origin git@github.com:marcomeiz/x_bot_mei.git
 - Empujar cambios: git add -A && git commit -m "…" && git push origin main
+- Mantener main al día: git pull --rebase origin main
 
 GCP — Proyecto y servicio
 - Project ID: xbot-473616
@@ -84,4 +85,3 @@ Notas de operación
 - Telegram formateado en HTML (parse_mode=HTML) para evitar errores 400 y texto con barras invertidas.
 - Generación LLM: Gemini 2.5 Pro para A/B/C; fallback robusto si falla el JSON.
 - Similitud: no bloquea en generación; se valida al aprobar con confirmación si es muy parecido.
-

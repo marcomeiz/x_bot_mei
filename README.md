@@ -1,8 +1,9 @@
 **Guía Rápida (4 pasos)**
 - 1) Instalar: `python -m venv venv && source venv/bin/activate && pip install -r requirements.txt`.
 - 2) Configurar `.env`: define `GOOGLE_API_KEY`, opcional `OPENROUTER_API_KEY`, y deja `FALLBACK_PROVIDER_ORDER=gemini,openrouter`, `GEMINI_MODEL=gemini-2.5-pro`.
- - 3) Iniciar watcher: `python watcher_with_metadata.py` y copia un PDF a `uploads/`. Se extraen, validan y guardan temas en `db/` + `json/`.
+- 3) Iniciar watcher: `python watcher_with_metadata.py` y copia un PDF a `uploads/`. Se extraen, validan y guardan temas en `db/` + `json/`.
 - 4) Generar tweets: `python -i core_generator.py` y ejecuta `generate_tweet_from_topic("<abstract>")`.
+- Nota rápida: si tu sistema usa `python3`, ajusta los comandos anteriores a `python3` y `python3 -m venv`.
 
 **Resumen**
 - Genera ideas de tweets a partir de PDFs, valida su relevancia para un perfil COO y almacena los temas en una base vectorial (ChromaDB).

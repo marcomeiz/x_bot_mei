@@ -129,6 +129,9 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 - Priorizar proveedor: ajusta `FALLBACK_PROVIDER_ORDER` y reinicia.
 - Registrar incidencias: capturar logs (INFO/WARNING/ERROR) con timestamps.
 
+Acceso y despliegue (referencia)
+- Para detalles operativos (acceso GitHub/GCP, CI/CD, secretos y endpoints), consulta `ACCESS_CLI.md`:1
+
 ## Mejores Prácticas (aplícalas siempre)
 
 - Antes de cambiar código:

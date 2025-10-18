@@ -151,6 +151,9 @@ Referencias en código:
 - Lee primero `AGENTS.md` para entender invariantes, flujo, políticas de LLM/Telegram/Chroma y el runbook operativo.
 - Usa commits pequeños (Conventional Commits) y propone antes de cambiar contratos (formato `[EN - A]/[EN - B]`, límite 280, etc.).
 
+**Acceso y Operación (CLI)**
+- Detalles de acceso, CI/CD, GCP, secretos y endpoints: `ACCESS_CLI.md`:1
+
 **CI/CD (Cloud Build)**
 - Trigger: push a `main` despliega automáticamente a Cloud Run.
 - Config del pipeline: `deploy/cloudbuild.yaml` (usa volumen Cloud Storage, secretos de Secret Manager y env vars con coma escapada).

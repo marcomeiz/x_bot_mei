@@ -6,22 +6,12 @@ from dotenv import load_dotenv
 from logger_config import logger
 from llm_fallback import llm
 from embeddings_manager import get_embedding, get_memory_collection
+from persona import get_style_contract_text
 
 
 load_dotenv()
 
-# Cargar contrato (compartido para generador y watchers)
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-CONTRACT_FILE = os.path.join(BASE_DIR, "copywriter_contract.md")
-CONTRACT_TEXT = ""
-try:
-    with open(CONTRACT_FILE, "r", encoding="utf-8") as _f:
-        CONTRACT_TEXT = _f.read().strip()
-except Exception as _e:
-    CONTRACT_TEXT = (
-        "Style: airy, personal, witty; 2-4 short paragraphs; personal voice; "
-        "subtle wit; show, don't announce; English only; <=280 chars; two variants A and B."
-    )
+CONTRACT_TEXT = get_style_contract_text()
 
 ENFORCE_STYLE_AUDIT = os.getenv("ENFORCE_STYLE_AUDIT", "1").lower() in ("1", "true", "yes", "y")
 # Subimos la revisión por defecto para reforzar el tono humano sin cambiar interfaces

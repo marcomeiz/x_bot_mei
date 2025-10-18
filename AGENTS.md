@@ -32,8 +32,8 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
   - Webhook de Telegram: `/generate` para proponer A/B y callbacks para aprobar/rechazar.
   - Envía mensajes con comprobación de errores Telegram (Markdown → plano si falla).
   - Gestiona archivos temporales en `/tmp` para conservar borradores entre callbacks.
-- `copywriter_contract.md`
-  - Contrato creativo/estilístico a seguir por los modelos.
+- `copywriter_contract_hormozi.md`
+  - Contrato creativo/estilístico activo. `copywriter_contract.md` queda como referencia histórica y puede reactivarse vía `STYLE_CONTRACT_PATH`.
 
 ## Configuración y Entorno
 
@@ -157,7 +157,7 @@ Acceso y despliegue (referencia)
 
 ## Qué NO hacer sin aprobación explícita
 
-- Cambiar el contrato creativo (`copywriter_contract.md`) o el formato `[EN - A] / [EN - B]`.
+- Cambiar el contrato creativo (`copywriter_contract_hormozi.md` o el definido por `STYLE_CONTRACT_PATH`) o el formato `[EN - A] / [EN - B]`.
 - Reemplazar la capa `llm_fallback.py` por llamadas directas.
 - Quitar los contadores `(N/280)` en Telegram.
 - Modificar umbrales de similitud o colecciones de Chroma sin revisar impacto.

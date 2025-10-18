@@ -3,10 +3,10 @@ import os
 import random
 import re
 from dotenv import load_dotenv
-from llm_fallback import llm
 
-# --- NUEVO: Importar el logger configurado ---
+from llm_fallback import llm
 from logger_config import logger
+from persona import get_icp_text, get_style_contract_text
 
 from embeddings_manager import get_embedding, get_topics_collection, get_memory_collection
 from style_guard import improve_style
@@ -24,8 +24,6 @@ load_dotenv()
 openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-CONTRACT_FILE = os.path.join(BASE_DIR, "copywriter_contract.md")
-ICP_FILE = os.path.join(BASE_DIR, "config", "icp.md")
 # For production we use Gemini Pro for both generation and refinement.
 # The actual Gemini model used is resolved by llm_fallback via GOOGLE_API_KEY,
 # but we pass an indicative name for logs; chat_* ignores this for Gemini.
@@ -223,34 +221,9 @@ BULLET_CATEGORIES = {
     "friction_reduction",
 }
 
-# Cargar contrato creativo (usado en todos los prompts relevantes)
-CONTRACT_TEXT = ""
-ICP_TEXT = ""
-try:
-    with open(CONTRACT_FILE, "r", encoding="utf-8") as _f:
-        CONTRACT_TEXT = _f.read().strip()
-        logger.info("Contrato de copywriter cargado correctamente.")
-except Exception as _e:
-    logger.warning(f"No se pudo leer '{CONTRACT_FILE}'. Usando instrucciones mínimas. Error: {_e}")
-    CONTRACT_TEXT = (
-        "Style: airy, personal, witty; 2-4 short paragraphs; personal voice; COO NY City style "
-        "subtle wit; show, don't announce; English only; <=280 chars; two variants A and B."
-    )
-
-# Load ICP (persona) from file or fallback
-ICP_PATH = os.getenv("ICP_PATH", ICP_FILE)
-try:
-    if os.path.exists(ICP_PATH):
-        with open(ICP_PATH, "r", encoding="utf-8") as _f:
-            ICP_TEXT = _f.read().strip()
-            logger.info("ICP cargado correctamente.")
-    else:
-        raise FileNotFoundError(ICP_PATH)
-except Exception as _e:
-    logger.warning(f"No se pudo leer ICP ('{ICP_PATH}'). Usando ICP mínimo. Error: {_e}")
-    ICP_TEXT = (
-        "ICP: Solo‑founders in day 1–year 1, overwhelmed by ops; want step‑zero, practical tools. Platform: fast, conversational."
-    )
+# Cargar contrato creativo e ICP desde el módulo persona
+CONTRACT_TEXT = get_style_contract_text()
+ICP_TEXT = get_icp_text()
 
 # --- (Funciones auxiliares refine_... no cambian) ---
 def refine_and_shorten_tweet(tweet_text: str, model: str) -> str:
@@ -471,14 +444,12 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
     for attempt in range(MAX_ATTEMPTS):
         logger.info(f"Intento de generación de IA {attempt + 1}/{MAX_ATTEMPTS}...")
         try:
-            with open(CONTRACT_FILE, "r", encoding="utf-8") as f: contract = f.read()
-
             # --- PROMPT MODIFICADO PARA PEDIR DOS OPCIONES EN INGLÉS ---
             prompt = f"""
             You are a ghostwriter. Your task is to write TWO distinct alternatives for a tweet based on the topic below. Strictly follow the provided contract.
 
             **Contract for style and tone:**
-            {contract}
+            {CONTRACT_TEXT}
             ---
             **Topic:** {topic_abstract}
 

@@ -17,8 +17,11 @@
 - `core_generator.py`: orquesta la generación de A/B/C, controla similitud y reintentos.
 - `variant_generators.py`: encapsula prompts, refinamientos y selección de categorías para cada variante.
 - `prompt_context.py`: agrupa contrato, ICP y pautas complementarias para inyectarlos en los prompts.
+- `telegram_client.py`: cliente HTTP + helpers de formato/teclados para Telegram.
+- `proposal_service.py`: servicio que coordina selección de temas, generación A/B/C y callbacks.
+- `admin_service.py`: utilidades de ingestión y estadísticas (`/stats`, `/pdfs`, `/ingest_topics`).
 - `offline_generate.py`: genera 2 variantes de tweet sin LLM a partir de un tema aleatorio (útil para pruebas rápidas).
-- `bot.py`: utilidades para enviar/editar mensajes por Telegram (opcional).
+- `bot.py`: app Flask que enruta comandos/ callbacks y delega en los servicios anteriores.
 - `logger_config.py`: logging centralizado a stdout.
 
 **Requisitos**

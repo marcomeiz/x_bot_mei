@@ -1,449 +1,70 @@
-# bot.py
-import os
 import json
+import os
 import threading
-import re
+from typing import Dict, Optional
+
 from dotenv import load_dotenv
 from flask import Flask, request
-import requests
-from urllib.parse import quote_plus
 
-# --- NUEVO: Importar el logger configurado ---
+from admin_service import AdminService
 from logger_config import logger
-
-from embeddings_manager import get_embedding, get_memory_collection, get_topics_collection
-from core_generator import (
-    find_relevant_topic,
-    generate_tweet_from_topic,
-    find_topic_by_id,
-    generate_third_tweet_variant,
-)
-from style_guard import StyleRejection
+from proposal_service import ProposalService
+from telegram_client import TelegramClient
 
 load_dotenv()
+
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-app = Flask(__name__)
-TEMP_DIR = "/tmp"
 SHOW_TOPIC_ID = os.getenv("SHOW_TOPIC_ID", "0").lower() in ("1", "true", "yes", "y")
 ADMIN_API_TOKEN = os.getenv("ADMIN_API_TOKEN", "")
 SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.20") or 0.20)
+TEMP_DIR = os.getenv("BOT_TEMP_DIR", "/tmp")
 
-# --- (Funciones de Telegram sin cambios) ---
-def get_new_tweet_keyboard():
-    return {"inline_keyboard": [[{"text": "🚀 Generar Nuevo Tuit", "callback_data": "generate_new"}]]}
-
-# --- Helpers de formato (MarkdownV2) ---
-# HTML-safe escaping for Telegram parse_mode=HTML
-def html_escape(text: str) -> str:
-    if text is None:
-        return ""
-    return (
-        text.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-    )
+app = Flask(__name__)
+telegram_client = TelegramClient(TELEGRAM_BOT_TOKEN, show_topic_id=SHOW_TOPIC_ID)
+proposal_service = ProposalService(
+    telegram=telegram_client,
+    temp_dir=TEMP_DIR,
+    similarity_threshold=SIMILARITY_THRESHOLD,
+)
+admin_service = AdminService()
 
 
-def escape_markdown_v2(text: str) -> str:
-    # Deprecated: mantenido por compatibilidad si algún import externo lo usa.
-    return text or ""
-
-
-def clean_abstract(text: str, max_len: int = 160) -> str:
-    """Limpia el abstract: quita hashtags y normaliza espacios."""
-    if not isinstance(text, str):
-        return ""
-    t = re.sub(r"#\S+", "", text)  # quitar hashtags
-    t = re.sub(r"\s+", " ", t).strip()
-    if max_len and len(t) > max_len:
-        cut = t[:max_len].rstrip()
-        if " " in cut:
-            cut = cut[: cut.rfind(" ")].rstrip()
-        t = cut + "…"
-    return t
-
-
-def format_proposal_message(
-    topic_id: str,
-    abstract: str,
-    source_pdf: str | None,
-    draft_a: str,
-    draft_b: str,
-    draft_c: str | None = None,
-    category_name: str | None = None,
-) -> str:
-    """Devuelve el mensaje formateado en HTML seguro con A/B y contadores."""
-    len_a = len(draft_a or "")
-    len_b = len(draft_b or "")
-    len_c = len(draft_c or "") if draft_c else 0
-
-    safe_id = html_escape(topic_id or "-")
-    safe_abstract = html_escape(clean_abstract(abstract or ""))
-    safe_source = html_escape(source_pdf) if source_pdf else None
-    safe_a = html_escape(draft_a or "")
-    safe_b = html_escape(draft_b or "")
-    safe_category = html_escape(category_name) if category_name else None
-
-    lines: list[str] = []
-    lines.append("<b>Borradores</b>")
-    if SHOW_TOPIC_ID or not source_pdf:
-        lines.append(f"<b>ID:</b> {safe_id}")
-    if safe_abstract:
-        lines.append(f"<b>Tema:</b> {safe_abstract}")
-    if safe_source:
-        lines.append(f"<b>Origen:</b> {safe_source}")
-    if draft_c and safe_category:
-        lines.append(f"<b>Categoría (C):</b> {safe_category}")
-
-    lines.append("")
-    lines.append(f"<b>A · {len_a}/280</b>\n{safe_a}")
-    lines.append("")
-    lines.append(f"<b>B · {len_b}/280</b>\n{safe_b}")
-    if draft_c:
-        safe_c = html_escape(draft_c or "")
-        lines.append("")
-        lines.append(f"<b>C · {len_c}/280</b>\n{safe_c}")
-    return "\n".join(lines).strip()
-
-def _post_telegram(url, payload, chat_id):
+# ---------------------------------------------------------------------- helpers
+def _send_pdf_summary(chat_id: int) -> None:
     try:
-        r = requests.post(url, json=payload, timeout=20)
-        data = {}
-        try:
-            data = r.json()
-        except Exception:
-            pass
-        if r.status_code != 200 or not data.get("ok", True):
-            logger.error(f"[CHAT_ID: {chat_id}] Telegram API error: status={r.status_code}, resp={data}")
-            return False
-        return True
-    except Exception as e:
-        logger.error(f"[CHAT_ID: {chat_id}] Telegram HTTP error: {e}", exc_info=True)
-        return False
-
-def send_telegram_message(chat_id, text, reply_markup=None, as_html: bool = False):
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    # Intento 1: HTML (seguro). Si no viene preformateado, escapamos.
-    safe_text = text if as_html else html_escape(str(text or ""))
-    payload = {"chat_id": chat_id, "text": safe_text, "parse_mode": "HTML"}
-    if reply_markup:
-        payload["reply_markup"] = reply_markup
-    if _post_telegram(url, payload, chat_id):
-        return True
-    # Intento 2: texto plano
-    payload = {"chat_id": chat_id, "text": str(text or "")}
-    if reply_markup:
-        payload["reply_markup"] = reply_markup
-    return _post_telegram(url, payload, chat_id)
-
-def edit_telegram_message(chat_id, message_id, text, reply_markup=None, as_html: bool = False):
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/editMessageText"
-    # Intento 1: HTML
-    safe_text = text if as_html else html_escape(str(text or ""))
-    payload = {"chat_id": chat_id, "message_id": message_id, "text": safe_text, "parse_mode": "HTML"}
-    if reply_markup:
-        payload["reply_markup"] = reply_markup
-    if _post_telegram(url, payload, chat_id):
-        return True
-    # Intento 2: texto plano
-    payload = {"chat_id": chat_id, "message_id": message_id, "text": str(text or "")}
-    if reply_markup:
-        payload["reply_markup"] = reply_markup
-    return _post_telegram(url, payload, chat_id)
+        stats = admin_service.collect_pdf_stats()
+        message = admin_service.build_pdf_summary_message(stats)
+        telegram_client.send_message(chat_id, message, as_html=True)
+    except Exception as exc:
+        logger.error("[CHAT_ID: %s] Error en /pdfs: %s", chat_id, exc, exc_info=True)
+        telegram_client.send_message(chat_id, "❌ No pude consultar la base de datos.")
 
 
-# --- (Funciones principales con logs añadidos) ---
-def do_the_work(chat_id):
-    logger.info(f"[CHAT_ID: {chat_id}] Iniciando nuevo ciclo de trabajo 'do_the_work'.")
-    max_retries = 5
-    for i in range(max_retries):
-        logger.info(f"[CHAT_ID: {chat_id}] Intento {i+1}/{max_retries} de encontrar un tema relevante.")
-        topic = find_relevant_topic()
-        if topic:
-            if propose_tweet(chat_id, topic):
-                logger.info(f"[CHAT_ID: {chat_id}] Propuesta enviada con éxito. Finalizando ciclo.")
-                return
-            logger.warning(f"[CHAT_ID: {chat_id}] Tema '{topic.get('topic_id')}' descartado por similitud. Buscando otro.")
-            send_telegram_message(chat_id, "⚠️ Tema descartado por ser muy similar a uno anterior. Buscando otro…")
-        else:
-            logger.error(f"[CHAT_ID: {chat_id}] No se pudo encontrar un tema relevante en la base de datos.")
-            send_telegram_message(chat_id, "❌ No pude encontrar un tema relevante.", reply_markup=get_new_tweet_keyboard())
-            return
-    # Fallback: permitir similitud si tras N intentos no hubo tema único
-    logger.warning(f"[CHAT_ID: {chat_id}] No se encontró tema único tras {max_retries} intentos. Intentando con similitud permitida…")
-    topic = find_relevant_topic()
-    if topic and propose_tweet(chat_id, topic, ignore_similarity=True):
-        logger.info(f"[CHAT_ID: {chat_id}] Propuesta enviada con similitud permitida.")
-        return
-    logger.error(f"[CHAT_ID: {chat_id}] No se pudo generar propuesta ni con similitud permitida.")
-    send_telegram_message(chat_id, "❌ No pude generar propuesta, incluso permitiendo similitud.", reply_markup=get_new_tweet_keyboard())
+def _chat_has_token(token: Optional[str]) -> bool:
+    return not ADMIN_API_TOKEN or token == ADMIN_API_TOKEN
 
-def propose_tweet(chat_id, topic, ignore_similarity: bool = False):
-    topic_abstract = topic.get("abstract")
-    topic_id = topic.get("topic_id")
-    source_pdf = topic.get("source_pdf")
-    logger.info(f"[CHAT_ID: {chat_id}] Tema seleccionado (ID: {topic_id}). Abstract: '{topic_abstract[:80]}...'")
-    # Mensaje breve de estado
-    pre_lines = [
-        "🧠 Seleccionando tema…",
-        f"✍️ Tema: {clean_abstract(topic_abstract)[:80]}…",
-    ]
-    if source_pdf:
-        pre_lines.append(f"📄 Origen: {source_pdf}")
-    pre_lines.append("Generando 3 alternativas…")
-    send_telegram_message(chat_id, "\n".join(pre_lines))
 
-    draft_a, draft_b = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
-    try:
-        draft_c, category_name = generate_third_tweet_variant(topic_abstract)
-    except StyleRejection as rejection:
-        feedback = str(rejection).strip()
-        logger.warning(f"[CHAT_ID: {chat_id}] Variante C rechazada por el revisor final: {feedback}")
-        feedback_short = (feedback[:200] + "…") if len(feedback) > 200 else feedback
-        draft_c = f"[Rejected by final reviewer: {feedback_short}]"
-        category_name = "Rejected"
-
-    if "Error: El tema es demasiado similar" in draft_a:
-        return False  # Reintentar con otro tema
-    if "Error:" in draft_a:
-        logger.error(f"[CHAT_ID: {chat_id}] Error recibido de 'generate_tweet_from_topic': {draft_a}")
-        send_telegram_message(chat_id, f"Hubo un problema: {html_escape(draft_a)}", reply_markup=get_new_tweet_keyboard(), as_html=True)
-        return False  # Indicar al bucle que intente con otro tema
-
-    temp_file_path = os.path.join(TEMP_DIR, f"{chat_id}_{topic_id}.tmp")
-    logger.info(f"[CHAT_ID: {chat_id}] Guardando borradores en archivo temporal: {temp_file_path}")
-    with open(temp_file_path, "w") as f:
-        json.dump({"draft_a": draft_a, "draft_b": draft_b, "draft_c": draft_c, "category": category_name}, f)
-
-    # Contadores de caracteres para visibilidad
-    len_a = len(draft_a)
-    len_b = len(draft_b)
-    len_c = len(draft_c)
-
-    keyboard = {"inline_keyboard": [
-        [
-            {"text": "👍 Aprobar A", "callback_data": f"approve_A_{topic_id}"},
-            {"text": "👍 Aprobar B", "callback_data": f"approve_B_{topic_id}"},
-        ],
-        [
-            {"text": "👍 Aprobar C", "callback_data": f"approve_C_{topic_id}"},
-        ],
-        [{"text": "👎 Rechazar Todos", "callback_data": f"reject_{topic_id}"}],
-        [{"text": "🔁 Generar Nuevo", "callback_data": "generate_new"}],
-    ]}
-
-    # Formato limpio en MarkdownV2 (contenido escapado)
-    message_text = format_proposal_message(topic_id, topic_abstract or "", source_pdf, draft_a, draft_b, draft_c, category_name)
-
-    logger.info(f"[CHAT_ID: {chat_id}] Enviando propuestas (A/B) al usuario para el topic ID: {topic_id}.")
-    if send_telegram_message(chat_id, message_text, reply_markup=keyboard, as_html=True):
-        return True
-    logger.error(f"[CHAT_ID: {chat_id}] Falló el envío de propuestas por Telegram (ID: {topic_id}).")
-    return False
-
-def handle_callback_query(update):
-    query = update.get("callback_query", {})
-    chat_id = query["message"]["chat"]["id"]
-    message_id = query["message"]["message_id"]
-    callback_data = query.get("data", "")
-    logger.info(f"[CHAT_ID: {chat_id}] Callback recibido: '{callback_data}'")
-
-    # Estructuras esperadas:
-    #  - approve_A_<topic_id>
-    #  - approve_B_<topic_id>
-    #  - approve_C_<topic_id>
-    #  - reject_<topic_id>
-    parts = callback_data.split('_', 2)
-    action = parts[0] if parts else ""
-    option = parts[1] if len(parts) >= 2 and action == "approve" else ""
-    topic_id = parts[2] if len(parts) == 3 else (parts[1] if len(parts) == 2 else "")
-
-    original_message_text = query["message"].get("text", "")
-
-    if action == "approve":
-        temp_file_path = os.path.join(TEMP_DIR, f"{chat_id}_{topic_id}.tmp")
-        logger.info(f"[CHAT_ID: {chat_id}] Aprobada Opción {option} para topic ID: {topic_id}.")
-        # Editar el mensaje agregando una marca de aprobación (MarkdownV2)
-        # No re-escapamos el texto original para no romper su formato MDV2
-        appended = f"✅ <b>{html_escape(f'¡Aprobada Opción {option}!')}</b>"
-        new_text = (original_message_text or "") + "\n\n" + appended
-        edit_telegram_message(chat_id, message_id, new_text, as_html=True)
-        try:
-            if not os.path.exists(temp_file_path):
-                raise FileNotFoundError(f"Temp file missing: {temp_file_path}")
-            with open(temp_file_path, "r") as f:
-                tweets = json.load(f)
-
-            chosen_tweet = tweets.get(f"draft_{option.lower()}", "")
-            if not chosen_tweet: raise ValueError("Opción elegida no encontrada")
-
-            # Similaridad en aprobación: si es muy parecido, pedir confirmación.
-            memory_collection = get_memory_collection()
-            tweet_embedding = get_embedding(chosen_tweet)
-            if tweet_embedding and memory_collection.count() > 0:
-                try:
-                    q = memory_collection.query(query_embeddings=[tweet_embedding], n_results=1)
-                    dist = q and q.get('distances') and q['distances'][0][0]
-                    dist_val = float(dist) if isinstance(dist, (int, float)) else 1.0
-                except Exception:
-                    dist_val = 1.0
-                if dist_val < SIMILARITY_THRESHOLD:
-                    logger.warning(f"[CHAT_ID: {chat_id}] Borrador muy similar (dist={dist_val:.4f} < {SIMILARITY_THRESHOLD}); solicitando confirmación.")
-                    warn = (
-                        f"⚠️ El borrador elegido parece muy similar a una publicación previa.\n"
-                        f"Distancia: {dist_val:.4f} (umbral {SIMILARITY_THRESHOLD}).\n"
-                        f"¿Confirmas guardarlo igualmente?"
-                    )
-                    kb = {"inline_keyboard": [[
-                        {"text": f"✅ Confirmar {option}", "callback_data": f"confirm_{option}_{topic_id}"},
-                        {"text": "Cancelar", "callback_data": f"cancel_{topic_id}"}
-                    ]]}
-                    send_telegram_message(chat_id, warn, reply_markup=kb, as_html=True)
-                    return
-
-            # Guardado inmediato (no similar o sin memoria)
-            total_mem = None
-            if tweet_embedding:
-                logger.info(f"[CHAT_ID: {chat_id}] Guardando tuit aprobado (ID: {topic_id}) en 'memory_collection'.")
-                memory_collection.add(embeddings=[tweet_embedding], documents=[chosen_tweet], ids=[topic_id])
-                try:
-                    total_mem = memory_collection.count()
-                except Exception:
-                    total_mem = None
-                logger.info(f"[CHAT_ID: {chat_id}] Tuit guardado con éxito en memoria. Total ahora: {total_mem}.")
-
-            intent_url = f"https://x.com/intent/tweet?text={quote_plus(chosen_tweet)}"
-            keyboard = {"inline_keyboard": [[{"text": f"🚀 Publicar Opción {option}", "url": intent_url}]]}
-            send_telegram_message(chat_id, "Usa el siguiente botón para publicar:", reply_markup=keyboard)
-            if total_mem is not None:
-                msg_saved = f"✅ Añadido a la memoria. Ya hay {total_mem} publicaciones." if total_mem != 1 else "✅ Añadido a la memoria. Ya hay 1 publicación."
-                send_telegram_message(chat_id, msg_saved)
-            send_telegram_message(chat_id, "Listo para el siguiente.", reply_markup=get_new_tweet_keyboard())
-
-            if os.path.exists(temp_file_path):
-                logger.info(f"[CHAT_ID: {chat_id}] Eliminando archivo temporal: {temp_file_path}")
-                os.remove(temp_file_path)
-
-        except Exception as e:
-            logger.error(f"[CHAT_ID: {chat_id}] Error crítico en el proceso de aprobación: {e}", exc_info=True)
-            send_telegram_message(chat_id, "⚠️ No pude recuperar el borrador aprobado (quizá expiró). Genera uno nuevo con el botón.", reply_markup=get_new_tweet_keyboard())
-
-    elif action == "confirm":
-        # Confirmación tras advertencia de similitud
-        temp_file_path = os.path.join(TEMP_DIR, f"{chat_id}_{topic_id}.tmp")
-        logger.info(f"[CHAT_ID: {chat_id}] Confirmación recibida para opción {option} (topic ID: {topic_id}).")
-        try:
-            if not os.path.exists(temp_file_path):
-                raise FileNotFoundError(f"Temp file missing: {temp_file_path}")
-            with open(temp_file_path, "r") as f:
-                tweets = json.load(f)
-            chosen_tweet = tweets.get(f"draft_{option.lower()}", "")
-            if not chosen_tweet:
-                raise ValueError("Opción elegida no encontrada")
-            memory_collection = get_memory_collection()
-            tweet_embedding = get_embedding(chosen_tweet)
-            total_mem = None
-            if tweet_embedding:
-                memory_collection.add(embeddings=[tweet_embedding], documents=[chosen_tweet], ids=[topic_id])
-                try:
-                    total_mem = memory_collection.count()
-                except Exception:
-                    total_mem = None
-            intent_url = f"https://x.com/intent/tweet?text={quote_plus(chosen_tweet)}"
-            keyboard = {"inline_keyboard": [[{"text": f"🚀 Publicar Opción {option}", "url": intent_url}]]}
-            send_telegram_message(chat_id, "Guardado pese a similitud.")
-            send_telegram_message(chat_id, "Usa el siguiente botón para publicar:", reply_markup=keyboard)
-            if total_mem is not None:
-                msg_saved = f"✅ Añadido a la memoria. Ya hay {total_mem} publicaciones."
-                send_telegram_message(chat_id, msg_saved)
-            send_telegram_message(chat_id, "Listo para el siguiente.", reply_markup=get_new_tweet_keyboard())
-        except Exception as e:
-            logger.error(f"[CHAT_ID: {chat_id}] Error en confirmación de similitud: {e}", exc_info=True)
-            send_telegram_message(chat_id, "⚠️ No pude completar la confirmación. Genera uno nuevo.", reply_markup=get_new_tweet_keyboard())
-
-    elif action == "cancel":
-        logger.info(f"[CHAT_ID: {chat_id}] Confirmación cancelada por el usuario (topic ID: {topic_id}).")
-        send_telegram_message(chat_id, "Operación cancelada.", reply_markup=get_new_tweet_keyboard())
-
-    elif action == "reject":
-        logger.info(f"[CHAT_ID: {chat_id}] Ambas opciones rechazadas para topic ID: {topic_id}.")
-        # Mensaje de rechazo con MarkdownV2 escapado
-        # Conservar el formato original y solo añadir el aviso
-        appended = "❌ <b>Rechazados.</b>"
-        new_text = (original_message_text or "") + "\n\n" + appended
-        edit_telegram_message(chat_id, message_id, new_text, reply_markup=get_new_tweet_keyboard(), as_html=True)
-
-    elif "generate" in callback_data: # Maneja "generate" y "generate_new"
-        logger.info(f"[CHAT_ID: {chat_id}] El usuario ha solicitado un nuevo tuit manualmente.")
-        edit_telegram_message(chat_id, message_id, "🚀 Buscando un nuevo tema…")
-        threading.Thread(target=do_the_work, args=(chat_id,)).start()
-
+# ---------------------------------------------------------------------- routes
 @app.route(f"/{TELEGRAM_BOT_TOKEN}", methods=["POST"])
 def telegram_webhook():
-    update = request.get_json()
+    update: Dict = request.get_json()
     if "message" in update:
-        text = (update["message"].get("text") or "").strip()
-        chat_id = update["message"]["chat"]["id"]
+        message = update["message"]
+        text = (message.get("text") or "").strip()
+        chat_id = message["chat"]["id"]
+
         if text == "/generate":
-            logger.info(f"[CHAT_ID: {chat_id}] Comando '/generate' recibido.")
-            threading.Thread(target=do_the_work, args=(chat_id,)).start()
+            logger.info("[CHAT_ID: %s] Comando '/generate' recibido.", chat_id)
+            threading.Thread(target=proposal_service.do_the_work, args=(chat_id,)).start()
         elif text.startswith("/pdfs"):
-            logger.info(f"[CHAT_ID: {chat_id}] Comando '/pdfs' recibido.")
-            try:
-                coll = get_topics_collection()
-                raw = coll.get(include=[])
-                raw_ids = raw.get("ids") if isinstance(raw, dict) else None
-                if not raw_ids:
-                    send_telegram_message(chat_id, "*PDFs ingeridos*\nDistinct: 0\nTotal topics: 0")
-                else:
-                    if isinstance(raw_ids, list) and raw_ids and isinstance(raw_ids[0], list):
-                        ids = [x for sub in raw_ids for x in sub]
-                    else:
-                        ids = raw_ids
-
-                    pdf_counts = {}
-                    batch = 500
-                    for i in range(0, len(ids), batch):
-                        batch_ids = ids[i:i + batch]
-                        data = coll.get(ids=batch_ids, include=["metadatas"])  # type: ignore
-                        mds = data.get("metadatas") if isinstance(data, dict) else None
-                        if not mds:
-                            continue
-                        items = [m for sub in mds for m in sub] if (isinstance(mds, list) and mds and isinstance(mds[0], list)) else mds
-                        for md in items:
-                            pdf_name = None
-                            if isinstance(md, dict):
-                                pdf_name = md.get("pdf") or md.get("source_pdf")
-                            key = pdf_name if pdf_name else "(sin origen)"
-                            pdf_counts[key] = pdf_counts.get(key, 0) + 1
-
-                    try:
-                        total_topics = coll.count()
-                    except Exception:
-                        total_topics = 0
-                    distinct = len([k for k in pdf_counts.keys() if k != "(sin origen)"]) if pdf_counts else 0
-
-                    # Construir mensaje (HTML), escapando solo contenido dinámico
-                    lines = ["<b>PDFs ingeridos</b>", f"Distinct: {distinct}", f"Total topics: {total_topics}"]
-                    if pdf_counts:
-                        lines.append("")
-                        top = sorted(pdf_counts.items(), key=lambda kv: kv[1], reverse=True)
-                        extra = 0
-                        if len(top) > 20:
-                            extra = len(top) - 20
-                            top = top[:20]
-                        for name, cnt in top:
-                            safe = html_escape(name)
-                            lines.append(f"• {safe} · {cnt}")
-                        if extra:
-                            lines.append(html_escape(f"… y {extra} más"))
-                    send_telegram_message(chat_id, "\n".join(lines), as_html=True)
-            except Exception as e:
-                logger.error(f"[CHAT_ID: {chat_id}] Error en /pdfs: {e}", exc_info=True)
-                send_telegram_message(chat_id, "❌ No pude consultar la base de datos.")
+            logger.info("[CHAT_ID: %s] Comando '/pdfs' recibido.", chat_id)
+            _send_pdf_summary(chat_id)
+        else:
+            telegram_client.send_message(chat_id, "Comando no reconocido. Usa /generate para obtener propuestas.")
     elif "callback_query" in update:
-        handle_callback_query(update)
+        proposal_service.handle_callback_query(update)
     return "ok", 200
+
 
 @app.route("/")
 def index():
@@ -453,81 +74,27 @@ def index():
 @app.route("/stats")
 def stats():
     token = request.args.get("token", "")
-    if ADMIN_API_TOKEN and token != ADMIN_API_TOKEN:
+    if not _chat_has_token(token):
         return {"ok": False, "error": "forbidden"}, 403
-    try:
-        topics = get_topics_collection().count()  # type: ignore
-    except Exception:
-        topics = None
-    try:
-        memory = get_memory_collection().count()  # type: ignore
-    except Exception:
-        memory = None
-    return {"ok": True, "topics": topics, "memory": memory}, 200
+    return {"ok": True, **admin_service.get_stats()}, 200
 
 
 @app.route("/pdfs")
 def pdfs_stats():
-    """Return distinct PDF count and per-PDF topic counts from topics_collection.
-
-    Secured with ADMIN_API_TOKEN. Does not expose content, only metadata counts.
-    """
     token = request.args.get("token", "")
-    if ADMIN_API_TOKEN and token != ADMIN_API_TOKEN:
+    if not _chat_has_token(token):
         return {"ok": False, "error": "forbidden"}, 403
-
     try:
-        coll = get_topics_collection()
-        # Retrieve all IDs first (no payload)
-        raw = coll.get(include=[])
-        raw_ids = raw.get("ids") if isinstance(raw, dict) else None
-        if not raw_ids:
-            return {"ok": True, "distinct_pdfs": 0, "total_topics": 0, "pdf_counts": {}}, 200
-
-        # Flatten ids if nested
-        if isinstance(raw_ids, list) and raw_ids and isinstance(raw_ids[0], list):
-            ids = [x for sub in raw_ids for x in sub]
-        else:
-            ids = raw_ids
-
-        pdf_counts = {}
-        batch = 500
-        for i in range(0, len(ids), batch):
-            batch_ids = ids[i:i + batch]
-            data = coll.get(ids=batch_ids, include=["metadatas"])  # type: ignore
-            mds = data.get("metadatas") if isinstance(data, dict) else None
-            if not mds:
-                continue
-            # Flatten if needed
-            items = [m for sub in mds for m in sub] if (isinstance(mds, list) and mds and isinstance(mds[0], list)) else mds
-            for md in items:
-                pdf_name = None
-                if isinstance(md, dict):
-                    pdf_name = md.get("pdf") or md.get("source_pdf")
-                key = pdf_name if pdf_name else "_unknown"
-                pdf_counts[key] = pdf_counts.get(key, 0) + 1
-
-        distinct = len([k for k in pdf_counts.keys() if k != "_unknown"]) if pdf_counts else 0
-        try:
-            total_topics = coll.count()
-        except Exception:
-            total_topics = None
-        return {"ok": True, "distinct_pdfs": distinct, "total_topics": total_topics, "pdf_counts": pdf_counts}, 200
-    except Exception as e:
-        logger.error(f"/pdfs failed: {e}", exc_info=True)
+        stats = admin_service.collect_pdf_stats()
+        return {"ok": True, **stats}, 200
+    except Exception:
         return {"ok": False, "error": "server_error"}, 500
 
 
 @app.route("/ingest_topics", methods=["POST"])
 def ingest_topics():
-    """Admin endpoint to ingest topics into topics_collection on Cloud.
-
-    Body JSON: { "topics": [ {"id": "...", "abstract": "...", "pdf": "..."}, ... ] }
-    Secured with ADMIN_API_TOKEN via query param (?token=...).
-    Performs de-duplication by ID and embeds server-side.
-    """
     token = request.args.get("token", "")
-    if ADMIN_API_TOKEN and token != ADMIN_API_TOKEN:
+    if not _chat_has_token(token):
         return {"ok": False, "error": "forbidden"}, 403
 
     try:
@@ -535,58 +102,18 @@ def ingest_topics():
         items = data.get("topics", [])
         if not isinstance(items, list) or not items:
             return {"ok": False, "error": "empty_payload"}, 400
-
-        # Normalize payload
-        normalized = []
-        for it in items:
-            if not isinstance(it, dict):
-                continue
-            tid = (it.get("id") or "").strip()
-            abstract = (it.get("abstract") or "").strip()
-            pdf = (it.get("pdf") or it.get("source_pdf") or "").strip() or None
-            if not tid or not abstract:
-                continue
-            normalized.append((tid, abstract, {"pdf": pdf} if pdf else {}))
-
-        if not normalized:
-            return {"ok": False, "error": "no_valid_topics"}, 400
-
-        coll = get_topics_collection()
-        ids = [tid for tid, _, _ in normalized]
-        existing_ids = set()
-        try:
-            resp = coll.get(ids=ids, include=[])
-            rid = resp.get("ids") if isinstance(resp, dict) else None
-            if rid:
-                if isinstance(rid, list) and rid and isinstance(rid[0], list):
-                    existing_ids = {x for sub in rid for x in sub}
-                else:
-                    existing_ids = set(rid)
-        except Exception:
-            pass
-
-        to_add = [(tid, abs_, md) for tid, abs_, md in normalized if tid not in existing_ids]
-        added = 0
-        skipped = len(normalized) - len(to_add)
-        errs = 0
-        if to_add:
-            embeddings = []
-            docs = []
-            tids = []
-            mds = []
-            for tid, abs_, md in to_add:
-                emb = get_embedding(abs_)
-                if emb is None:
-                    errs += 1
-                    continue
-                embeddings.append(emb)
-                docs.append(abs_)
-                tids.append(tid)
-                mds.append(md)
-            if embeddings:
-                coll.add(embeddings=embeddings, documents=docs, ids=tids, metadatas=mds)
-                added = len(embeddings)
-        return {"ok": True, "received": len(normalized), "added": added, "skipped_existing": skipped, "errors": errs}, 200
-    except Exception as e:
-        logger.error(f"/ingest_topics failed: {e}", exc_info=True)
+        added, skipped_existing, errors = admin_service.ingest_topics(items)
+        return {
+            "ok": True,
+            "received": len(items),
+            "added": added,
+            "skipped_existing": skipped_existing,
+            "errors": errors,
+        }, 200
+    except Exception as exc:
+        logger.error("/ingest_topics failed: %s", exc, exc_info=True)
         return {"ok": False, "error": "server_error"}, 500
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "8080")))

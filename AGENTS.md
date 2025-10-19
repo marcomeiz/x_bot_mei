@@ -30,6 +30,12 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
   - Encapsula prompts, refinamientos, control de longitud y selección de categorías para las variantes A/B/C.
 - `prompt_context.py`
   - Provee el bundle del contrato, ICP y pautas de revisión para inyectar en los prompts.
+- `telegram_client.py`
+  - Cliente HTTP + helpers de formato (HTML seguro, teclados) para Telegram.
+- `proposal_service.py`
+  - Orquesta selección de temas, generación A/B/C y manejo de callbacks del bot.
+- `admin_service.py`
+  - Lógica de ingestión remota y estadísticas (`/pdfs`, `/stats`).
 - `llm_fallback.py`
   - Capa común de LLM: intenta OpenRouter → Gemini, con manejo de JSON robusto y detección de errores para fallback.
 - `bot.py`

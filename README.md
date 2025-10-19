@@ -17,6 +17,7 @@
 - `core_generator.py`: orquesta la generación de A/B/C, controla similitud y reintentos.
 - `variant_generators.py`: encapsula prompts, refinamientos y selección de categorías para cada variante.
 - `prompt_context.py`: agrupa contrato, ICP y pautas complementarias para inyectarlos en los prompts.
+- `evaluation.py`: auditoría automática (tono/factualidad) que acompaña cada borrador sugerido.
 - `telegram_client.py`: cliente HTTP + helpers de formato/teclados para Telegram.
 - `proposal_service.py`: servicio que coordina selección de temas, generación A/B/C y callbacks.
 - `admin_service.py`: utilidades de ingestión y estadísticas (`/stats`, `/pdfs`, `/ingest_topics`).
@@ -87,7 +88,7 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
   - Vía REPL de Python:
     - `python -i core_generator.py`
     - `generate_tweet_from_topic("<abstract del tema>")`
-  - Comportamiento: crea `[EN - A]` y `[EN - B]`, refina estilo y recorta si >280. Durante generación y refinado se inyectan el contrato configurado (por defecto `copywriter_contract_hormozi.md`), el ICP (`config/icp.md`) y las pautas de revisión complementarias (`config/final_review_guidelines.md`) para asegurar voz, audiencia y naturalidad humana. Si el revisor final detecta cualquier desviación, la generación se rechaza con feedback explícito al redactor principal.
+  - Comportamiento: crea `[EN - A]` y `[EN - B]`, refina estilo y recorta si >280. Durante generación y refinado se inyectan el contrato configurado (por defecto `copywriter_contract_hormozi.md`), el ICP (`config/icp.md`) y las pautas de revisión complementarias (`config/final_review_guidelines.md`) para asegurar voz, audiencia y naturalidad humana. Antes de enviar, cada borrador recibe una evaluación automática (tono/factualidad) que se muestra al usuario; si el revisor final detecta desviaciones graves, la generación se rechaza con feedback explícito.
 
 - Generar dos variantes offline (sin LLM):
   - `python offline_generate.py`

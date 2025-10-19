@@ -30,6 +30,8 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
   - Encapsula prompts, refinamientos, control de longitud y selección de categorías para las variantes A/B/C.
 - `prompt_context.py`
   - Provee el bundle del contrato, ICP y pautas de revisión para inyectar en los prompts.
+- `evaluation.py`
+  - Evalúa cada borrador (tono/factualidad) y devuelve un resumen que se adjunta en Telegram.
 - `telegram_client.py`
   - Cliente HTTP + helpers de formato (HTML seguro, teclados) para Telegram.
 - `proposal_service.py`

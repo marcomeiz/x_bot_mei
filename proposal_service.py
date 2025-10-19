@@ -11,7 +11,9 @@ from core_generator import (
     find_topic_by_id,
 )
 from embeddings_manager import get_embedding, get_memory_collection
+from evaluation import evaluate_draft
 from logger_config import logger
+from prompt_context import build_prompt_context
 from style_guard import StyleRejection
 from telegram_client import TelegramClient
 
@@ -83,6 +85,19 @@ class ProposalService:
             draft_c = f"[Rejected by final reviewer: {feedback_short}]"
             category_name = "Rejected"
 
+        context = build_prompt_context()
+        evaluations: Dict[str, Dict[str, object]] = {}
+        evaluation_a = evaluate_draft(draft_a, context)
+        if evaluation_a:
+            evaluations["A"] = evaluation_a
+        evaluation_b = evaluate_draft(draft_b, context)
+        if evaluation_b:
+            evaluations["B"] = evaluation_b
+        if draft_c and category_name != "Rejected":
+            evaluation_c = evaluate_draft(draft_c, context)
+            if evaluation_c:
+                evaluations["C"] = evaluation_c
+
         if "Error: El tema es demasiado similar" in draft_a:
             return False
         if draft_a.startswith("Error:"):
@@ -124,6 +139,9 @@ class ProposalService:
             draft_c,
             category_name,
         )
+        evaluation_section = self.telegram.build_evaluation_section(evaluations)
+        if evaluation_section:
+            message_text = f"{message_text}{evaluation_section}"
 
         if self.telegram.send_message(chat_id, message_text, reply_markup=keyboard, as_html=True):
             return True

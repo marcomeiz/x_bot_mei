@@ -1,6 +1,6 @@
 import html
 import re
-from typing import Optional
+from typing import Dict, Optional
 
 import requests
 
@@ -79,6 +79,27 @@ class TelegramClient:
             lines.append("")
             lines.append(f"<b>C · {len_c}/280</b>\n{safe_c}")
         return "\n".join(lines).strip()
+
+    def build_evaluation_section(self, evaluations: Dict[str, Dict[str, object]]) -> str:
+        if not evaluations:
+            return ""
+        lines = ["", "<b>Evaluación automática</b>"]
+        for label, data in evaluations.items():
+            style = data.get("style_score")
+            factuality = data.get("factuality")
+            needs_revision = bool(data.get("needs_revision"))
+            summary = str(data.get("summary", "")).strip()
+            parts = []
+            if style is not None:
+                parts.append(f"⭐{style}/5")
+            if factuality:
+                parts.append(f"Factualidad: {str(factuality).upper()}")
+            if summary:
+                parts.append(summary)
+            line = " | ".join(parts) if parts else "Sin datos"
+            prefix = "⚠️ " if needs_revision else ""
+            lines.append(f"{label}: {self.escape(prefix + line)}")
+        return "\n".join(lines)
 
     # HTTP ---------------------------------------------------------------------
     def _post(self, endpoint: str, payload: dict, chat_id: int) -> bool:

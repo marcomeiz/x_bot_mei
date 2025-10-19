@@ -48,6 +48,7 @@ class TelegramClient:
         draft_b: str,
         draft_c: Optional[str] = None,
         category_name: Optional[str] = None,
+        evaluations: Optional[Dict[str, Dict[str, object]]] = None,
     ) -> str:
         len_a = len(draft_a or "")
         len_b = len(draft_b or "")
@@ -78,11 +79,13 @@ class TelegramClient:
             safe_c = self.escape(draft_c or "")
             lines.append("")
             lines.append(f"<b>C · {len_c}/280</b>\n{safe_c}")
+
+        if evaluations:
+            lines.extend(self._build_evaluation_lines(evaluations))
+
         return "\n".join(lines).strip()
 
-    def build_evaluation_section(self, evaluations: Dict[str, Dict[str, object]]) -> str:
-        if not evaluations:
-            return ""
+    def _build_evaluation_lines(self, evaluations: Dict[str, Dict[str, object]]) -> list[str]:
         lines = ["", "<b>Evaluación automática</b>"]
         for label, data in evaluations.items():
             style = data.get("style_score")
@@ -99,7 +102,36 @@ class TelegramClient:
             line = " | ".join(parts) if parts else "Sin datos"
             prefix = "⚠️ " if needs_revision else ""
             lines.append(f"{label}: {self.escape(prefix + line)}")
-        return "\n".join(lines)
+        return lines
+
+    def build_proposal_keyboard(self, topic_id: str, has_variant_c: bool, allow_variant_c: bool) -> Dict:
+        rows = [
+            [
+                {"text": "👍 Aprobar A", "callback_data": f"approve_A_{topic_id}"},
+                {"text": "👍 Aprobar B", "callback_data": f"approve_B_{topic_id}"},
+            ],
+            [
+                {"text": "📋 Copiar A", "callback_data": f"copy_A_{topic_id}"},
+                {"text": "📋 Copiar B", "callback_data": f"copy_B_{topic_id}"},
+            ],
+        ]
+
+        if has_variant_c:
+            if allow_variant_c:
+                rows.append(
+                    [{"text": "👍 Aprobar C", "callback_data": f"approve_C_{topic_id}"}]
+                )
+                rows.append(
+                    [{"text": "📋 Copiar C", "callback_data": f"copy_C_{topic_id}"}]
+                )
+            else:
+                rows.append(
+                    [{"text": "⚠️ C Rechazada", "callback_data": "noop"}]
+                )
+
+        rows.append([{"text": "👎 Rechazar Todos", "callback_data": f"reject_{topic_id}"}])
+        rows.append([{"text": "🔁 Generar Nuevo", "callback_data": "generate_new"}])
+        return {"inline_keyboard": rows}
 
     # HTTP ---------------------------------------------------------------------
     def _post(self, endpoint: str, payload: dict, chat_id: int) -> bool:

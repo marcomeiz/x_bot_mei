@@ -44,6 +44,10 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
   - Orquesta selección de temas, generación A/B/C y manejo de callbacks del bot.
 - `admin_service.py`
   - Lógica de ingestión remota y estadísticas (`/pdfs`, `/stats`).
+- `draft_repository.py`
+  - Guarda y recupera los borradores por chat/tema de forma atómica.
+- `callback_parser.py`
+  - Tipifica y parsea los datos de los botones inline de Telegram.
 - `llm_fallback.py`
   - Capa común de LLM: intenta OpenRouter → Gemini, con manejo de JSON robusto y detección de errores para fallback.
 - `bot.py`

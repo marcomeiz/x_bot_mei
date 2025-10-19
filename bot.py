@@ -1,4 +1,3 @@
-import json
 import os
 import threading
 from typing import Dict, Optional
@@ -7,6 +6,7 @@ from dotenv import load_dotenv
 from flask import Flask, request
 
 from admin_service import AdminService
+from draft_repository import DraftRepository
 from logger_config import logger
 from proposal_service import ProposalService
 from telegram_client import TelegramClient
@@ -21,9 +21,10 @@ TEMP_DIR = os.getenv("BOT_TEMP_DIR", "/tmp")
 
 app = Flask(__name__)
 telegram_client = TelegramClient(TELEGRAM_BOT_TOKEN, show_topic_id=SHOW_TOPIC_ID)
+draft_repo = DraftRepository(TEMP_DIR)
 proposal_service = ProposalService(
     telegram=telegram_client,
-    temp_dir=TEMP_DIR,
+    draft_repo=draft_repo,
     similarity_threshold=SIMILARITY_THRESHOLD,
 )
 admin_service = AdminService()

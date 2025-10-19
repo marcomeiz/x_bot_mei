@@ -1,15 +1,15 @@
-import json
-import os
 import threading
 from typing import Dict, Optional
 from urllib.parse import quote_plus
 
+from callback_parser import CallbackAction, CallbackType, parse_callback
 from core_generator import (
     find_relevant_topic,
     generate_third_tweet_variant,
     generate_tweet_from_topic,
     find_topic_by_id,
 )
+from draft_repository import DraftPayload, DraftRepository
 from embeddings_manager import get_embedding, get_memory_collection
 from evaluation import evaluate_draft
 from logger_config import logger
@@ -22,14 +22,14 @@ class ProposalService:
     def __init__(
         self,
         telegram: TelegramClient,
-        temp_dir: str = "/tmp",
+        draft_repo: Optional[DraftRepository] = None,
         similarity_threshold: float = 0.20,
     ) -> None:
         self.telegram = telegram
-        self.temp_dir = temp_dir
+        self.drafts = draft_repo or DraftRepository("/tmp")
         self.similarity_threshold = similarity_threshold
 
-    # --------------------------------------------------------------------- public
+    # ------------------------------------------------------------------ public
     def do_the_work(self, chat_id: int) -> None:
         logger.info("[CHAT_ID: %s] Iniciando nuevo ciclo de generación.", chat_id)
         max_retries = 5
@@ -98,7 +98,7 @@ class ProposalService:
             if evaluation_c:
                 evaluations["C"] = evaluation_c
 
-        if "Error: El tema es demasiado similar" in draft_a:
+        if draft_a.startswith("Error: El tema es demasiado similar"):
             return False
         if draft_a.startswith("Error:"):
             logger.error("[CHAT_ID: %s] Error desde generador: %s", chat_id, draft_a)
@@ -110,42 +110,19 @@ class ProposalService:
             )
             return False
 
-        temp_file_path = os.path.join(self.temp_dir, f"{chat_id}_{topic_id}.tmp")
-        os.makedirs(self.temp_dir, exist_ok=True)
-        with open(temp_file_path, "w") as handle:
-            json.dump(
-                {"draft_a": draft_a, "draft_b": draft_b, "draft_c": draft_c, "category": category_name},
-                handle,
-            )
+        payload = DraftPayload(
+            draft_a=draft_a,
+            draft_b=draft_b,
+            draft_c=draft_c,
+            category=category_name,
+        )
+        self.drafts.save(chat_id, topic_id, payload)
 
-        keyboard_rows = [
-            [
-                {"text": "👍 Aprobar A", "callback_data": f"approve_A_{topic_id}"},
-                {"text": "👍 Aprobar B", "callback_data": f"approve_B_{topic_id}"},
-            ],
-            [
-                {"text": "📋 Copiar A", "callback_data": f"copy_A_{topic_id}"},
-                {"text": "📋 Copiar B", "callback_data": f"copy_B_{topic_id}"},
-            ],
-        ]
-
-        if draft_c:
-            if category_name == "Rejected":
-                keyboard_rows.append(
-                    [{"text": "⚠️ C Rechazada", "callback_data": "noop"}]
-                )
-            else:
-                keyboard_rows.append(
-                    [{"text": "👍 Aprobar C", "callback_data": f"approve_C_{topic_id}"}]
-                )
-                keyboard_rows.append(
-                    [{"text": "📋 Copiar C", "callback_data": f"copy_C_{topic_id}"}]
-                )
-
-        keyboard_rows.append([{"text": "👎 Rechazar Todos", "callback_data": f"reject_{topic_id}"}])
-        keyboard_rows.append([{"text": "🔁 Generar Nuevo", "callback_data": "generate_new"}])
-
-        keyboard = {"inline_keyboard": keyboard_rows}
+        keyboard = self.telegram.build_proposal_keyboard(
+            topic_id,
+            has_variant_c=bool(draft_c),
+            allow_variant_c=bool(draft_c) and category_name != "Rejected",
+        )
 
         message_text = self.telegram.format_proposal_message(
             topic_id,
@@ -155,10 +132,8 @@ class ProposalService:
             draft_b,
             draft_c,
             category_name,
+            evaluations=evaluations,
         )
-        evaluation_section = self.telegram.build_evaluation_section(evaluations)
-        if evaluation_section:
-            message_text = f"{message_text}{evaluation_section}"
 
         if self.telegram.send_message(chat_id, message_text, reply_markup=keyboard, as_html=True):
             return True
@@ -172,32 +147,20 @@ class ProposalService:
         callback_data = query.get("data", "")
         logger.info("[CHAT_ID: %s] Callback recibido: '%s'", chat_id, callback_data)
 
-        parts = callback_data.split("_", 2)
-        action = parts[0] if parts else ""
-        option = ""
-        topic_id = ""
-
-        if action in {"approve", "copy", "confirm"} and len(parts) == 3:
-            option = parts[1]
-            topic_id = parts[2]
-        elif action in {"reject"} and len(parts) >= 2:
-            topic_id = parts[1]
-        elif action in {"cancel", "noop"}:
-            topic_id = parts[1] if len(parts) >= 2 else ""
-        elif "generate" in action:
-            topic_id = parts[1] if len(parts) >= 2 else ""
-
+        action = parse_callback(callback_data)
         original_message_text = query["message"].get("text", "")
 
-        if action == "approve":
-            self._handle_approve(chat_id, message_id, topic_id, option, original_message_text)
-        elif action == "confirm":
-            self._handle_confirm(chat_id, topic_id, option)
-        elif action == "cancel":
-            logger.info("[CHAT_ID: %s] Confirmación cancelada para topic %s.", chat_id, topic_id)
+        if action.type == CallbackType.APPROVE:
+            self._handle_approve(chat_id, message_id, action, original_message_text)
+        elif action.type == CallbackType.CONFIRM:
+            self._handle_confirm(chat_id, action)
+        elif action.type == CallbackType.CANCEL:
+            logger.info("[CHAT_ID: %s] Confirmación cancelada.", chat_id)
             self.telegram.send_message(chat_id, "Operación cancelada.", reply_markup=self.telegram.get_new_tweet_keyboard())
-        elif action == "reject":
-            logger.info("[CHAT_ID: %s] Ambas opciones rechazadas para topic %s.", chat_id, topic_id)
+            if action.topic_id:
+                self.drafts.delete(chat_id, action.topic_id)
+        elif action.type == CallbackType.REJECT:
+            logger.info("[CHAT_ID: %s] Ambas opciones rechazadas para topic %s.", chat_id, action.topic_id)
             appended = "❌ <b>Rechazados.</b>"
             new_text = (original_message_text or "") + "\n\n" + appended
             self.telegram.edit_message(
@@ -207,82 +170,104 @@ class ProposalService:
                 reply_markup=self.telegram.get_new_tweet_keyboard(),
                 as_html=True,
             )
-        elif action == "copy":
-            self._handle_copy(chat_id, topic_id, option)
-        elif action == "noop":
+            if action.topic_id:
+                self.drafts.delete(chat_id, action.topic_id)
+        elif action.type == CallbackType.COPY:
+            self._handle_copy(chat_id, action)
+        elif action.type == CallbackType.NOOP:
             logger.info("[CHAT_ID: %s] Acción noop ignorada.", chat_id)
-        elif "generate" in callback_data:
+        elif action.type == CallbackType.GENERATE:
             logger.info("[CHAT_ID: %s] Solicitud de nueva propuesta manual.", chat_id)
             self.telegram.edit_message(chat_id, message_id, "🚀 Buscando un nuevo tema…")
             threading.Thread(target=self.do_the_work, args=(chat_id,)).start()
+        else:
+            logger.warning("[CHAT_ID: %s] Callback no reconocido: %s", chat_id, callback_data)
 
-    # ---------------------------------------------------------------- utilities
-    def _load_temp_tweets(self, chat_id: int, topic_id: str) -> Dict[str, str]:
-        temp_file_path = os.path.join(self.temp_dir, f"{chat_id}_{topic_id}.tmp")
-        if not os.path.exists(temp_file_path):
-            raise FileNotFoundError(f"Temp file missing: {temp_file_path}")
-        with open(temp_file_path, "r") as handle:
-            return json.load(handle)
+    # -------------------------------------------------------------- helpers
+    def _handle_approve(
+        self,
+        chat_id: int,
+        message_id: int,
+        action: CallbackAction,
+        original_text: str,
+    ) -> None:
+        if not action.topic_id or not action.option:
+            logger.warning("[CHAT_ID: %s] Callback approve incompleto: %s", chat_id, action.raw)
+            self.telegram.send_message(chat_id, "⚠️ No pude localizar el borrador aprobado.")
+            return
 
-    def _handle_approve(self, chat_id: int, message_id: int, topic_id: str, option: str, original_text: str) -> None:
-        appended = f"✅ <b>{self.telegram.escape(f'¡Aprobada Opción {option}!')}</b>"
+        appended = f"✅ <b>{self.telegram.escape(f'¡Aprobada Opción {action.option}!')}</b>"
         new_text = (original_text or "") + "\n\n" + appended
         self.telegram.edit_message(chat_id, message_id, new_text, as_html=True)
+
         try:
-            tweets = self._load_temp_tweets(chat_id, topic_id)
-            chosen_tweet = tweets.get(f"draft_{option.lower()}", "")
-            if not chosen_tweet:
-                raise ValueError("Opción elegida no encontrada")
-
-            memory_collection = get_memory_collection()
-            tweet_embedding = get_embedding(chosen_tweet)
-            if tweet_embedding and memory_collection.count() > 0:
-                try:
-                    query = memory_collection.query(query_embeddings=[tweet_embedding], n_results=1)
-                    dist = query and query.get("distances") and query["distances"][0][0]
-                    distance_value = float(dist) if isinstance(dist, (int, float)) else 1.0
-                except Exception:
-                    distance_value = 1.0
-                if distance_value < self.similarity_threshold:
-                    logger.warning(
-                        "[CHAT_ID: %s] Borrador muy similar (dist=%s < %s).",
-                        chat_id,
-                        distance_value,
-                        self.similarity_threshold,
-                    )
-                    warn = (
-                        "⚠️ El borrador elegido parece muy similar a una publicación previa.\n"
-                        f"Distancia: {distance_value:.4f} (umbral {self.similarity_threshold}).\n"
-                        "¿Confirmas guardarlo igualmente?"
-                    )
-                    keyboard = {
-                        "inline_keyboard": [
-                            [
-                                {"text": "✅ Confirmar", "callback_data": f"confirm_{option}_{topic_id}"},
-                                {"text": "❌ Cancelar", "callback_data": "cancel"},
-                            ]
-                        ]
-                    }
-                    self.telegram.send_message(chat_id, warn, reply_markup=keyboard)
-                    return
-
-            self._finalize_choice(chat_id, option, topic_id, chosen_tweet)
-        except Exception as exc:
-            logger.error("[CHAT_ID: %s] Error crítico en aprobación: %s", chat_id, exc, exc_info=True)
+            payload = self.drafts.load(chat_id, action.topic_id)
+        except FileNotFoundError:
+            logger.error("[CHAT_ID: %s] No se encontró draft para %s.", chat_id, action.topic_id)
             self.telegram.send_message(
                 chat_id,
                 "⚠️ No pude recuperar el borrador aprobado (quizá expiró). Genera uno nuevo con el botón.",
                 reply_markup=self.telegram.get_new_tweet_keyboard(),
             )
+            return
 
-    def _handle_confirm(self, chat_id: int, topic_id: str, option: str) -> None:
-        logger.info("[CHAT_ID: %s] Confirmación recibida para opción %s (%s).", chat_id, option, topic_id)
+        chosen_tweet = payload.get_variant(action.option)
+        if not chosen_tweet:
+            logger.error("[CHAT_ID: %s] Opción %s no encontrada en draft %s.", chat_id, action.option, action.topic_id)
+            self.telegram.send_message(chat_id, "⚠️ La opción elegida no está disponible.")
+            return
+
+        memory_collection = get_memory_collection()
+        tweet_embedding = get_embedding(chosen_tweet)
+        if tweet_embedding and memory_collection.count() > 0:
+            try:
+                query = memory_collection.query(query_embeddings=[tweet_embedding], n_results=1)
+                dist = query and query.get("distances") and query["distances"][0][0]
+                distance_value = float(dist) if isinstance(dist, (int, float)) else 1.0
+            except Exception:
+                distance_value = 1.0
+            if distance_value < self.similarity_threshold:
+                logger.warning(
+                    "[CHAT_ID: %s] Borrador muy similar (dist=%s < %s).",
+                    chat_id,
+                    distance_value,
+                    self.similarity_threshold,
+                )
+                warn = (
+                    "⚠️ El borrador elegido parece muy similar a una publicación previa.\n"
+                    f"Distancia: {distance_value:.4f} (umbral {self.similarity_threshold}).\n"
+                    "¿Confirmas guardarlo igualmente?"
+                )
+                keyboard = {
+                    "inline_keyboard": [
+                        [
+                            {"text": "✅ Confirmar", "callback_data": f"confirm_{action.option}_{action.topic_id}"},
+                            {"text": "❌ Cancelar", "callback_data": f"cancel_{action.topic_id}"},
+                        ]
+                    ]
+                }
+                self.telegram.send_message(chat_id, warn, reply_markup=keyboard)
+                return
+
+        self._finalize_choice(chat_id, action.option, action.topic_id, chosen_tweet)
+
+    def _handle_confirm(self, chat_id: int, action: CallbackAction) -> None:
+        if not action.topic_id or not action.option:
+            logger.warning("[CHAT_ID: %s] Callback confirm incompleto: %s", chat_id, action.raw)
+            self.telegram.send_message(chat_id, "⚠️ No pude completar la confirmación. Genera uno nuevo.")
+            return
         try:
-            tweets = self._load_temp_tweets(chat_id, topic_id)
-            chosen_tweet = tweets.get(f"draft_{option.lower()}", "")
+            payload = self.drafts.load(chat_id, action.topic_id)
+            chosen_tweet = payload.get_variant(action.option)
             if not chosen_tweet:
                 raise ValueError("Opción elegida no encontrada")
-            self._finalize_choice(chat_id, option, topic_id, chosen_tweet, message_prefix="Guardado pese a similitud.")
+            self._finalize_choice(
+                chat_id,
+                action.option,
+                action.topic_id,
+                chosen_tweet,
+                message_prefix="Guardado pese a similitud.",
+            )
         except Exception as exc:
             logger.error("[CHAT_ID: %s] Error en confirmación: %s", chat_id, exc, exc_info=True)
             self.telegram.send_message(
@@ -291,24 +276,23 @@ class ProposalService:
                 reply_markup=self.telegram.get_new_tweet_keyboard(),
             )
 
-    def _handle_copy(self, chat_id: int, topic_id: str, option: str) -> None:
-        logger.info("[CHAT_ID: %s] Solicitud de copia para opción %s (%s).", chat_id, option, topic_id)
-        if not option or not topic_id:
-            logger.warning("[CHAT_ID: %s] Callback copy incompleto (option=%s, topic=%s).", chat_id, option, topic_id)
+    def _handle_copy(self, chat_id: int, action: CallbackAction) -> None:
+        if not action.topic_id or not action.option:
+            logger.warning("[CHAT_ID: %s] Callback copy incompleto: %s", chat_id, action.raw)
             self.telegram.send_message(chat_id, "⚠️ No pude localizar el borrador a copiar.")
             return
         try:
-            tweets = self._load_temp_tweets(chat_id, topic_id)
-            chosen_tweet = tweets.get(f"draft_{option.lower()}", "")
+            payload = self.drafts.load(chat_id, action.topic_id)
+            chosen_tweet = payload.get_variant(action.option)
             if not chosen_tweet:
                 raise ValueError("Opción elegida no encontrada")
             body = (
-                f"<b>Opción {option.upper()} (copiar)</b>\n"
+                f"<b>Opción {action.option.upper()} (copiar)</b>\n"
                 f"<pre>{self.telegram.escape(chosen_tweet)}</pre>"
             )
             self.telegram.send_message(chat_id, body, as_html=True)
         except Exception as exc:
-            logger.error("[CHAT_ID: %s] Error al copiar opción %s: %s", chat_id, option, exc, exc_info=True)
+            logger.error("[CHAT_ID: %s] Error al copiar opción %s: %s", chat_id, action.option, exc, exc_info=True)
             self.telegram.send_message(chat_id, "⚠️ No pude obtener el texto a copiar.")
 
     def _finalize_choice(
@@ -337,3 +321,4 @@ class ProposalService:
         if total_memory is not None:
             self.telegram.send_message(chat_id, f"✅ Añadido a la memoria. Ya hay {total_memory} publicaciones.")
         self.telegram.send_message(chat_id, "Listo para el siguiente.", reply_markup=self.telegram.get_new_tweet_keyboard())
+        self.drafts.delete(chat_id, topic_id)

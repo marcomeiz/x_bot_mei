@@ -1,7 +1,7 @@
 **Guía Rápida (4 pasos)**
 - 1) Instalar: `python -m venv venv && source venv/bin/activate && pip install -r requirements.txt`.
 - 2) Configurar `.env`: define `GOOGLE_API_KEY`, opcional `OPENROUTER_API_KEY`, y deja `FALLBACK_PROVIDER_ORDER=gemini,openrouter`, `GEMINI_MODEL=gemini-2.5-pro`.
-- 3) Iniciar watcher: `python watcher_with_metadata.py` y copia un PDF a `uploads/`. Se extraen, validan y guardan temas en `db/` + `json/`.
+- 3) Iniciar watcher: `python watcher_app.py` y copia un PDF a `uploads/`. Se extraen, validan y guardan temas en `db/` + `json/`.
 - 4) Generar tweets: `python -i core_generator.py` y ejecuta `generate_tweet_from_topic("<abstract>")`.
 - Nota rápida: si tu sistema usa `python3`, ajusta los comandos anteriores a `python3` y `python3 -m venv`.
 
@@ -13,7 +13,11 @@
 **Componentes**
 - `llm_fallback.py`: capa común para LLM con orden de proveedores y manejo de JSON.
 - `embeddings_manager.py`: embeddings con Google Generative AI (`models/embedding-001`) y cliente persistente de ChromaDB.
-- `watcher_with_metadata.py`: observa `uploads/`, extrae texto de PDFs, valida temas y añade metadatos (por ejemplo el nombre del PDF) para trazabilidad y mejor deduplicación.
+- `ingestion_config.py`: carga configuración del watcher y prepara directorios.
+- `pdf_extractor.py`: utilidades simples para convertir PDFs en texto plano.
+- `topic_pipeline.py`: extracción de tópicos (LlamaIndex + fallback), validación y gating de estilo.
+- `persistence_service.py`: persiste tópicos en Chroma, sincroniza con endpoints remotos y genera resúmenes JSON.
+- `watcher_app.py`: watcher principal que observa `uploads/` y delega en los módulos anteriores.
 - `core_generator.py`: orquesta la generación de A/B/C, controla similitud y reintentos.
 - `variant_generators.py`: encapsula prompts, refinamientos y selección de categorías para cada variante.
 - `prompt_context.py`: agrupa contrato, ICP y pautas complementarias para inyectarlos en los prompts.
@@ -76,13 +80,13 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
 
 **Flujos Principales**
 - Extraer temas desde PDFs con validación y embeddings:
-  - `python watcher_with_metadata.py`
+  - `python watcher_app.py`
   - Copia PDFs a `uploads/`. El watcher:
-    - Extrae texto (PyMuPDF), trocea en chunks y pide 8–12 temas por chunk al LLM.
-    - Valida cada tema como “relevante para COO” devolviendo JSON.
-    - Opcional: auditoría de estilo para filtrar abstracts demasiado “boardroom” (activado por defecto; desactivar con `WATCHER_ENFORCE_STYLE_AUDIT=0`).
+    - Convierte el PDF a texto con PyMuPDF.
+    - Extrae 8–12 tópicos vía LlamaIndex (fallback a Gemini si no está disponible).
+    - Valida relevancia para el COO y aplica auditoría de estilo si corresponde (`WATCHER_ENFORCE_STYLE_AUDIT`).
     - Genera embeddings con Google y añade a `topics_collection` en `db/`.
-    - Guarda un resumen en `json/<nombre>.json` y muestra notificación de escritorio.
+    - Guarda un resumen en `json/<nombre>.json`, sincroniza opcionalmente con `REMOTE_INGEST_URL` y envía notificación de escritorio.
 
 - Generar dos tweets desde un tema (LLM):
   - Vía REPL de Python:
@@ -106,7 +110,7 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
 Referencias en código:
 - `core_generator.py` orquesta la generación y reintentos de A/B/C.
 - `variant_generators.py` encapsula los prompts, refinamientos y auditorías de estilo para cada variante.
-- `watcher_with_metadata.py` → validación `validate_topic` y extracción de temas usan `llm.chat_json(...)`.
+- `topic_pipeline.py` combina extracción de tópicos (LlamaIndex + fallback) y validación estilo/relevancia.
 
 **Detalles de Almacenamiento**
 - Vector DB: ChromaDB persistente en `db/`. Se crean dos colecciones:
@@ -138,7 +142,7 @@ Referencias en código:
 **Comandos Útiles**
 - Instalar deps: `pip install -r requirements.txt`
 - Ver modelos Gemini disponibles (Python): ver bloque en “Solución de Problemas”.
-- Ejecutar watcher (con metadatos): `python watcher_with_metadata.py`
+- Ejecutar watcher (con metadatos): `python watcher_app.py`
 - Generación offline de dos alternativas: `python offline_generate.py`
 - Resetear la memoria (dataset aprobado) de ChromaDB: `python reset_memory.py` (añade `-y` para omitir confirmación)
  - Consultar stats vía HTTP (si se despliega el bot): `GET /stats?token=<ADMIN_API_TOKEN>` devuelve `{topics, memory}`.
@@ -151,7 +155,7 @@ Referencias en código:
 
 **Buenas Prácticas**
 - Mantén `.env` fuera del control de versiones y rota claves si se exponen.
-- Usa `watcher_with_metadata.py` para enriquecer con metadatos y evitar duplicados al ingerir varios PDFs.
+- Usa `watcher_app.py` (más los módulos auxiliares) para enriquecer con metadatos y evitar duplicados al ingerir varios PDFs.
 - Ajusta `SIMILARITY_THRESHOLD` (env var o en `core_generator.py`) si detectas demasiados/escasos “duplicados” (distancia coseno; menor = menos estricto).
 - Si OpenRouter no tiene créditos, prioriza temporalmente Gemini (`FALLBACK_PROVIDER_ORDER=gemini,openrouter`).
 - Para JSON estrictos, mantén indicaciones “Respond ONLY with strict JSON” en prompts y revisa logs si falla el parseo.

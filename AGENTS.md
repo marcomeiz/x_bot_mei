@@ -11,16 +11,22 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 - Respeta las invariantes de negocio:
   - Tweets deben ser ≤ 280 caracteres sin recorte local: solo mediante LLM.
   - Mensajes de Telegram incluyen: tema (abstract), nombre del PDF origen si existe, y contadores `(N/280)` por opción.
-- Los temas en ChromaDB incluyen metadatos `{"pdf": <nombre>}` cuando provienen de `watcher_with_metadata.py`.
+- Los temas en ChromaDB incluyen metadatos `{"pdf": <nombre>}` cuando provienen del pipeline de ingestión (`watcher_app.py` + módulos auxiliares).
 - Fallback LLM: intentar OpenRouter y, si falla (402/401/403/429/insufficient), pasar a Gemini sin interrumpir el flujo.
 - Preferir seguridad y claridad sobre “optimización prematura”.
 
 ## Arquitectura (vista de 10.000 ft)
 
-- `watcher_with_metadata.py`
-  - Observan `uploads/` para nuevos PDFs.
-  - Extraen texto (PyMuPDF), trocean, piden 8–12 temas por chunk (JSON), validan relevancia COO, generan embeddings, y persisten en ChromaDB.
-  - Guardan un JSON resumen por PDF en `json/`.
+- `watcher_app.py`
+  - Observa `uploads/` para nuevos PDFs y delega en módulos especializados.
+- `ingestion_config.py`
+  - Carga configuración desde `.env` y garantiza directorios de trabajo.
+- `pdf_extractor.py`
+  - Convierte cada PDF a texto plano usando PyMuPDF.
+- `topic_pipeline.py`
+  - Gestiona extracción de tópicos (LlamaIndex + fallback), validación de relevancia COO y gating de estilo.
+- `persistence_service.py`
+  - Inserta tópicos en Chroma, sincroniza con endpoints remotos y genera resúmenes JSON.
 - `embeddings_manager.py`
   - Cliente único de ChromaDB (persistente) con lock de inicialización; funciones para colecciones y embeddings (Google `models/embedding-001`).
 - `core_generator.py`
@@ -133,7 +139,7 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 - Listing de modelos Gemini (real):
   - `import google.generativeai as genai; genai.configure(api_key=...); list(genai.list_models())`.
 - Watcher local:
-  - Ejecuta `python watcher_with_metadata.py`, copia un PDF pequeño a `uploads/` y verifica `json/` + `db/` + notificación.
+  - Ejecuta `python watcher_app.py`, copia un PDF pequeño a `uploads/` y verifica `json/` + `db/` + notificación.
 - Bot:
   - Con `/generate` debe llegar propuesta con tema+PDF y conteos. Aprobación A/B debe crear intent URL de X y guardar en memoria.
 

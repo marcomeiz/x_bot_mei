@@ -6,12 +6,13 @@ from dotenv import load_dotenv
 from logger_config import logger
 from llm_fallback import llm
 from embeddings_manager import get_embedding, get_memory_collection
-from persona import get_style_contract_text
+from persona import get_style_contract_text, get_final_guidelines_text
 
 
 load_dotenv()
 
 CONTRACT_TEXT = get_style_contract_text()
+FINAL_GUIDELINES_TEXT = get_final_guidelines_text()
 
 ENFORCE_STYLE_AUDIT = os.getenv("ENFORCE_STYLE_AUDIT", "1").lower() in ("1", "true", "yes", "y")
 # Subimos la revisión por defecto para reforzar el tono humano sin cambiar interfaces
@@ -104,6 +105,10 @@ Return ONLY strict JSON with fields:
 {contract_text}
 </STYLE_CONTRACT>
 
+<FINAL_REVIEW_GUIDELINES>
+{FINAL_GUIDELINES_TEXT}
+</FINAL_REVIEW_GUIDELINES>
+
 <TEXT>
 {text}
 </TEXT>
@@ -145,7 +150,12 @@ TEXT:
         out = llm.chat_text(
             model="anthropic/claude-3.5-sonnet",
             messages=[
-                {"role": "system", "content": "You are a world-class ghostwriter. Follow the style contract strictly.\n\n<STYLE_CONTRACT>\n" + contract_text + "\n</STYLE_CONTRACT>"},
+                {"role": "system", "content": (
+                    "You are a world-class ghostwriter. Follow the style contract strictly. "
+                    "Complement with the final review guidelines without contradicting the contract or ICP.\n\n"
+                    "<STYLE_CONTRACT>\n" + contract_text + "\n</STYLE_CONTRACT>\n\n"
+                    "<FINAL_REVIEW_GUIDELINES>\n" + FINAL_GUIDELINES_TEXT + "\n</FINAL_REVIEW_GUIDELINES>"
+                )},
                 {"role": "user", "content": user},
             ],
             temperature=0.8,

@@ -48,8 +48,9 @@
   - Formato por categoría: `{ "key": "...", "name": "Nombre en español", "pattern": "Definición/patrón en inglés", "structure": "Análisis de la estructura (EN)", "why": "Descripción de la técnica (EN)" }`.
   - El bot muestra el `name` en el mensaje ("Categoría (C): …"). El `pattern` guía al LLM (salida siempre en inglés).
 - Voz y persona (opcional):
-- `STYLE_CONTRACT_PATH`: ruta alternativa al contrato creativo (por defecto `copywriter_contract_hormozi.md`). Permite apuntar a otra versión del tono sin tocar el repo.
+  - `STYLE_CONTRACT_PATH`: ruta alternativa al contrato creativo (por defecto `copywriter_contract_hormozi.md`). Permite apuntar a otra versión del tono sin tocar el repo.
   - `ICP_PATH`: ruta alternativa al archivo del ICP (por defecto `config/icp.md`). Útil para testear diferentes públicos meta.
+  - `FINAL_REVIEW_GUIDELINES_PATH`: ruta alternativa a las pautas de revisión complementarias (por defecto `config/final_review_guidelines.md`). Ajusta las reglas anti-cliché/anti-IA sin tocar el contrato principal.
 - Watchers (estilo):
   - `WATCHER_ENFORCE_STYLE_AUDIT` (`1` por defecto): activa auditoría de estilo al ingerir. Pon `0` para no filtrar por estilo.
   - `WATCHER_JARGON_THRESHOLD` (`4` por defecto) y `WATCHER_CLICHE_THRESHOLD` (`4` por defecto): umbrales para rechazar solo si la voz es `boardroom` y alguno supera el umbral.
@@ -81,7 +82,7 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
   - Vía REPL de Python:
     - `python -i core_generator.py`
     - `generate_tweet_from_topic("<abstract del tema>")`
-  - Comportamiento: crea `[EN - A]` y `[EN - B]`, refina estilo y recorta si >280. Durante generación y refinado se carga y se inyecta el contrato configurado (por defecto `copywriter_contract_hormozi.md`) en los mensajes del LLM para garantizar el cumplimiento del tono y formato. Además, se ejecuta una auditoría de estilo (LLM + heurísticos) con posible reescritura si el tono queda demasiado genérico.
+  - Comportamiento: crea `[EN - A]` y `[EN - B]`, refina estilo y recorta si >280. Durante generación y refinado se inyectan el contrato configurado (por defecto `copywriter_contract_hormozi.md`), el ICP (`config/icp.md`) y las pautas de revisión complementarias (`config/final_review_guidelines.md`) para asegurar voz, audiencia y naturalidad humana. Luego se ejecuta una auditoría de estilo (LLM + heurísticos) con posible reescritura si el tono se desvía.
 
 - Generar dos variantes offline (sin LLM):
   - `python offline_generate.py`

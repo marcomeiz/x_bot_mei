@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 from llm_fallback import llm
 from logger_config import logger
-from persona import get_icp_text, get_style_contract_text
+from persona import get_icp_text, get_style_contract_text, get_final_guidelines_text
 
 from embeddings_manager import get_embedding, get_topics_collection, get_memory_collection
 from style_guard import improve_style
@@ -221,9 +221,10 @@ BULLET_CATEGORIES = {
     "friction_reduction",
 }
 
-# Cargar contrato creativo e ICP desde el módulo persona
+# Cargar contrato creativo, ICP y pautas de revisión desde el módulo persona
 CONTRACT_TEXT = get_style_contract_text()
 ICP_TEXT = get_icp_text()
+FINAL_GUIDELINES_TEXT = get_final_guidelines_text()
 
 # --- (Funciones auxiliares refine_... no cambian) ---
 def refine_and_shorten_tweet(tweet_text: str, model: str) -> str:
@@ -259,7 +260,9 @@ def refine_single_tweet_style(raw_text: str, model: str) -> str:
         "You are a world-class ghostwriter rewriting text into a specific style. "
         "Follow the style contract exactly. Keep it concise and punchy.\n\n"
         "<STYLE_CONTRACT>\n" + CONTRACT_TEXT + "\n</STYLE_CONTRACT>\n\n"
-        "Audience ICP:\n<ICP>\n" + ICP_TEXT + "\n</ICP>"
+        "Audience ICP:\n<ICP>\n" + ICP_TEXT + "\n</ICP>\n\n"
+        "Complementary polish rules (do not override the contract/ICP):\n<FINAL_REVIEW_GUIDELINES>\n"
+        + FINAL_GUIDELINES_TEXT + "\n</FINAL_REVIEW_GUIDELINES>"
     )
     try:
         text = llm.chat_text(
@@ -300,7 +303,9 @@ def refine_single_tweet_style_flexible(raw_text: str, model: str) -> str:
         "You are a world-class ghostwriter rewriting text into a specific style. "
         "Follow the style contract exactly, EXCEPT paragraph-count rules are explicitly overridden for this variant.\n\n"
         "<STYLE_CONTRACT>\n" + CONTRACT_TEXT + "\n</STYLE_CONTRACT>\n\n"
-        "Audience ICP:\n<ICP>\n" + ICP_TEXT + "\n</ICP>"
+        "Audience ICP:\n<ICP>\n" + ICP_TEXT + "\n</ICP>\n\n"
+        "Complementary polish rules (do not override the contract/ICP):\n<FINAL_REVIEW_GUIDELINES>\n"
+        + FINAL_GUIDELINES_TEXT + "\n</FINAL_REVIEW_GUIDELINES>"
     )
     try:
         text = llm.chat_text(
@@ -385,7 +390,9 @@ def generate_third_tweet_variant(topic_abstract: str):
         system_message = (
             "You are a world-class ghostwriter. Obey the following style contract strictly.\n\n<STYLE_CONTRACT>\n"
             + CONTRACT_TEXT + "\n</STYLE_CONTRACT>\n\n"
-            "Audience ICP:\n<ICP>\n" + ICP_TEXT + "\n</ICP>"
+            "Audience ICP:\n<ICP>\n" + ICP_TEXT + "\n</ICP>\n\n"
+            "Complementary polish rules (do not override the contract/ICP):\n<FINAL_REVIEW_GUIDELINES>\n"
+            + FINAL_GUIDELINES_TEXT + "\n</FINAL_REVIEW_GUIDELINES>"
         )
 
         raw_c = llm.chat_text(
@@ -450,6 +457,9 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
 
             **Contract for style and tone:**
             {CONTRACT_TEXT}
+            ---
+            **Complementary polish guardrails (do not override the contract/ICP):**
+            {FINAL_GUIDELINES_TEXT}
             ---
             **Topic:** {topic_abstract}
 

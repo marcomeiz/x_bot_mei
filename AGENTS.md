@@ -34,6 +34,8 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
   - Gestiona archivos temporales en `/tmp` para conservar borradores entre callbacks.
 - `copywriter_contract_hormozi.md`
   - Contrato creativo/estilístico activo. `copywriter_contract.md` queda como referencia histórica y puede reactivarse vía `STYLE_CONTRACT_PATH`.
+- `config/final_review_guidelines.md`
+  - Pautas complementarias anti-cliché/anti-IA aplicadas en la revisión final. Puedes cambiar el archivo con `FINAL_REVIEW_GUIDELINES_PATH`.
 
 ## Configuración y Entorno
 
@@ -45,6 +47,7 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
   - `FALLBACK_PROVIDER_ORDER` (por defecto `gemini,openrouter`)
   - `GEMINI_MODEL` (por defecto `gemini-2.5-pro`)
   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (si usas el bot)
+  - Overrides opcionales: `STYLE_CONTRACT_PATH`, `ICP_PATH`, `FINAL_REVIEW_GUIDELINES_PATH`
 
 ## Flujo de Datos (camino feliz)
 
@@ -158,6 +161,7 @@ Acceso y despliegue (referencia)
 ## Qué NO hacer sin aprobación explícita
 
 - Cambiar el contrato creativo (`copywriter_contract_hormozi.md` o el definido por `STYLE_CONTRACT_PATH`) o el formato `[EN - A] / [EN - B]`.
+- Alterar las pautas de revisión final (`config/final_review_guidelines.md` o `FINAL_REVIEW_GUIDELINES_PATH`) sin alinear con el contrato vigente.
 - Reemplazar la capa `llm_fallback.py` por llamadas directas.
 - Quitar los contadores `(N/280)` en Telegram.
 - Modificar umbrales de similitud o colecciones de Chroma sin revisar impacto.

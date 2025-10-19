@@ -9,6 +9,7 @@ from logger_config import logger
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DEFAULT_CONTRACT_PATH = os.path.join(BASE_DIR, "copywriter_contract_hormozi.md")
 DEFAULT_ICP_PATH = os.path.join(BASE_DIR, "config", "icp.md")
+DEFAULT_FINAL_GUIDELINES_PATH = os.path.join(BASE_DIR, "config", "final_review_guidelines.md")
 
 FALLBACK_CONTRACT_TEXT = (
     "Imperative tone. One sentence per paragraph. 5-12 words per sentence. "
@@ -18,6 +19,10 @@ FALLBACK_CONTRACT_TEXT = (
 FALLBACK_ICP_TEXT = (
     "ICP: Solo-founders in day 1–year 1, overwhelmed by ops; want step-zero, practical tools. "
     "Platform: fast, conversational."
+)
+FALLBACK_FINAL_GUIDELINES_TEXT = (
+    "Complementary polish rules: keep sentences short and literal, remove AI clichés, "
+    "cut filler, avoid marketing hype, maintain honest tone. Never override the style contract or ICP."
 )
 
 load_dotenv()
@@ -63,3 +68,18 @@ def get_icp_text() -> str:
             f"No se pudo leer ICP ('{path}'). Usando ICP mínimo. Error: {exc}"
         )
         return FALLBACK_ICP_TEXT
+
+
+@lru_cache(maxsize=1)
+def get_final_guidelines_text() -> str:
+    """Return complementary final-review guidelines."""
+    path = _resolve_path("FINAL_REVIEW_GUIDELINES_PATH", DEFAULT_FINAL_GUIDELINES_PATH)
+    try:
+        text = _read_text_file(path)
+        logger.info(f"Pautas de revisión final cargadas desde '{path}'.")
+        return text
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.warning(
+            f"No se pudo leer las pautas de revisión final ('{path}'). Usando versión mínima. Error: {exc}"
+        )
+        return FALLBACK_FINAL_GUIDELINES_TEXT

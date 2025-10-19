@@ -18,6 +18,7 @@ from core_generator import (
     find_topic_by_id,
     generate_third_tweet_variant,
 )
+from style_guard import StyleRejection
 
 load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -193,7 +194,14 @@ def propose_tweet(chat_id, topic, ignore_similarity: bool = False):
     send_telegram_message(chat_id, "\n".join(pre_lines))
 
     draft_a, draft_b = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
-    draft_c, category_name = generate_third_tweet_variant(topic_abstract)
+    try:
+        draft_c, category_name = generate_third_tweet_variant(topic_abstract)
+    except StyleRejection as rejection:
+        feedback = str(rejection).strip()
+        logger.warning(f"[CHAT_ID: {chat_id}] Variante C rechazada por el revisor final: {feedback}")
+        feedback_short = (feedback[:200] + "…") if len(feedback) > 200 else feedback
+        draft_c = f"[Rejected by final reviewer: {feedback_short}]"
+        category_name = "Rejected"
 
     if "Error: El tema es demasiado similar" in draft_a:
         return False  # Reintentar con otro tema

@@ -14,6 +14,12 @@ load_dotenv()
 CONTRACT_TEXT = get_style_contract_text()
 FINAL_GUIDELINES_TEXT = get_final_guidelines_text()
 
+
+class StyleRejection(Exception):
+    """Raised when a draft fails the final style audit."""
+
+    pass
+
 ENFORCE_STYLE_AUDIT = os.getenv("ENFORCE_STYLE_AUDIT", "1").lower() in ("1", "true", "yes", "y")
 # Subimos la revisión por defecto para reforzar el tono humano sin cambiar interfaces
 STYLE_REVISION_ROUNDS = int(os.getenv("STYLE_REVISION_ROUNDS", "2"))
@@ -166,7 +172,11 @@ TEXT:
 
 
 def improve_style(text: str, contract_text: str, rounds: int = STYLE_REVISION_ROUNDS) -> Tuple[str, Dict[str, Any]]:
-    """Audit and optionally revise for style. Returns (text, last_audit)."""
+    """Audit and optionally revise for style.
+
+    Returns the improved text and the last audit payload when the draft clears the bar.
+    Raises StyleRejection with feedback if the draft still fails the final review.
+    """
     if not ENFORCE_STYLE_AUDIT:
         return text, {}
 
@@ -213,4 +223,42 @@ def improve_style(text: str, contract_text: str, rounds: int = STYLE_REVISION_RO
             if j2 >= STYLE_JARGON_BLOCK_THRESHOLD or h2 >= STYLE_HEDGING_THRESHOLD:
                 needs = True
 
-    return revised, (audit if isinstance(audit, dict) else {})
+    final_audit = audit if isinstance(audit, dict) else {}
+
+    # Final heuristics and stop-gap checks (warden mode)
+    final_reasons = []
+
+    def _append_reason(condition: bool, message: str):
+        if condition and message:
+            final_reasons.append(message.strip())
+
+    _append_reason(needs, "Reached max revision rounds without satisfying audit")
+    _append_reason(bool(final_audit.get("needs_revision")), final_audit.get("reason", "LLM audit flagged unresolved issues"))
+    _append_reason(str(final_audit.get("voice", "")).lower() == "boardroom", "Voice drifted to boardroom")
+    _append_reason(not bool(final_audit.get("english_only", True)), "Non-English fragment detected")
+
+    final_jargon = _detect_corporate_jargon(revised)
+    final_hedge = _detect_hedging(revised)
+    _append_reason(final_jargon >= STYLE_JARGON_BLOCK_THRESHOLD, "Corporate jargon persists")
+    _append_reason(final_hedge >= STYLE_HEDGING_THRESHOLD, "Hedging detected")
+
+    memory_available = False
+    try:
+        memory_available = get_memory_collection().count() > 0
+    except Exception:
+        memory_available = False
+
+    if memory_available:
+        try:
+            final_style_sim = _style_similarity_to_memory(revised)
+            if final_style_sim < 0.35:
+                _append_reason(True, "Too dissimilar to approved memory")
+        except Exception:
+            pass
+
+    if final_reasons:
+        # Compose explicit feedback for the lead writer (join reasons, dedupe blanks)
+        feedback = "; ".join(r for r in final_reasons if r)
+        raise StyleRejection(feedback or "Draft rejected by final style audit")
+
+    return revised, final_audit

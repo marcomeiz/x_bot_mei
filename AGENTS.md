@@ -35,7 +35,7 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 - `copywriter_contract_hormozi.md`
   - Contrato creativo/estilístico activo. `copywriter_contract.md` queda como referencia histórica y puede reactivarse vía `STYLE_CONTRACT_PATH`.
 - `config/final_review_guidelines.md`
-  - Pautas complementarias anti-cliché/anti-IA aplicadas en la revisión final. Puedes cambiar el archivo con `FINAL_REVIEW_GUIDELINES_PATH`.
+  - Pautas complementarias anti-cliché/anti-IA aplicadas en la revisión final (modo "warden"): si no se cumplen, la generación se rechaza con feedback. Puedes cambiar el archivo con `FINAL_REVIEW_GUIDELINES_PATH`.
 
 ## Configuración y Entorno
 

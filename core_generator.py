@@ -9,7 +9,7 @@ from logger_config import logger
 from persona import get_icp_text, get_style_contract_text, get_final_guidelines_text
 
 from embeddings_manager import get_embedding, get_topics_collection, get_memory_collection
-from style_guard import improve_style
+from style_guard import improve_style, StyleRejection
 
 # --- Pydantic Schemas for Structured Output ---
 from typing import List
@@ -413,6 +413,10 @@ def generate_third_tweet_variant(topic_abstract: str):
         try:
             improved_c, audit_c = improve_style(c1, CONTRACT_TEXT)
             c2 = improved_c or c1
+        except StyleRejection as rejection:
+            msg = str(rejection).strip()
+            logger.warning(f"Rechazo en revisión final (C): {msg}")
+            raise StyleRejection(f"Variant C rejected: {msg}") from rejection
         except Exception:
             c2 = c1
 
@@ -421,6 +425,9 @@ def generate_third_tweet_variant(topic_abstract: str):
             c2 = ensure_under_limit_via_llm(c2, VALIDATION_MODEL, 280, attempts=4)
 
         return c2.strip(), cat_name
+    except StyleRejection as rejection:
+        logger.warning(f"Variant C rejected por revisión final: {rejection}")
+        raise
     except Exception as e:
         logger.error(f"Error generating third variant: {e}", exc_info=True)
         return "", cat_name
@@ -448,6 +455,7 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
         logger.info("Comprobación de similitud finalizada.")
 
     MAX_ATTEMPTS = 3
+    last_style_feedback = ""
     for attempt in range(MAX_ATTEMPTS):
         logger.info(f"Intento de generación de IA {attempt + 1}/{MAX_ATTEMPTS}...")
         try:
@@ -554,7 +562,9 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
                     draft_a = improved_a
                 else:
                     logger.info(f"Auditoría A: sin cambios. Detalle: {audit_a}")
-            except Exception as _:
+            except StyleRejection as rejection:
+                raise StyleRejection(f"Variante A rechazada: {rejection}") from rejection
+            except Exception:
                 pass
             try:
                 improved_b, audit_b = improve_style(draft_b, CONTRACT_TEXT)
@@ -563,7 +573,9 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
                     draft_b = improved_b
                 else:
                     logger.info(f"Auditoría B: sin cambios. Detalle: {audit_b}")
-            except Exception as _:
+            except StyleRejection as rejection:
+                raise StyleRejection(f"Variante B rechazada: {rejection}") from rejection
+            except Exception:
                 pass
 
             if len(draft_a) > 280:
@@ -578,10 +590,19 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
             logger.info(f"Intento {attempt + 1}: Borradores generados y validados con éxito.")
             return draft_a, draft_b
 
+        except StyleRejection as rejection:
+            last_style_feedback = str(rejection).strip()
+            logger.warning(f"Rechazo de estilo en el intento {attempt + 1}: {last_style_feedback}")
+            continue
         except Exception as e:
             logger.error(f"Error crítico en el intento de generación {attempt + 1}: {e}", exc_info=True)
 
     logger.error("No se pudo generar un borrador válido tras varios intentos.")
+    if last_style_feedback:
+        return (
+            f"Error: Style rejection tras {MAX_ATTEMPTS} intentos. Feedback: {last_style_feedback}",
+            "",
+        )
     return "Error: No se pudo generar un borrador válido tras varios intentos.", ""
 
 # --- (find_relevant_topic y find_topic_by_id no cambian en su lógica principal) ---

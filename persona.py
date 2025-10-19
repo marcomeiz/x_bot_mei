@@ -21,8 +21,10 @@ FALLBACK_ICP_TEXT = (
     "Platform: fast, conversational."
 )
 FALLBACK_FINAL_GUIDELINES_TEXT = (
-    "Complementary polish rules: keep sentences short and literal, remove AI clichés, "
-    "cut filler, avoid marketing hype, maintain honest tone. Never override the style contract or ICP."
+    "Act as an unforgiving auditor. Ask if every sentence matches the contract, targets the ICP,"
+    " and stays free of clichés, hedging, hype, or artificial tone. If any answer is no or unsure,"
+    " reject the piece with explicit feedback for the lead writer. Otherwise approve only after"
+    " you can justify why it clears the bar."
 )
 
 load_dotenv()

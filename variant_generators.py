@@ -372,7 +372,11 @@ def generate_variant_ab_pair(
     context: PromptContext,
     settings: GenerationSettings,
 ) -> Tuple[str, str]:
-    prompt = _build_ab_prompt(topic_abstract, context)
+    prompt = (
+        _build_ab_prompt(topic_abstract, context)
+        + "\n\nVariant A: You may be fully creative as long as the persona, ICP, and tone contract are obeyed."
+        + "\nVariant B: Output exactly two sentences (no more, no fewer), each punchy and aligned with the persona."
+    )
     logger.info("Generando variantes A y B via LLM (JSON preferred).")
     draft_a = ""
     draft_b = ""
@@ -482,9 +486,9 @@ def generate_variant_c(
 - Rationale: {('Technique rationale: ' + cat_why) if cat_why else ''}
 
 **Style and Output Rules:**
-- **CRITICAL Constraint:** You MUST NOT use metaphors or analogies, even if they seem relevant. Express the idea in direct, literal language. The goal is a powerful, factual statement.
+- **CRITICAL Constraint:** You MUST output a single sentence that hits like a slap in the face for the ICP. No hedging, no metaphors, no analogies.
 - Voice: NYC bar voice: smart, direct, slightly impatient; zero corporate tone.
-- Structure: single hard-hitting sentence, 1–3 short sentences, or up to 2 very short paragraphs.
+- Structure: exactly one sentence, ruthless and unavoidable.
 - Format: No emojis or hashtags. No quotes around the output. English only.
 - Length: Keep under 280 characters (hard requirement).
 

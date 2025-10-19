@@ -58,6 +58,10 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
   - Contrato creativo/estilístico activo. `copywriter_contract.md` queda como referencia histórica y puede reactivarse vía `STYLE_CONTRACT_PATH`.
 - `config/final_review_guidelines.md`
   - Pautas complementarias anti-cliché/anti-IA aplicadas en la revisión final (modo "warden"): si no se cumplen, la generación se rechaza con feedback. Puedes cambiar el archivo con `FINAL_REVIEW_GUIDELINES_PATH`.
+- `huggingface_ingestion/` + `hf_ingestion.py`
+  - Descargan datasets del Hub (config `config/hf_sources.json`), aplican evaluador “cabrón”, generan candidatos con metadatos y los guardan en JSON + índice.
+- `hf_notion_sync.py` / `promote_notion_topics.py`
+  - Sincronizan candidatos con Notion para revisión humana y promueven los marcados como “Validated” a ChromaDB (`status=approved`).
 
 ## Configuración y Entorno
 
@@ -69,13 +73,16 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
   - `FALLBACK_PROVIDER_ORDER` (por defecto `gemini,openrouter`)
   - `GEMINI_MODEL` (por defecto `gemini-2.5-pro`)
   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (si usas el bot)
+  - `NOTION_API_TOKEN`, `NOTION_DATABASE_ID` (si sincronizas curación con Notion)
+  - `HF_SOURCES_PATH`, `HF_CANDIDATE_DIR`, `HF_CANDIDATE_INDEX`, `HF_STATE_PATH` (override opcional de rutas del pipeline Hugging Face)
   - Overrides opcionales: `STYLE_CONTRACT_PATH`, `ICP_PATH`, `FINAL_REVIEW_GUIDELINES_PATH`
 
 ## Flujo de Datos (camino feliz)
 
-1) Ingesta: PDF a `uploads/` → texto → chunks → extracción temas (JSON) → validación COO (JSON) → embeddings → `topics_collection`.
+0) Radar (opcional): `hf_ingestion.py` crea candidatos (`status=candidate`) → `hf_notion_sync.py` los sube a Notion → humano marca `Validated` → `promote_notion_topics.py` actualiza `status=approved` y los añade a `topics_collection`.
+1) Ingesta tradicional: PDF a `uploads/` → texto → chunks → extracción temas (JSON) → validación COO (JSON) → embeddings → `topics_collection`.
 2) Generación: `core_generator.generate_tweet_from_topic(abstract)` produce `[EN - A]` y `[EN - B]` ≤ 280 (iterativo LLM), revisa similitud previa.
-3) Bot: `/generate` → elige tema aleatorio, muestra A/B con tema+PDF+conteo, callbacks para aprobar y persistir en `memory_collection`.
+3) Bot: `/generate` → elige tema aprobado o fallback general, muestra A/B con tema+PDF+conteo, callbacks para aprobar y persistir en `memory_collection`.
 
 ## Políticas de LLM
 

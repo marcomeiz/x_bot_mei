@@ -18,6 +18,10 @@
 - `topic_pipeline.py`: extracción de tópicos (LlamaIndex + fallback), validación y gating de estilo.
 - `persistence_service.py`: persiste tópicos en Chroma, sincroniza con endpoints remotos y genera resúmenes JSON.
 - `watcher_app.py`: watcher principal que observa `uploads/` y delega en los módulos anteriores.
+- `huggingface_ingestion/`: adapta datasets del Hub (config `config/hf_sources.json`), ejecuta un evaluador estricto y genera candidatos con metadatos listos para revisión.
+- `hf_ingestion.py`: CLI para descargar señales gratuitas (Hugging Face), evaluarlas y guardar candidatos en `json/hf_candidates/` + índice en `db/hf_candidate_records.json`.
+- `hf_notion_sync.py`: sube/actualiza los candidatos en una base Notion para revisión humana.
+- `promote_notion_topics.py`: toma los ítems validados en Notion, los marca como `approved` y los persiste en Chroma priorizados por el generador.
 - `core_generator.py`: orquesta la generación de A/B/C, controla similitud y reintentos.
 - `variant_generators.py`: encapsula prompts, refinamientos y selección de categorías para cada variante.
 - `prompt_context.py`: agrupa contrato, ICP y pautas complementarias para inyectarlos en los prompts.
@@ -46,6 +50,8 @@
 - Otras (si usas integraciones):
   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
   - Credenciales de X/Twitter si se usan scripts relacionados
+  - `NOTION_API_TOKEN`, `NOTION_DATABASE_ID` si conectas la revisión humana vía Notion.
+  - `HF_SOURCES_PATH`, `HF_CANDIDATE_DIR`, `HF_CANDIDATE_INDEX`, `HF_STATE_PATH` para ajustar rutas del pipeline Hugging Face.
  - Visualización opcional:
    - `SHOW_TOPIC_ID` (`0` por defecto). Si `1`, muestra el ID de tema en el encabezado del mensaje del bot aun cuando exista `Origen`. Por defecto el ID queda oculto salvo que no haya `Origen`.
 - Estilo (opcional):
@@ -101,6 +107,15 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
 - Generar dos variantes offline (sin LLM):
   - `python offline_generate.py`
   - Lee un tema aleatorio de `topics_collection` y produce dos alternativas.
+- Radar Hugging Face → Notion → Aprobado:
+  - `python hf_ingestion.py` descarga señales y genera candidatos con evaluador estricto (estado `candidate`).
+  - `python hf_notion_sync.py` sube/actualiza los candidatos en tu base Notion para revisión.
+  - Marca en Notion los ítems que superan las preguntas como `Validated`.
+  - `python promote_notion_topics.py` promueve los validados, marca `status=approved` y los añade a ChromaDB (priorizados por `find_relevant_topic`).
+  - Base Notion sugerida: propiedades `Name` (Title), `Status` (Select: Review/Validated/Promoted), `Candidate ID`, `Topic ID`, `Pain`, `Leverage`, `Stage` (Select), `Tags` (Multi-select), `Snippet`, `Source`, `Dataset`, `Source Fields`, `ICP Fit`, `Actionable`, `Stage Context`, `Urgency`, `Synced` (Checkbox).
+  - Automatiza la promoción diaria:
+    - **Local cron (opcional):** exporta `NOTION_API_TOKEN` y `NOTION_DATABASE_ID`, luego añade a `crontab -e` algo como `0 7 * * * /home/mei/Desktop/MMEI/x_bot_mei/scripts/promote_daily.sh`. El script registra los resultados en `logs/promote.log`.
+    - **GitHub Actions:** usa `.github/workflows/promote.yml`, añade los secretos `NOTION_API_TOKEN` y `NOTION_DATABASE_ID` en el repositorio y la promoción correrá a las 07:00 UTC cada día (trigger manual disponible vía *workflow_dispatch*).
 
 **Fallback LLM (OpenRouter → Gemini)**
 - Configuración y uso: `llm_fallback.py:1`.
@@ -150,6 +165,9 @@ Referencias en código:
 - Generación offline de dos alternativas: `python offline_generate.py`
 - Resetear la memoria (dataset aprobado) de ChromaDB: `python reset_memory.py` (añade `-y` para omitir confirmación)
  - Consultar stats vía HTTP (si se despliega el bot): `GET /stats?token=<ADMIN_API_TOKEN>` devuelve `{topics, memory}`.
+- Ingestar señales Hugging Face + generar candidatos: `python hf_ingestion.py --limit 200` (usa `config/hf_sources.json`; genera JSONL e índice).
+- Sincronizar candidatos con Notion: `python hf_notion_sync.py --status Review` (requiere `NOTION_API_TOKEN` y `NOTION_DATABASE_ID`).
+- Promover temas validados desde Notion: `python promote_notion_topics.py --status Validated --set-status Promoted`.
 
 **Despliegue recomendado (Cloud Run + GCS)**
 - Imagen: usar el `Dockerfile` incluido; comando de arranque `gunicorn -b :8080 bot:app`.

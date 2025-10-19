@@ -47,7 +47,7 @@ def persist_topics(records: List[TopicRecord], cfg: WatcherConfig) -> Persistenc
             embeddings=[item[0] for item in entries_to_add],
             documents=[item[1].abstract for item in entries_to_add],
             ids=[item[1].topic_id for item in entries_to_add],
-            metadatas=[{"pdf": item[1].source_pdf} for item in entries_to_add],
+            metadatas=[item[1].metadata for item in entries_to_add],
         )
         logger.info("%s temas añadidos a topics_collection.", len(entries_to_add))
     else:
@@ -158,4 +158,3 @@ def _sync_remote(entries_to_add: List[tuple], cfg: WatcherConfig) -> None:
                     continue
                 logger.error(" · Lote %s: fallo definitivo: %s", (start // cfg.remote_batch) + 1, exc)
                 break
-

@@ -1,0 +1,52 @@
+[
+  {
+    "name": "coology_manual_signals",
+    "dataset": "json",
+    "split": "train",
+    "text_field": "text",
+    "metadata_fields": [
+      "source"
+    ],
+    "tags": [
+      "curated_signal",
+      "operator_pain"
+    ],
+    "stage": "pre-sale",
+    "max_examples": 10,
+    "data_files": {
+      "train": "config/hf_manual_signals.jsonl"
+    },
+    "metadata": {
+      "signal_family": "manual_curated"
+    }
+  },
+  {
+    "name": "digital_small_business_forums",
+    "dataset": "fkskdldh/small-business-owner-data-set",
+    "split": "train",
+    "text_field": "text",
+    "include_keywords": [
+      "digital",
+      "course",
+      "subscription",
+      "community",
+      "client",
+      "automation"
+    ],
+    "exclude_keywords": [
+      "warehouse",
+      "inventory",
+      "physical store",
+      "restaurant"
+    ],
+    "tags": [
+      "market_signal",
+      "operator_pain"
+    ],
+    "stage": "retention",
+    "max_examples": 120,
+    "metadata": {
+      "signal_family": "forum_thread"
+    }
+  }
+]

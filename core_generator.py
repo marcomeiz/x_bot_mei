@@ -47,6 +47,14 @@ def _flatten_maybe(nested):
     return nested
 
 
+def _flatten_metadata(raw):
+    if isinstance(raw, list) and raw and isinstance(raw[0], list):
+        flat = []
+        for sub in raw:
+            flat.extend(sub)
+        return flat
+    return raw or []
+
 def _extract_topic_entry(collection, topic_id: str) -> Optional[Dict[str, str]]:
     try:
         data = collection.get(ids=[topic_id], include=["documents", "metadatas"])  # type: ignore[arg-type]
@@ -158,13 +166,25 @@ def find_relevant_topic(sample_size: int = 5):
     logger.info("Buscando tema en 'topics_collection' (preferir menos similar a memoria)…")
     topics_collection = get_topics_collection()
     try:
-        raw = topics_collection.get(include=[])  # type: ignore[arg-type]
+        raw = topics_collection.get(include=["metadatas"])  # type: ignore[arg-type]
         all_ids = _flatten_maybe(raw.get("ids") if isinstance(raw, dict) else None)
+        all_metadata = _flatten_metadata(raw.get("metadatas") if isinstance(raw, dict) else None)
         if not all_ids:
             logger.warning("'topics_collection' está vacía. No se pueden encontrar temas.")
             return None
+        approved_ids = []
+        if all_metadata and len(all_metadata) == len(all_ids):
+            for cid, meta in zip(all_ids, all_metadata):
+                if isinstance(meta, dict) and meta.get("status") == "approved":
+                    approved_ids.append(cid)
 
-        candidates = random.sample(all_ids, min(sample_size, len(all_ids)))
+        pool = list(approved_ids or all_ids)
+        if approved_ids:
+            logger.info("Se encontraron %s temas aprobados. Se priorizarán sobre %s totales.", len(approved_ids), len(all_ids))
+        else:
+            logger.info("No hay temas aprobados; se usará el total disponible.")
+
+        candidates = random.sample(pool, min(sample_size, len(pool)))
 
         memory_collection = get_memory_collection()
         try:

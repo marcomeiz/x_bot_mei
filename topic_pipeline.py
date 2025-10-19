@@ -1,6 +1,6 @@
 import hashlib
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Iterable, List, Optional
 
 from llm_fallback import llm
@@ -24,6 +24,7 @@ class TopicRecord:
     topic_id: str
     abstract: str
     source_pdf: str
+    metadata: dict = field(default_factory=dict)
 
 
 class Topic(BaseModel):
@@ -63,6 +64,7 @@ def collect_valid_topics(
     pdf_name: str,
     cfg: WatcherConfig,
     context: PromptContext,
+    base_metadata: Optional[dict] = None,
 ) -> List[TopicRecord]:
     records: List[TopicRecord] = []
     seen_ids = set()
@@ -81,7 +83,21 @@ def collect_valid_topics(
             logger.info(" -> Duplicado en el mismo PDF. Se omite.")
             continue
         seen_ids.add(topic_id)
-        records.append(TopicRecord(topic_id=topic_id, abstract=abstract, source_pdf=pdf_name))
+        metadata = {"pdf": pdf_name}
+        if base_metadata:
+            metadata.update(base_metadata)
+        if "source_type" not in metadata:
+            metadata["source_type"] = "pdf"
+        if "status" not in metadata:
+            metadata["status"] = "auto_ingested"
+        records.append(
+            TopicRecord(
+                topic_id=topic_id,
+                abstract=abstract,
+                source_pdf=pdf_name,
+                metadata=metadata,
+            )
+        )
         logger.info(" -> Aprobado")
     return records
 
@@ -216,4 +232,3 @@ def _style_rejects(abstract: str, cfg: WatcherConfig, contract_text: str) -> boo
             clich,
         )
     return too_boardroom
-

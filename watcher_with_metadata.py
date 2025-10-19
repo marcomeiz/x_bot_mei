@@ -34,14 +34,12 @@ from logger_config import logger
 from prompt_context import build_prompt_context
 from style_guard import audit_style
 
+LLAMA_AVAILABLE = True
 try:
     from llama_index.core import Document, Settings, VectorStoreIndex
     from llama_index.llms.openai import OpenAI as LlamaOpenAI
-except ImportError as exc:  # pragma: no cover - defensive import guard
-    raise ImportError(
-        "watcher_with_metadata.py requires llama_index. Install extra dependencies"
-        " or remove the watcher."  # type: ignore[str-bytes-safe]
-    ) from exc
+except ImportError:
+    LLAMA_AVAILABLE = False
 
 from pydantic import BaseModel, Field
 
@@ -112,6 +110,9 @@ def load_config() -> WatcherConfig:
 
 
 def configure_llama_index(ollama_host: Optional[str] = None) -> None:
+    if not LLAMA_AVAILABLE:
+        logger.info("LlamaIndex no disponible; se usará fallback LLM para extracción de temas.")
+        return
     host = ollama_host or os.getenv("OLLAMA_HOST", "http://localhost:11434")
     Settings.llm = LlamaOpenAI(api_base=f"{host}/v1", api_key="ollama", model="phi3")
 
@@ -151,14 +152,54 @@ def extract_topics_with_llama(text: str) -> List[str]:
         "Focus on counter-intuitive insights, practical advice, or strong opinions relevant to a COO. "
         "Each topic should be a concise, self-contained statement."
     )
+    response = query_engine.query(query)
+    topics = [topic.abstract.strip() for topic in (response.topics if response else []) if topic.abstract]
+    logger.info("LlamaIndex extrajo %s temas potenciales.", len(topics))
+    return topics
+
+
+def extract_topics_with_llm(text: str, context) -> List[str]:
+    prompt = (
+        "You are an operations strategist extracting tweet-worthy topics for a COO persona. "
+        "Read the following transcript and return 8-12 concise topic statements (max 200 characters each). "
+        "Focus on counter-intuitive insights, sharp advice or punchy observations relevant to operations, leadership, systems, execution, and growth. "
+        "Avoid duplications or vague platitudes."
+    )
     try:
-        response = query_engine.query(query)
-        topics = [topic.abstract.strip() for topic in (response.topics if response else []) if topic.abstract]
-        logger.info("LlamaIndex extrajo %s temas potenciales.", len(topics))
-        return topics
+        payload = llm.chat_json(
+            model=os.getenv("GEMINI_MODEL", "gemini-2.5-pro"),
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You extract topics from documents. Respond ONLY with JSON in the shape {\"topics\": [\"...\"]}. \n"
+                        "Respect the voice contract and complementary guidelines provided."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Contract:\n{context.contract}\n\n"
+                        f"Guidelines:\n{context.final_guidelines}\n\n"
+                        f"Document:\n{text}\n\n"
+                        f"Task:\n{prompt}"
+                    ),
+                },
+            ],
+            temperature=0.4,
+        )
     except Exception as exc:
-        logger.error("LlamaIndex RAG pipeline failed: %s", exc, exc_info=True)
+        logger.error("Fallback LLM para extracción falló: %s", exc, exc_info=True)
         return []
+    topics = []
+    if isinstance(payload, dict):
+        raw_topics = payload.get("topics")
+        if isinstance(raw_topics, list):
+            topics = [str(item).strip() for item in raw_topics if str(item).strip()]
+    if len(topics) > 12:
+        topics = topics[:12]
+    logger.info("Fallback LLM extrajo %s temas potenciales.", len(topics))
+    return topics
 
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(3))
@@ -172,17 +213,37 @@ def validate_topic(abstract: str, cfg: WatcherConfig) -> bool:
         )
     else:
         prompt = f'Is this topic "{abstract}" relevant for a COO persona?'
+    try:
+        response = llm.chat_structured(
+            model="ollama/phi3",
+            messages=[
+                {"role": "system", "content": "You are a strict validation assistant. Decide if the topic is relevant."},
+                {"role": "user", "content": prompt},
+            ],
+            response_model=ValidationResponse,
+            temperature=0.0,
+        )
+        if response:
+            return bool(response.is_relevant)
+    except Exception as exc:
+        logger.warning("Validación local falló, usando fallback LLM: %s", exc)
 
-    response = llm.chat_structured(
-        model="ollama/phi3",
+    fallback = llm.chat_json(
+        model=os.getenv("GEMINI_MODEL", "gemini-2.5-pro"),
         messages=[
-            {"role": "system", "content": "You are a strict validation assistant. Decide if the topic is relevant."},
+            {
+                "role": "system",
+                "content": "Answer ONLY with JSON of shape {\"is_relevant\": true/false}.",
+            },
             {"role": "user", "content": prompt},
         ],
-        response_model=ValidationResponse,
         temperature=0.0,
     )
-    return bool(response and response.is_relevant)
+    if isinstance(fallback, dict):
+        val = fallback.get("is_relevant")
+        if isinstance(val, bool):
+            return val
+    return False
 
 
 def style_rejects(abstract: str, cfg: WatcherConfig, contract_text: str) -> bool:
@@ -207,6 +268,18 @@ def style_rejects(abstract: str, cfg: WatcherConfig, contract_text: str) -> bool
             "Estilo rechazado por voz corporativa (jargon=%s, cliche=%s).", corp, clich
         )
     return too_boardroom
+
+
+def extract_topics(text: str, context) -> List[str]:
+    if LLAMA_AVAILABLE:
+        try:
+            topics = extract_topics_with_llama(text)
+            if topics:
+                return topics
+            logger.warning("LlamaIndex no devolvió temas. Usando fallback LLM.")
+        except Exception as exc:
+            logger.warning("Fallo en LlamaIndex: %s. Se usará fallback LLM.", exc)
+    return extract_topics_with_llm(text, context)
 
 
 def collect_valid_topics(
@@ -377,7 +450,7 @@ async def process_pdf(pdf_path: str, cfg: WatcherConfig) -> None:
     text = extract_text_from_pdf(pdf_path, txt_path)
 
     context = build_prompt_context()
-    raw_topics = extract_topics_with_llama(text)
+    raw_topics = extract_topics(text, context)
     approved_topics = collect_valid_topics(raw_topics, pdf_name, cfg, context.contract)
 
     summary = persist_topics(approved_topics, cfg)

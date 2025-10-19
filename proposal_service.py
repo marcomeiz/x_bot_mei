@@ -118,17 +118,34 @@ class ProposalService:
                 handle,
             )
 
-        keyboard = {
-            "inline_keyboard": [
-                [
-                    {"text": "👍 Aprobar A", "callback_data": f"approve_A_{topic_id}"},
-                    {"text": "👍 Aprobar B", "callback_data": f"approve_B_{topic_id}"},
-                ],
-                [{"text": "👍 Aprobar C", "callback_data": f"approve_C_{topic_id}"}],
-                [{"text": "👎 Rechazar Todos", "callback_data": f"reject_{topic_id}"}],
-                [{"text": "🔁 Generar Nuevo", "callback_data": "generate_new"}],
-            ]
-        }
+        keyboard_rows = [
+            [
+                {"text": "👍 Aprobar A", "callback_data": f"approve_A_{topic_id}"},
+                {"text": "👍 Aprobar B", "callback_data": f"approve_B_{topic_id}"},
+            ],
+            [
+                {"text": "📋 Copiar A", "callback_data": f"copy_A_{topic_id}"},
+                {"text": "📋 Copiar B", "callback_data": f"copy_B_{topic_id}"},
+            ],
+        ]
+
+        if draft_c:
+            keyboard_rows.append([
+                {"text": "👍 Aprobar C", "callback_data": f"approve_C_{topic_id}"},
+            ])
+            keyboard_rows.append([
+                {"text": "📋 Copiar C", "callback_data": f"copy_C_{topic_id}"},
+            ])
+
+        keyboard_rows.append([{"text": "👎 Rechazar Todos", "callback_data": f"reject_{topic_id}"}])
+        keyboard_rows.append([{"text": "🔁 Generar Nuevo", "callback_data": "generate_new"}])
+
+        keyboard = {"inline_keyboard": keyboard_rows}
+
+        if category_name == "Rejected" and draft_c:
+            keyboard_rows[2][0] = {"text": "⚠️ C Rechazada", "callback_data": "noop"}
+            # remove copy button for C
+            keyboard_rows.pop(3)
 
         message_text = self.telegram.format_proposal_message(
             topic_id,
@@ -180,6 +197,10 @@ class ProposalService:
                 reply_markup=self.telegram.get_new_tweet_keyboard(),
                 as_html=True,
             )
+        elif action == "copy":
+            self._handle_copy(chat_id, topic_id, option)
+        elif action == "noop":
+            logger.info("[CHAT_ID: %s] Acción noop ignorada.", chat_id)
         elif "generate" in callback_data:
             logger.info("[CHAT_ID: %s] Solicitud de nueva propuesta manual.", chat_id)
             self.telegram.edit_message(chat_id, message_id, "🚀 Buscando un nuevo tema…")
@@ -259,6 +280,22 @@ class ProposalService:
                 "⚠️ No pude completar la confirmación. Genera uno nuevo.",
                 reply_markup=self.telegram.get_new_tweet_keyboard(),
             )
+
+    def _handle_copy(self, chat_id: int, topic_id: str, option: str) -> None:
+        logger.info("[CHAT_ID: %s] Solicitud de copia para opción %s (%s).", chat_id, option, topic_id)
+        try:
+            tweets = self._load_temp_tweets(chat_id, topic_id)
+            chosen_tweet = tweets.get(f"draft_{option.lower()}", "")
+            if not chosen_tweet:
+                raise ValueError("Opción elegida no encontrada")
+            body = (
+                f"<b>Opción {option.upper()} (copiar)</b>\n"
+                f"<pre>{self.telegram.escape(chosen_tweet)}</pre>"
+            )
+            self.telegram.send_message(chat_id, body, as_html=True)
+        except Exception as exc:
+            logger.error("[CHAT_ID: %s] Error al copiar opción %s: %s", chat_id, option, exc, exc_info=True)
+            self.telegram.send_message(chat_id, "⚠️ No pude obtener el texto a copiar.")
 
     def _finalize_choice(
         self,

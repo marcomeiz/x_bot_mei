@@ -88,7 +88,7 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
   - Vía REPL de Python:
     - `python -i core_generator.py`
     - `generate_tweet_from_topic("<abstract del tema>")`
-  - Comportamiento: crea `[EN - A]` y `[EN - B]`, refina estilo y recorta si >280. Durante generación y refinado se inyectan el contrato configurado (por defecto `copywriter_contract_hormozi.md`), el ICP (`config/icp.md`) y las pautas de revisión complementarias (`config/final_review_guidelines.md`) para asegurar voz, audiencia y naturalidad humana. Antes de enviar, cada borrador recibe una evaluación automática (tono/factualidad) que se muestra al usuario; si el revisor final detecta desviaciones graves, la generación se rechaza con feedback explícito.
+  - Comportamiento: crea `[EN - A]` y `[EN - B]`, refina estilo y recorta si >280. Durante generación y refinado se inyectan el contrato configurado (por defecto `copywriter_contract_hormozi.md`), el ICP (`config/icp.md`) y las pautas de revisión complementarias (`config/final_review_guidelines.md`) para asegurar voz, audiencia y naturalidad humana. Antes de enviar, cada borrador recibe una evaluación automática (tono/factualidad) que se muestra al usuario; si el revisor final detecta desviaciones graves, la generación se rechaza con feedback explícito. Puedes copiar cada opción con los botones “📋 Copiar …” del teclado inline.
 
 - Generar dos variantes offline (sin LLM):
   - `python offline_generate.py`

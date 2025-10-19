@@ -130,22 +130,22 @@ class ProposalService:
         ]
 
         if draft_c:
-            keyboard_rows.append([
-                {"text": "👍 Aprobar C", "callback_data": f"approve_C_{topic_id}"},
-            ])
-            keyboard_rows.append([
-                {"text": "📋 Copiar C", "callback_data": f"copy_C_{topic_id}"},
-            ])
+            if category_name == "Rejected":
+                keyboard_rows.append(
+                    [{"text": "⚠️ C Rechazada", "callback_data": "noop"}]
+                )
+            else:
+                keyboard_rows.append(
+                    [{"text": "👍 Aprobar C", "callback_data": f"approve_C_{topic_id}"}]
+                )
+                keyboard_rows.append(
+                    [{"text": "📋 Copiar C", "callback_data": f"copy_C_{topic_id}"}]
+                )
 
         keyboard_rows.append([{"text": "👎 Rechazar Todos", "callback_data": f"reject_{topic_id}"}])
         keyboard_rows.append([{"text": "🔁 Generar Nuevo", "callback_data": "generate_new"}])
 
         keyboard = {"inline_keyboard": keyboard_rows}
-
-        if category_name == "Rejected" and draft_c:
-            keyboard_rows[2][0] = {"text": "⚠️ C Rechazada", "callback_data": "noop"}
-            # remove copy button for C
-            keyboard_rows.pop(3)
 
         message_text = self.telegram.format_proposal_message(
             topic_id,
@@ -174,8 +174,18 @@ class ProposalService:
 
         parts = callback_data.split("_", 2)
         action = parts[0] if parts else ""
-        option = parts[1] if len(parts) >= 2 and action == "approve" else ""
-        topic_id = parts[2] if len(parts) == 3 else (parts[1] if len(parts) == 2 else "")
+        option = ""
+        topic_id = ""
+
+        if action in {"approve", "copy", "confirm"} and len(parts) == 3:
+            option = parts[1]
+            topic_id = parts[2]
+        elif action in {"reject"} and len(parts) >= 2:
+            topic_id = parts[1]
+        elif action in {"cancel", "noop"}:
+            topic_id = parts[1] if len(parts) >= 2 else ""
+        elif "generate" in action:
+            topic_id = parts[1] if len(parts) >= 2 else ""
 
         original_message_text = query["message"].get("text", "")
 
@@ -283,6 +293,10 @@ class ProposalService:
 
     def _handle_copy(self, chat_id: int, topic_id: str, option: str) -> None:
         logger.info("[CHAT_ID: %s] Solicitud de copia para opción %s (%s).", chat_id, option, topic_id)
+        if not option or not topic_id:
+            logger.warning("[CHAT_ID: %s] Callback copy incompleto (option=%s, topic=%s).", chat_id, option, topic_id)
+            self.telegram.send_message(chat_id, "⚠️ No pude localizar el borrador a copiar.")
+            return
         try:
             tweets = self._load_temp_tweets(chat_id, topic_id)
             chosen_tweet = tweets.get(f"draft_{option.lower()}", "")

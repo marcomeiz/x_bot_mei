@@ -1,383 +1,451 @@
+"""Watcher that ingests PDFs, extracts topics and persists them with metadata.
+
+This version keeps the observable behaviour from the previous script while
+splitting the responsibilities into small helpers that are easier to reason
+about and test:
+
+- configuration loading (`WatcherConfig`)
+- PDF I/O utilities
+- topic extraction via LlamaIndex
+- validation + style gating
+- persistence (local Chroma + optional remote sync)
+- filesystem watcher orchestration
+"""
+
+import asyncio
+import hashlib
+import json
 import os
 import time
-import json
-import hashlib
-import asyncio
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
+from dataclasses import dataclass
+from typing import Iterable, List, Optional
+
 import fitz  # PyMuPDF
+import requests
+from desktop_notifier import DesktopNotifier
 from dotenv import load_dotenv
 from llm_fallback import llm
 from tenacity import retry, stop_after_attempt, wait_random_exponential
-from desktop_notifier import DesktopNotifier
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
-# --- MODIFICACIÓN 1: CORREGIR LA IMPORTACIÓN ---
-# Importamos la FUNCIÓN que nos da la colección, no la variable
 from embeddings_manager import get_embedding, get_topics_collection
-import requests
-from style_guard import audit_style, CONTRACT_TEXT
+from logger_config import logger
+from prompt_context import build_prompt_context
+from style_guard import audit_style
 
-from llama_index.core import Document, VectorStoreIndex, Settings
-from llama_index.llms.openai import OpenAI as LlamaOpenAI
+try:
+    from llama_index.core import Document, Settings, VectorStoreIndex
+    from llama_index.llms.openai import OpenAI as LlamaOpenAI
+except ImportError as exc:  # pragma: no cover - defensive import guard
+    raise ImportError(
+        "watcher_with_metadata.py requires llama_index. Install extra dependencies"
+        " or remove the watcher."  # type: ignore[str-bytes-safe]
+    ) from exc
 
-# --- Pydantic Schemas for Structured Output ---
-from typing import List
 from pydantic import BaseModel, Field
 
+
+@dataclass(frozen=True)
+class WatcherConfig:
+    enforce_style_audit: bool
+    lenient_validation: bool
+    jargon_threshold: int
+    cliche_threshold: int
+    remote_ingest_url: str
+    admin_api_token: str
+    remote_batch: int
+    remote_timeout: int
+    remote_retries: int
+    upload_dir: str
+    text_dir: str
+    json_dir: str
+
+
+@dataclass(frozen=True)
+class TopicRecord:
+    topic_id: str
+    abstract: str
+    source_pdf: str
+
+
+@dataclass(frozen=True)
+class PersistenceSummary:
+    sent: int
+    added: int
+    skipped: int
+    errored: int
+
+
 class Topic(BaseModel):
-    abstract: str = Field(..., description="The concise, tweet-worthy topic extracted from the text.")
+    abstract: str = Field(..., description="Tweet-worthy topic extracted from the text.")
+
 
 class RagTopicList(BaseModel):
-    """A list of high-quality topics extracted from a document."""
     topics: List[Topic]
 
+
 class ValidationResponse(BaseModel):
-    is_relevant: bool = Field(..., description="True if the topic is relevant to a COO, False otherwise.")
-
-# Configure LlamaIndex to use our local Ollama model for RAG queries
-# This makes the extraction process much faster and free.
-ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-Settings.llm = LlamaOpenAI(api_base=f"{ollama_host}/v1", api_key="ollama", model="phi3")
-# We will continue to use Google for the final embeddings for consistency
-# Settings.embed_model is configured elsewhere or uses defaults
+    is_relevant: bool
 
 
-# --- CONFIGURACIÓN ---
-# Folders
-UPLOAD_DIR = "uploads"
-TEXT_DIR = "texts"
-JSON_DIR = "json"
-
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(TEXT_DIR, exist_ok=True)
-os.makedirs(JSON_DIR, exist_ok=True)
-
-# API Client
-load_dotenv()
-# Por defecto priorizamos captar temas (tono se ajusta más tarde en generación),
-# por eso la auditoría de estilo queda desactivada salvo que se active explícitamente.
-WATCHER_ENFORCE_STYLE_AUDIT = os.getenv("WATCHER_ENFORCE_STYLE_AUDIT", "0").lower() in ("1", "true", "yes", "y")
-# Validación indulgente: aprobar salvo que sea claramente ajeno al ámbito del COO
-WATCHER_LENIENT_VALIDATION = os.getenv("WATCHER_LENIENT_VALIDATION", "1").lower() in ("1", "true", "yes", "y")
-# Relajar umbrales de estilo por configuración (valores más permisivos por defecto)
-JARGON_THRESHOLD = int(os.getenv("WATCHER_JARGON_THRESHOLD", "4"))
-CLICHE_THRESHOLD = int(os.getenv("WATCHER_CLICHE_THRESHOLD", "4"))
-
-# Remote sync (optional)
-REMOTE_INGEST_URL = os.getenv("REMOTE_INGEST_URL", "").strip()  # e.g., https://<service-url>/ingest_topics
-ADMIN_API_TOKEN = os.getenv("ADMIN_API_TOKEN", "").strip()
-# Ajustes de sincronización remota (chunking y tiempo de espera)
-REMOTE_INGEST_BATCH = int(os.getenv("REMOTE_INGEST_BATCH", "25") or 25)
-REMOTE_INGEST_TIMEOUT = int(os.getenv("REMOTE_INGEST_TIMEOUT", "120") or 120)
-REMOTE_INGEST_RETRIES = int(os.getenv("REMOTE_INGEST_RETRIES", "3") or 3)
-
-# Modelos
-GENERATION_MODEL = "anthropic/claude-3.5-sonnet"
-VALIDATION_MODEL = "anthropic/claude-3-haiku"
-
-# Perfil del Experto
-COO_PERSONA = """
-Un Chief Operating Officer (COO) enfocado en liderazgo operacional, ejecución,
-escalado de negocios, sistemas, procesos, gestión de equipos de alto rendimiento,
-productividad y la intersección entre estrategia y operaciones del día a día.
-"""
-
-# Inicializar el notificador
+# Notifier reused across events
 notifier = DesktopNotifier()
 
-# --- FUNCIONES ---
 
-def extract_text_from_pdf(pdf_path, out_txt_path):
-    doc = fitz.open(pdf_path)
-    parts = []
-    for page in doc:
-        parts.append(page.get_text())
-    text = "\n".join(parts)
-    with open(out_txt_path, "w", encoding="utf-8") as f:
-        f.write(text)
-    print(f"[ok] Texto extraído -> {out_txt_path}")
+def load_config() -> WatcherConfig:
+    load_dotenv()
+    return WatcherConfig(
+        enforce_style_audit=os.getenv("WATCHER_ENFORCE_STYLE_AUDIT", "0").lower() in ("1", "true", "yes", "y"),
+        lenient_validation=os.getenv("WATCHER_LENIENT_VALIDATION", "1").lower() in ("1", "true", "yes", "y"),
+        jargon_threshold=int(os.getenv("WATCHER_JARGON_THRESHOLD", "4") or 4),
+        cliche_threshold=int(os.getenv("WATCHER_CLICHE_THRESHOLD", "4") or 4),
+        remote_ingest_url=os.getenv("REMOTE_INGEST_URL", "").strip(),
+        admin_api_token=os.getenv("ADMIN_API_TOKEN", "").strip(),
+        remote_batch=int(os.getenv("REMOTE_INGEST_BATCH", "25") or 25),
+        remote_timeout=int(os.getenv("REMOTE_INGEST_TIMEOUT", "120") or 120),
+        remote_retries=int(os.getenv("REMOTE_INGEST_RETRIES", "3") or 3),
+        upload_dir=os.getenv("UPLOAD_DIR", "uploads"),
+        text_dir=os.getenv("TEXT_DIR", "texts"),
+        json_dir=os.getenv("JSON_DIR", "json"),
+    )
+
+
+def configure_llama_index(ollama_host: Optional[str] = None) -> None:
+    host = ollama_host or os.getenv("OLLAMA_HOST", "http://localhost:11434")
+    Settings.llm = LlamaOpenAI(api_base=f"{host}/v1", api_key="ollama", model="phi3")
+
+
+def ensure_directories(cfg: WatcherConfig) -> None:
+    for path in (cfg.upload_dir, cfg.text_dir, cfg.json_dir):
+        os.makedirs(path, exist_ok=True)
+
+
+def extract_text_from_pdf(pdf_path: str, output_txt_path: str) -> str:
+    with fitz.open(pdf_path) as doc:
+        text = "\n".join(page.get_text() for page in doc)
+    with open(output_txt_path, "w", encoding="utf-8") as handle:
+        handle.write(text)
+    logger.info("Texto extraído -> %s", output_txt_path)
     return text
 
-def chunk_text(text, chunk_size=3500, overlap=200):
-    chunks = []
-    start = 0
-    while start < len(text):
-        end = start + chunk_size
-        chunk = text[start:end]
-        chunks.append(chunk)
-        start += chunk_size - overlap
-    return chunks
+
+def _build_topic_id(pdf_name: str, abstract: str) -> str:
+    return hashlib.md5(f"{pdf_name}:{abstract}".encode()).hexdigest()[:10]
+
+
+def _flatten_ids(raw_ids) -> List[str]:
+    if isinstance(raw_ids, list) and raw_ids and isinstance(raw_ids[0], list):
+        return [item for sub in raw_ids for item in sub]
+    if isinstance(raw_ids, list):
+        return [item for item in raw_ids if item]
+    return []
+
+
+def extract_topics_with_llama(text: str) -> List[str]:
+    documents = [Document(text=text)]
+    index = VectorStoreIndex.from_documents(documents)
+    query_engine = index.as_query_engine(output_cls=RagTopicList, response_mode="compact")
+    query = (
+        "Extract 8-12 high-quality, tweet-worthy topics from the document. "
+        "Focus on counter-intuitive insights, practical advice, or strong opinions relevant to a COO. "
+        "Each topic should be a concise, self-contained statement."
+    )
+    try:
+        response = query_engine.query(query)
+        topics = [topic.abstract.strip() for topic in (response.topics if response else []) if topic.abstract]
+        logger.info("LlamaIndex extrajo %s temas potenciales.", len(topics))
+        return topics
+    except Exception as exc:
+        logger.error("LlamaIndex RAG pipeline failed: %s", exc, exc_info=True)
+        return []
+
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(3))
-def validate_topic(topic_abstract: str) -> bool:
-    if WATCHER_LENIENT_VALIDATION:
+def validate_topic(abstract: str, cfg: WatcherConfig) -> bool:
+    if cfg.lenient_validation:
         prompt = (
             "Decide if this topic would be of practical interest to a COO. "
-            "Approve unless it is clearly unrelated to operations, leadership, people, systems, processes, execution, org design, productivity, finance ops, product ops, portfolio/roadmap, or growth. "
-            "If unsure, approve.\n\n"
-            f'Topic: "{topic_abstract}"'
+            "Approve unless it is clearly unrelated to operations, leadership, people, systems, processes, execution, org design, "
+            "productivity, finance ops, product ops, portfolio/roadmap, or growth. If unsure, approve.\n\n"
+            f'Topic: "{abstract}"'
         )
     else:
-        prompt = f'Is this topic "{topic_abstract}" relevant for a COO persona?'
+        prompt = f'Is this topic "{abstract}" relevant for a COO persona?'
+
+    response = llm.chat_structured(
+        model="ollama/phi3",
+        messages=[
+            {"role": "system", "content": "You are a strict validation assistant. Decide if the topic is relevant."},
+            {"role": "user", "content": prompt},
+        ],
+        response_model=ValidationResponse,
+        temperature=0.0,
+    )
+    return bool(response and response.is_relevant)
+
+
+def style_rejects(abstract: str, cfg: WatcherConfig, contract_text: str) -> bool:
+    if not cfg.enforce_style_audit:
+        return False
     try:
-        # Use local model for validation for speed and cost savings
-        response = llm.chat_structured(
-            model="ollama/phi3", 
-            messages=[
-                {"role": "system", "content": "You are a strict validation assistant. You must decide if the topic is relevant."},
-                {"role": "user", "content": prompt}
-            ],
-            response_model=ValidationResponse,
-            temperature=0.0,
-        )
-        return response.is_relevant if response else False
-    except Exception as e:
-        logger.error(f"Topic validation failed for '{topic_abstract[:30]}...': {e}")
+        audit = audit_style(abstract, contract_text) or {}
+    except Exception as exc:
+        logger.warning("Style audit failed for '%s...': %s", abstract[:40], exc)
         return False
 
-async def extract_and_validate_topics(text, pdf_name):
-    print("\n[procesando] Iniciando extracción de temas con LlamaIndex...")
-    all_validated_topics = []
-    total_extracted = 0
-    total_approved = 0
-    topics_to_embed = []
-    seen_topic_ids = set()
+    needs_revision = bool(audit.get("needs_revision", False))
+    voice = str(audit.get("voice", "")).lower()
+    corp = int(audit.get("corporate_jargon_score", 0) or 0)
+    clich = int(audit.get("cliche_score", 0) or 0)
 
-    try:
-        # 1. Create LlamaIndex Document and Index
-        documents = [Document(text=text)]
-        index = VectorStoreIndex.from_documents(documents)
-
-        # 2. Create a query engine with structured output capabilities
-        query_engine = index.as_query_engine(
-            output_cls=RagTopicList,
-            response_mode="compact",
+    too_boardroom = needs_revision and voice == "boardroom" and (
+        corp >= cfg.jargon_threshold or clich >= cfg.cliche_threshold
+    )
+    if too_boardroom:
+        logger.info(
+            "Estilo rechazado por voz corporativa (jargon=%s, cliche=%s).", corp, clich
         )
+    return too_boardroom
 
-        # 3. Define a single, powerful query to extract high-quality topics
-        query = (
-            "Extract 8-12 high-quality, tweet-worthy topics from the document. "
-            "Focus on counter-intuitive insights, practical advice, or strong opinions relevant to a COO. "
-            "Each topic should be a concise, self-contained statement."
-        )
 
-        # 4. Execute the query
-        response = query_engine.query(query)
-        extracted_topics = response.topics if response and response.topics else []
-        total_extracted = len(extracted_topics)
-        print(f"[procesando] LlamaIndex extrajo {total_extracted} temas potenciales.")
+def collect_valid_topics(
+    raw_topics: Iterable[str],
+    pdf_name: str,
+    cfg: WatcherConfig,
+    contract_text: str,
+) -> List[TopicRecord]:
+    seen_local_ids = set()
+    approved: List[TopicRecord] = []
 
-    except Exception as e:
-        logger.error(f"LlamaIndex RAG pipeline failed: {e}", exc_info=True)
-        extracted_topics = []
-
-    # 5. Process the extracted topics (validation, deduplication, storage)
-    for topic in extracted_topics:
-        abstract = topic.abstract
+    for abstract in raw_topics:
         if not abstract:
             continue
-
-        print(f"  [validando] '{abstract[:60]}...'")
-        if validate_topic(abstract):
-            if WATCHER_ENFORCE_STYLE_AUDIT:
-                try:
-                    audit = audit_style(abstract, CONTRACT_TEXT) or {}
-                    corp = int(audit.get("corporate_jargon_score", 0) or 0)
-                    clich = int(audit.get("cliche_score", 0) or 0)
-                    voice = str(audit.get("voice", "") or "")
-                    needs_rev = bool(audit.get("needs_revision", False))
-                    too_board = needs_rev and (voice == "boardroom") and (corp >= JARGON_THRESHOLD or clich >= CLICHE_THRESHOLD)
-                    if too_board:
-                        print(f"    -> ⚠️ Estilo genérico/boardroom (voice={voice}, jargon={corp}, cliche={clich}). Se omite.")
-                        continue
-                    if needs_rev:
-                        print(f"    -> ℹ️ Marcado como 'needs_revision' (voice={voice}, jargon={corp}, cliche={clich}) pero aceptado.")
-                except Exception:
-                    pass
-            
-            topic_id = hashlib.md5(f"{pdf_name}:{abstract}".encode()).hexdigest()[:10]
-            if topic_id in seen_topic_ids:
-                print("    -> ⚠️ Duplicado dentro del mismo PDF. Se omite.")
+        logger.info("Validando tópico: %s", abstract[:80])
+        try:
+            if not validate_topic(abstract):
+                logger.info(" -> Rechazado por relevancia")
                 continue
-            seen_topic_ids.add(topic_id)
-            
-            # The Pydantic model doesn't support item assignment, so we create a dict
-            topic_dict = {"abstract": abstract, "topic_id": topic_id, "source_pdf": pdf_name}
-            all_validated_topics.append(topic_dict)
-            total_approved += 1
+        except Exception as exc:
+            logger.error("Validación falló para '%s...': %s", abstract[:40], exc)
+            continue
 
-            topics_to_embed.append({
-                "id": topic_id,
-                "document": abstract,
-                "metadata": {"pdf": pdf_name},
-            })
+        if style_rejects(abstract, cfg, contract_text):
+            logger.info(" -> Rechazado por estilo")
+            continue
 
-            print("    -> ✅ Aprobado")
-        else:
-            print("    -> ❌ Rechazado")
+        topic_id = _build_topic_id(pdf_name, abstract)
+        if topic_id in seen_local_ids:
+            logger.info(" -> Duplicado en el mismo PDF. Se omite")
+            continue
+        seen_local_ids.add(topic_id)
+        approved.append(TopicRecord(topic_id=topic_id, abstract=abstract, source_pdf=pdf_name))
+        logger.info(" -> Aprobado")
 
-    # ... (The rest of the function for embedding and saving remains the same)
-    if topics_to_embed:
-        print(f"\n[procesando embeddings] Generando {len(topics_to_embed)} embeddings para los temas aprobados...")
+    return approved
 
-        documents = [item["document"] for item in topics_to_embed]
-        ids = [item["id"] for item in topics_to_embed]
-        metadatas = [item["metadata"] for item in topics_to_embed]
 
-        embeddings = [get_embedding(doc) for doc in documents]
+def persist_topics(topics: List[TopicRecord], cfg: WatcherConfig) -> PersistenceSummary:
+    if not topics:
+        return PersistenceSummary(sent=0, added=0, skipped=0, errored=0)
 
-        valid_entries = [
-            (embedding, doc, topic_id, metadata)
-            for embedding, doc, topic_id, metadata in zip(embeddings, documents, ids, metadatas)
-            if embedding is not None
-        ]
+    topics_collection = get_topics_collection()
+    embeddings_payload = []
+    for topic in topics:
+        embedding = get_embedding(topic.abstract)
+        if embedding is None:
+            logger.warning("No se pudo generar embedding para '%s...'.", topic.abstract[:40])
+            continue
+        embeddings_payload.append((embedding, topic))
 
-        if valid_entries:
-            topics_collection = get_topics_collection()
+    if not embeddings_payload:
+        logger.warning("No hay embeddings válidos para persistir.")
+        return PersistenceSummary(sent=0, added=0, skipped=0, errored=len(topics))
 
-            batch_unique_entries = []
-            batch_seen_ids = set()
-            for entry in valid_entries:
-                if entry[2] in batch_seen_ids:
-                    print("⚠️ ID duplicado detectado dentro del lote actual. Se omite.")
-                    continue
-                batch_seen_ids.add(entry[2])
-                batch_unique_entries.append(entry)
+    ids = [item.topic_id for _, item in embeddings_payload]
+    try:
+        existing_response = topics_collection.get(ids=ids, include=[])  # type: ignore[arg-type]
+        existing_ids = set(_flatten_ids(existing_response.get("ids")))
+    except Exception as exc:
+        logger.warning("No se pudo verificar duplicados en la base de datos: %s", exc)
+        existing_ids = set()
 
-            existing_ids = set()
-            try:
-                existing_response = topics_collection.get(ids=[entry[2] for entry in batch_unique_entries], include=[])
-                raw_ids = existing_response.get("ids")
-                if raw_ids:
-                    if isinstance(raw_ids[0], list):
-                        existing_ids = {id_ for sublist in raw_ids for id_ in sublist}
-                    else:
-                        existing_ids = set(raw_ids)
-            except Exception as e:
-                print(f"⚠️ No se pudo verificar duplicados en la base de datos: {e}")
+    entries_to_add = [pair for pair in embeddings_payload if pair[1].topic_id not in existing_ids]
 
-            entries_to_add = [entry for entry in batch_unique_entries if entry[2] not in existing_ids]
+    if entries_to_add:
+        topics_collection.add(
+            embeddings=[item[0] for item in entries_to_add],
+            documents=[item[1].abstract for item in entries_to_add],
+            ids=[item[1].topic_id for item in entries_to_add],
+            metadatas=[{"pdf": item[1].source_pdf} for item in entries_to_add],
+        )
+        logger.info("%s temas añadidos a topics_collection.", len(entries_to_add))
+    else:
+        logger.info("No hay temas nuevos para añadir tras filtrar duplicados.")
 
-            if not entries_to_add:
-                print("⚠️ No hay temas nuevos para añadir tras filtrar duplicados.")
-            else:
-                topics_collection.add(
-                    embeddings=[entry[0] for entry in entries_to_add],
-                    documents=[entry[1] for entry in entries_to_add],
-                    ids=[entry[2] for entry in entries_to_add],
-                    metadatas=[entry[3] for entry in entries_to_add],
-                )
-                skipped_existing = len(batch_unique_entries) - len(entries_to_add)
-                if skipped_existing:
-                    print(f"⚠️ Se omiten {skipped_existing} temas ya existentes en la base de datos.")
-                print(f"✅ {len(entries_to_add)} temas han sido añadidos a la base de datos vectorial 'topics_collection'.")
+    skipped = len(embeddings_payload) - len(entries_to_add)
+    errors = len(topics) - len(embeddings_payload)
 
-                # Remote sync (opcional) con chunking y reintentos: enviar solo los nuevos
-                if REMOTE_INGEST_URL and ADMIN_API_TOKEN and entries_to_add:
-                    total = len(entries_to_add)
-                    print(f"☁️  Sync remoto: enviando {total} temas en lotes de {REMOTE_INGEST_BATCH}…")
-                    for start in range(0, total, REMOTE_INGEST_BATCH):
-                        batch_entries = entries_to_add[start:start + REMOTE_INGEST_BATCH]
-                        payload = {
-                            "topics": [
-                                {"id": t_id, "abstract": doc, "pdf": (md or {}).get("pdf") if isinstance(md, dict) else None}
-                                for _, doc, t_id, md in batch_entries
-                            ]
-                        }
-                        url = REMOTE_INGEST_URL
-                        if "?" in url:
-                            url = f"{url}&token={ADMIN_API_TOKEN}"
-                        else:
-                            url = f"{url}?token={ADMIN_API_TOKEN}"
-                        attempt = 0
-                        while True:
-                            attempt += 1
-                            try:
-                                r = requests.post(url, json=payload, timeout=REMOTE_INGEST_TIMEOUT)
-                                if r.status_code == 200:
-                                    try:
-                                        data = r.json()
-                                    except Exception:
-                                        data = {}
-                                    added = data.get("added")
-                                    skipped = data.get("skipped_existing")
-                                    print(
-                                        f"   · Lote {start//REMOTE_INGEST_BATCH + 1}: added={added}, skipped={skipped}"
-                                    )
-                                    break
-                                else:
-                                    print(
-                                        f"   · Lote {start//REMOTE_INGEST_BATCH + 1}: HTTP {r.status_code} -> {r.text[:200]}"
-                                    )
-                            except Exception as e:
-                                if attempt < REMOTE_INGEST_RETRIES:
-                                    print(
-                                        f"   · Lote {start//REMOTE_INGEST_BATCH + 1}: error '{e}'. Reintentando ({attempt}/{REMOTE_INGEST_RETRIES})…"
-                                    )
-                                    time.sleep(min(2 * attempt, 6))
-                                    continue
-                                print(f"   · Lote {start//REMOTE_INGEST_BATCH + 1}: fallo definitivo: {e}")
-                                break
-        else:
-            print("⚠️ No se pudieron generar embeddings válidos para los temas.")
+    if cfg.remote_ingest_url and cfg.admin_api_token and entries_to_add:
+        _sync_remote(entries_to_add, cfg)
 
-    out_path = os.path.join(JSON_DIR, f"{pdf_name}.json")
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump({"pdf_name": pdf_name, "extracted_topics": all_validated_topics}, f, indent=2, ensure_ascii=False)
-
-    summary = (
-        f"Temas extraídos: {total_extracted}, Aprobados: {total_approved} "
-        f"({round((total_approved / total_extracted) * 100, 1) if total_extracted > 0 else 0}%)"
+    return PersistenceSummary(
+        sent=len(entries_to_add),
+        added=len(entries_to_add),
+        skipped=skipped,
+        errored=errors,
     )
-    print("-" * 50)
-    print(f"[ok] Proceso completado para '{pdf_name}'")
-    print(f"  -> {summary}")
-    print(f"  -> Archivo guardado: {out_path}")
 
-    if total_approved > 0:
+
+def _sync_remote(entries_to_add: List[tuple], cfg: WatcherConfig) -> None:
+    logger.info(
+        "Sync remoto: enviando %s temas en lotes de %s…",
+        len(entries_to_add),
+        cfg.remote_batch,
+    )
+    for start in range(0, len(entries_to_add), cfg.remote_batch):
+        batch = entries_to_add[start : start + cfg.remote_batch]
+        payload = {
+            "topics": [
+                {
+                    "id": topic.topic_id,
+                    "abstract": topic.abstract,
+                    "pdf": topic.source_pdf,
+                }
+                for _, topic in batch
+            ]
+        }
+        url = cfg.remote_ingest_url
+        url = f"{url}&token={cfg.admin_api_token}" if "?" in url else f"{url}?token={cfg.admin_api_token}"
+
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                response = requests.post(url, json=payload, timeout=cfg.remote_timeout)
+                if response.status_code == 200:
+                    try:
+                        data = response.json()
+                    except Exception:
+                        data = {}
+                    logger.info(
+                        " · Lote %s: added=%s skipped=%s",
+                        (start // cfg.remote_batch) + 1,
+                        data.get("added"),
+                        data.get("skipped_existing"),
+                    )
+                    break
+                logger.warning(
+                    " · Lote %s: HTTP %s -> %s",
+                    (start // cfg.remote_batch) + 1,
+                    response.status_code,
+                    response.text[:200],
+                )
+            except Exception as exc:
+                if attempt < cfg.remote_retries:
+                    logger.warning(
+                        " · Lote %s: error '%s'. Reintentando (%s/%s)…",
+                        (start // cfg.remote_batch) + 1,
+                        exc,
+                        attempt,
+                        cfg.remote_retries,
+                    )
+                    time.sleep(min(2 * attempt, 6))
+                    continue
+                logger.error(" · Lote %s: fallo definitivo: %s", (start // cfg.remote_batch) + 1, exc)
+                break
+
+
+def write_summary_json(pdf_name: str, topics: List[TopicRecord], cfg: WatcherConfig) -> str:
+    output_path = os.path.join(cfg.json_dir, f"{pdf_name}.json")
+    with open(output_path, "w", encoding="utf-8") as handle:
+        json.dump(
+            {
+                "pdf_name": pdf_name,
+                "extracted_topics": [topic.__dict__ for topic in topics],
+            },
+            handle,
+            indent=2,
+            ensure_ascii=False,
+        )
+    return output_path
+
+
+async def process_pdf(pdf_path: str, cfg: WatcherConfig) -> None:
+    pdf_name = os.path.splitext(os.path.basename(pdf_path))[0]
+    txt_path = os.path.join(cfg.text_dir, f"{pdf_name}.txt")
+    text = extract_text_from_pdf(pdf_path, txt_path)
+
+    context = build_prompt_context()
+    raw_topics = extract_topics_with_llama(text)
+    approved_topics = collect_valid_topics(raw_topics, pdf_name, cfg, context.contract)
+
+    summary = persist_topics(approved_topics, cfg)
+    output_path = write_summary_json(pdf_name, approved_topics, cfg)
+
+    percentage = 0.0
+    if raw_topics:
+        percentage = round((len(approved_topics) / len(raw_topics)) * 100, 1)
+
+    logger.info(
+        "Proceso completado para '%s' | Temas extraídos=%s, aprobados=%s (%.1f%%)",
+        pdf_name,
+        len(raw_topics),
+        len(approved_topics),
+        percentage,
+    )
+    logger.info("Resumen guardado en %s", output_path)
+
+    if summary.added > 0:
         await notifier.send(
-            title=f"✅ Proceso Completado: {pdf_name}",
-            message=f"Se han añadido {total_approved} nuevos temas a la base de datos.",
+            title=f"✅ Proceso completado: {pdf_name}",
+            message=f"Se han añadido {summary.added} nuevos temas a la base de datos.",
         )
 
 
 class PDFHandler(FileSystemEventHandler):
-    def on_created(self, event):
+    def __init__(self, cfg: WatcherConfig) -> None:
+        super().__init__()
+        self.cfg = cfg
+
+    def on_created(self, event):  # pragma: no cover - callback
         if event.is_directory:
             return
 
-        async def _handle_async_creation():
+        async def _handle_async_creation() -> None:
             path = event.src_path
             if not path.lower().endswith(".pdf"):
                 return
 
-            print(f"\n[nuevo PDF detectado] {os.path.basename(path)}")
-            basename = os.path.splitext(os.path.basename(path))[0]
-            out_txt = os.path.join(TEXT_DIR, f"{basename}.txt")
+            logger.info("Nuevo PDF detectado: %s", os.path.basename(path))
 
-            # Esperar a que el archivo se copie completamente
-            size1 = -1
-            size2 = os.path.getsize(path)
-            while size1 != size2:
+            # Esperar a que termine la copia
+            previous_size = -1
+            while True:
+                current_size = os.path.getsize(path)
+                if current_size == previous_size:
+                    break
+                previous_size = current_size
                 time.sleep(1)
-                size1 = size2
-                size2 = os.path.getsize(path)
-            print("[ok] Archivo copiado completamente.")
+            logger.info("Archivo copiado completamente.")
 
             try:
-                text = extract_text_from_pdf(path, out_txt)
-                await extract_and_validate_topics(text, basename)
-            except Exception as e:
-                print(f"[error] Fallo en el proceso principal para {path}: {e}")
+                await process_pdf(path, self.cfg)
+            except Exception as exc:
+                logger.error("Fallo procesando %s: %s", path, exc, exc_info=True)
 
         asyncio.run(_handle_async_creation())
 
 
-if __name__ == "__main__":
-    print(f"Vigilando la carpeta: {UPLOAD_DIR} para nuevos PDFs...")
-    event_handler = PDFHandler()
+def main() -> None:  # pragma: no cover - CLI entry point
+    cfg = load_config()
+    ensure_directories(cfg)
+    configure_llama_index()
+
+    logger.info("Vigilando la carpeta %s para nuevos PDFs…", cfg.upload_dir)
+    event_handler = PDFHandler(cfg)
     observer = Observer()
-    observer.schedule(event_handler, UPLOAD_DIR, recursive=False)
+    observer.schedule(event_handler, cfg.upload_dir, recursive=False)
     observer.start()
     try:
         while True:
@@ -385,3 +453,7 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         observer.stop()
     observer.join()
+
+
+if __name__ == "__main__":  # pragma: no cover
+    main()

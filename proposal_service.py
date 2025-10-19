@@ -1,3 +1,4 @@
+import os
 import threading
 from typing import Dict, Optional
 from urllib.parse import quote_plus
@@ -28,6 +29,10 @@ class ProposalService:
         self.telegram = telegram
         self.drafts = draft_repo or DraftRepository("/tmp")
         self.similarity_threshold = similarity_threshold
+        self.share_base_url = os.getenv(
+            "THREADS_SHARE_URL",
+            "https://www.threads.net/intent/post?text=",
+        )
 
     # ------------------------------------------------------------------ public
     def do_the_work(self, chat_id: int) -> None:
@@ -313,7 +318,7 @@ class ProposalService:
             except Exception:
                 total_memory = None
 
-        intent_url = f"https://x.com/intent/tweet?text={quote_plus(chosen_tweet)}"
+        intent_url = f"{self.share_base_url}{quote_plus(chosen_tweet)}"
         keyboard = {"inline_keyboard": [[{"text": f"🚀 Publicar Opción {option}", "url": intent_url}]]}
         if message_prefix:
             self.telegram.send_message(chat_id, message_prefix)

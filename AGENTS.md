@@ -145,7 +145,7 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 - Watcher local:
   - Ejecuta `python watcher_app.py`, copia un PDF pequeño a `uploads/` y verifica `json/` + `db/` + notificación.
 - Bot:
-  - Con `/generate` debe llegar propuesta con tema+PDF y conteos. Aprobación A/B debe crear intent URL de X y guardar en memoria.
+  - Con `/generate` debe llegar propuesta con tema+PDF y conteos. Aprobación A/B genera un enlace listo para publicar en Threads y guarda en memoria.
 
 ## Operación y Runbook
 

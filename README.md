@@ -63,6 +63,8 @@
   - `STYLE_CONTRACT_PATH`: ruta alternativa al contrato creativo (por defecto `copywriter_contract_hormozi.md`). Permite apuntar a otra versión del tono sin tocar el repo.
   - `ICP_PATH`: ruta alternativa al archivo del ICP (por defecto `config/icp.md`). Útil para testear diferentes públicos meta.
   - `FINAL_REVIEW_GUIDELINES_PATH`: ruta alternativa a las pautas de revisión complementarias (por defecto `config/final_review_guidelines.md`). Ajusta las reglas anti-cliché/anti-IA sin tocar el contrato principal.
+- Publicación:
+  - `THREADS_SHARE_URL` (opcional, por defecto `https://www.threads.net/intent/post?text=`) ajusta el enlace que se abre al aprobar una opción.
 - Watchers (estilo):
   - `WATCHER_ENFORCE_STYLE_AUDIT` (`1` por defecto): activa auditoría de estilo al ingerir. Pon `0` para no filtrar por estilo.
   - `WATCHER_JARGON_THRESHOLD` (`4` por defecto) y `WATCHER_CLICHE_THRESHOLD` (`4` por defecto): umbrales para rechazar solo si la voz es `boardroom` y alguno supera el umbral.
@@ -94,7 +96,7 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
   - Vía REPL de Python:
     - `python -i core_generator.py`
     - `generate_tweet_from_topic("<abstract del tema>")`
-  - Comportamiento: crea `[EN - A]` y `[EN - B]`, refina estilo y recorta si >280. Durante generación y refinado se inyectan el contrato configurado (por defecto `copywriter_contract_hormozi.md`), el ICP (`config/icp.md`) y las pautas de revisión complementarias (`config/final_review_guidelines.md`) para asegurar voz, audiencia y naturalidad humana. Antes de enviar, cada borrador recibe una evaluación automática (tono/factualidad) que se muestra al usuario; si el revisor final detecta desviaciones graves, la generación se rechaza con feedback explícito. Puedes copiar cada opción con los botones “📋 Copiar …” del teclado inline.
+  - Comportamiento: crea `[EN - A]` y `[EN - B]`, refina estilo y recorta si >280. Durante generación y refinado se inyectan el contrato configurado (por defecto `copywriter_contract_hormozi.md`), el ICP (`config/icp.md`) y las pautas de revisión complementarias (`config/final_review_guidelines.md`) para asegurar voz, audiencia y naturalidad humana. Antes de enviar, cada borrador recibe una evaluación automática (tono/factualidad) que se muestra al usuario; si el revisor final detecta desviaciones graves, la generación se rechaza con feedback explícito. Puedes copiar cada opción con los botones “📋 Copiar …” y, al aprobar, el botón “Publicar” abre Threads con el texto listo.
 
 - Generar dos variantes offline (sin LLM):
   - `python offline_generate.py`

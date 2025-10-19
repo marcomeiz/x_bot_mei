@@ -26,6 +26,10 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 - `core_generator.py`
   - Selecciona un tema de `topics_collection`, comprueba similitud contra `memory_collection` y genera A/B bajo contrato de estilo.
   - Refinado de estilo + “acortado iterativo” vía LLM hasta ≤ 280 (sin truncar localmente).
+- `variant_generators.py`
+  - Encapsula prompts, refinamientos, control de longitud y selección de categorías para las variantes A/B/C.
+- `prompt_context.py`
+  - Provee el bundle del contrato, ICP y pautas de revisión para inyectar en los prompts.
 - `llm_fallback.py`
   - Capa común de LLM: intenta OpenRouter → Gemini, con manejo de JSON robusto y detección de errores para fallback.
 - `bot.py`

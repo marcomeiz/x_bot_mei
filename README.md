@@ -14,7 +14,9 @@
 - `llm_fallback.py`: capa común para LLM con orden de proveedores y manejo de JSON.
 - `embeddings_manager.py`: embeddings con Google Generative AI (`models/embedding-001`) y cliente persistente de ChromaDB.
 - `watcher_with_metadata.py`: observa `uploads/`, extrae texto de PDFs, valida temas y añade metadatos (por ejemplo el nombre del PDF) para trazabilidad y mejor deduplicación.
-- `core_generator.py`: dado un tema, genera dos borradores `[EN - A]` y `[EN - B]`, los refina y asegura < 280 caracteres.
+- `core_generator.py`: orquesta la generación de A/B/C, controla similitud y reintentos.
+- `variant_generators.py`: encapsula prompts, refinamientos y selección de categorías para cada variante.
+- `prompt_context.py`: agrupa contrato, ICP y pautas complementarias para inyectarlos en los prompts.
 - `offline_generate.py`: genera 2 variantes de tweet sin LLM a partir de un tema aleatorio (útil para pruebas rápidas).
 - `bot.py`: utilidades para enviar/editar mensajes por Telegram (opcional).
 - `logger_config.py`: logging centralizado a stdout.
@@ -98,9 +100,8 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
 - Salida JSON robusta: con OpenRouter se usa `response_format={"type":"json_object"}`; con Gemini se fuerza “ONLY strict JSON” y se parsea buscando el primer bloque JSON válido.
 
 Referencias en código:
-- `core_generator.py:23` `refine_and_shorten_tweet` → usa `llm.chat_text(...)`.
-- `core_generator.py:37` `refine_single_tweet_style` → usa `llm.chat_text(...)`.
-- `core_generator.py:104` generación de A/B → usa `llm.chat_text(...)`.
+- `core_generator.py` orquesta la generación y reintentos de A/B/C.
+- `variant_generators.py` encapsula los prompts, refinamientos y auditorías de estilo para cada variante.
 - `watcher_with_metadata.py` → validación `validate_topic` y extracción de temas usan `llm.chat_json(...)`.
 
 **Detalles de Almacenamiento**

@@ -50,59 +50,65 @@ class TelegramClient:
         category_name: Optional[str] = None,
         evaluations: Optional[Dict[str, Dict[str, object]]] = None,
     ) -> str:
-        len_a = len(draft_a or "")
-        len_b = len(draft_b or "")
-        len_c = len(draft_c or "") if draft_c else 0
-
         safe_id = self.escape(topic_id or "-")
         safe_abstract = self.escape(self.clean_abstract(abstract or ""))
         safe_source = self.escape(source_pdf) if source_pdf else None
-        safe_a = self.escape(draft_a or "")
-        safe_b = self.escape(draft_b or "")
         safe_category = self.escape(category_name) if category_name else None
 
-        lines: list[str] = ["<b>Borradores</b>"]
+        header: list[str] = ["<b>Propuestas listas</b>"]
         if self.show_topic_id or not source_pdf:
-            lines.append(f"<b>ID:</b> {safe_id}")
+            header.append(f"<b>ID:</b> {safe_id}")
         if safe_abstract:
-            lines.append(f"<b>Tema:</b> {safe_abstract}")
+            header.append(f"<b>Tema:</b> {safe_abstract}")
         if safe_source:
-            lines.append(f"<b>Origen:</b> {safe_source}")
+            header.append(f"<b>Origen:</b> {safe_source}")
         if draft_c and safe_category:
-            lines.append(f"<b>Categoría (C):</b> {safe_category}")
+            header.append(f"<b>Categoría (C):</b> {safe_category}")
+        header.append("")
+        header.append("Pulsa ✅ para aprobar o 📋 para copiar una versión.")
 
-        lines.append("")
-        lines.append(f"<b>A · {len_a}/280</b>\n{safe_a}")
-        lines.append("")
-        lines.append(f"<b>B · {len_b}/280</b>\n{safe_b}")
+        blocks = [
+            self._format_variant_block("🅰️", "A", draft_a, evaluations),
+            self._format_variant_block("🅱️", "B", draft_b, evaluations),
+        ]
         if draft_c:
-            safe_c = self.escape(draft_c or "")
-            lines.append("")
-            lines.append(f"<b>C · {len_c}/280</b>\n{safe_c}")
+            blocks.append(self._format_variant_block("🇨", "C", draft_c, evaluations))
 
-        if evaluations:
-            lines.extend(self._build_evaluation_lines(evaluations))
+        return "\n\n".join(["\n".join(header)] + blocks).strip()
 
-        return "\n".join(lines).strip()
+    def _format_variant_block(
+        self,
+        icon: str,
+        label: str,
+        text: Optional[str],
+        evaluations: Optional[Dict[str, Dict[str, object]]],
+    ) -> str:
+        text = text or ""
+        safe_text = self.escape(text)
+        block = [f"{icon} <b>Opción {label}</b> · {len(text)}/280", safe_text]
 
-    def _build_evaluation_lines(self, evaluations: Dict[str, Dict[str, object]]) -> list[str]:
-        lines = ["", "<b>Evaluación automática</b>"]
-        for label, data in evaluations.items():
-            style = data.get("style_score")
-            factuality = data.get("factuality")
-            needs_revision = bool(data.get("needs_revision"))
-            summary = str(data.get("summary", "")).strip()
-            parts = []
-            if style is not None:
-                parts.append(f"⭐{style}/5")
-            if factuality:
-                parts.append(f"Factualidad: {str(factuality).upper()}")
-            if summary:
-                parts.append(summary)
-            line = " | ".join(parts) if parts else "Sin datos"
-            prefix = "⚠️ " if needs_revision else ""
-            lines.append(f"{label}: {self.escape(prefix + line)}")
-        return lines
+        if evaluations and label in evaluations:
+            eval_block = self._format_evaluation(evaluations[label])
+            if eval_block:
+                block.append(eval_block)
+        return "\n".join(block)
+
+    def _format_evaluation(self, data: Dict[str, object]) -> str:
+        parts: list[str] = []
+        style = data.get("style_score")
+        if style is not None:
+            parts.append(f"⭐ {style}/5")
+        factuality = data.get("factuality")
+        if factuality:
+            parts.append(f"Factualidad: {str(factuality).upper()}")
+        summary = str(data.get("summary", "")).strip()
+        if summary:
+            parts.append(summary)
+        if not parts:
+            return ""
+        needs_revision = bool(data.get("needs_revision"))
+        prefix = "⚠️ " if needs_revision else "📝 "
+        return f"{prefix}" + self.escape(" | ".join(parts))
 
     def build_proposal_keyboard(self, topic_id: str, has_variant_c: bool, allow_variant_c: bool) -> Dict:
         rows = [

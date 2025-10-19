@@ -1,5 +1,6 @@
 import os
 import random
+import re
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
@@ -158,6 +159,8 @@ BULLET_CATEGORIES = {
 }
 
 _CACHED_POST_CATEGORIES: List[Dict[str, str]] = []
+
+SENTENCE_SPLIT_REGEX = re.compile(r"(?<=[.!?])\s+")
 
 
 def load_post_categories() -> List[Dict[str, str]]:
@@ -451,6 +454,9 @@ def generate_variant_ab_pair(
     else:
         logger.info(f"Auditoría B: sin cambios. Detalle: {audit_b}")
 
+    if _count_sentences(draft_b) != 2:
+        draft_b = _enforce_sentence_count(draft_b, 2, context, settings.validation_model)
+
     if len(draft_a) > 280:
         draft_a = ensure_under_limit_via_llm(draft_a, settings.validation_model, 280, attempts=4)
     if len(draft_b) > 280:
@@ -530,6 +536,9 @@ def generate_variant_c(
     improved_c, _ = improve_style(c1, context.contract)
     c2 = improved_c or c1
 
+    if _count_sentences(c2) != 1:
+        c2 = _enforce_sentence_count(c2, 1, context, settings.validation_model)
+
     if len(c2) > 280:
         c2 = ensure_under_limit_via_llm(c2, settings.validation_model, 280, attempts=4)
 
@@ -537,3 +546,48 @@ def generate_variant_c(
         raise StyleRejection("Variant C exceeds 280 characters tras reescritura.")
 
     return c2.strip(), cat_name
+def _count_sentences(text: str) -> int:
+    sentences = [s for s in SENTENCE_SPLIT_REGEX.split(text.strip()) if s]
+    return len(sentences)
+
+
+def _enforce_sentence_count(
+    text: str,
+    desired_count: int,
+    context: PromptContext,
+    model: str,
+) -> str:
+    instruction = (
+        f"Rewrite the text to EXACTLY {desired_count} sentence{'s' if desired_count != 1 else ''}. "
+        "Keep the persona, ICP, and tone contract intact. No bullets, no numbering, no emojis."
+    )
+    try:
+        rewritten = llm.chat_text(
+            model=model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a world-class ghostwriter who must obey the style contract, ICP, and final review guidelines.\n\n"
+                        "<STYLE_CONTRACT>\n"
+                        + context.contract
+                        + "\n</STYLE_CONTRACT>\n\n"
+                        "<ICP>\n"
+                        + context.icp
+                        + "\n</ICP>\n\n"
+                        "<FINAL_REVIEW_GUIDELINES>\n"
+                        + context.final_guidelines
+                        + "\n</FINAL_REVIEW_GUIDELINES>"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": instruction + "\n\nTEXT:\n" + text,
+                },
+            ],
+            temperature=0.4,
+        )
+        return rewritten.strip() if isinstance(rewritten, str) and rewritten.strip() else text
+    except Exception as exc:
+        logger.warning("No se pudo ajustar el conteo de oraciones: %s", exc)
+        return text

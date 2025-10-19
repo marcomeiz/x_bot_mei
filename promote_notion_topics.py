@@ -1,17 +1,34 @@
-"""Promueve temas validados en Notion hacia ChromaDB."""
+"""Promote validated Notion topics into ChromaDB and mark them as synced."""
+
+from __future__ import annotations
 
 import argparse
 import json
 import os
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, Optional
 
 from huggingface_ingestion.ingestion import CANDIDATE_INDEX_PATH
 from ingestion_config import load_config
 from logger_config import logger
-from notion_bridge import build_session, query_database, update_page
+from notion_bridge import build_session, update_page
+from notion_ops import (
+    NotionPage,
+    extract_checkbox,
+    extract_rich_text,
+    fetch_pages_by_status,
+)
 from persistence_service import persist_topics
 from topic_pipeline import TopicRecord
+
+
+@dataclass(frozen=True)
+class PromotionSummary:
+    processed: int = 0
+    added: int = 0
+    skipped: int = 0
+    errored: int = 0
 
 
 def _load_candidates() -> Dict[str, Dict]:
@@ -28,44 +45,7 @@ def _save_candidates(index: Dict) -> None:
         json.dump(index, handle, indent=2, ensure_ascii=False)
 
 
-def _extract_rich_text(properties: Dict, name: str) -> str:
-    entry = properties.get(name)
-    if not entry:
-        return ""
-    rich_list = entry.get("rich_text") or []
-    return "".join(block.get("plain_text", "") for block in rich_list)
-
-
-def _extract_checkbox(properties: Dict, name: str) -> bool:
-    entry = properties.get(name)
-    if not entry:
-        return False
-    return bool(entry.get("checkbox"))
-
-
-def pull_validated_pages(session, database_id: str, status: str) -> list:
-    pages = []
-    payload = {
-        "filter": {
-            "property": "Status",
-            "select": {"equals": status},
-        },
-        "page_size": 100,
-    }
-    start_cursor: Optional[str] = None
-    while True:
-        if start_cursor:
-            payload["start_cursor"] = start_cursor
-        data = query_database(session, database_id, payload)
-        results = data.get("results") or []
-        pages.extend(results)
-        start_cursor = data.get("next_cursor")
-        if not start_cursor:
-            break
-    return pages
-
-
-def build_topic_record(candidate_entry: Dict, page_id: str, approved_status: str) -> TopicRecord:
+def _build_topic_record(candidate_entry: Dict, page_id: str, approved_status: str) -> TopicRecord:
     base = candidate_entry["topic_record"]
     metadata = dict(base.get("metadata") or {})
     metadata.update(
@@ -84,7 +64,75 @@ def build_topic_record(candidate_entry: Dict, page_id: str, approved_status: str
     )
 
 
-def main():
+def promote_validated_topics(
+    token: str,
+    database_id: str,
+    status: str = "Validated",
+    set_status: Optional[str] = "Promoted",
+    sync_checkbox: Optional[str] = "Synced",
+    dry_run: bool = False,
+) -> PromotionSummary:
+    candidates_index = _load_candidates()
+    if not candidates_index:
+        return PromotionSummary()
+
+    session = build_session(token)
+    pages = fetch_pages_by_status(token, database_id, status, session=session)
+    if not pages:
+        logger.info("No se encontraron páginas en estado '%s'.", status)
+        return PromotionSummary()
+
+    cfg = load_config()
+    processed = added = skipped = errored = 0
+
+    for page in pages:
+        processed += 1
+        properties = page.properties or {}
+        if sync_checkbox and extract_checkbox(properties, sync_checkbox):
+            skipped += 1
+            continue
+
+        candidate_id = extract_rich_text(properties, "Candidate ID")
+        if not candidate_id:
+            logger.warning("Página %s sin Candidate ID. Se omite.", page.page_id)
+            errored += 1
+            continue
+
+        entry = candidates_index.get(candidate_id)
+        if not entry:
+            logger.warning("Candidate ID %s no encontrado en índice local.", candidate_id)
+            errored += 1
+            continue
+
+        record = _build_topic_record(entry, page_id=page.page_id, approved_status=status)
+        if dry_run:
+            logger.info("[Dry-run] Promovería %s (%s).", record.topic_id, record.abstract)
+            continue
+
+        summary = persist_topics([record], cfg)
+        added += summary.added
+        skipped += summary.skipped
+        errored += summary.errored
+
+        entry["topic_record"]["metadata"] = record.metadata
+        entry["promoted_at"] = record.metadata["approved_at"]
+        candidates_index[candidate_id] = entry
+
+        notion_update: Dict[str, Dict] = {}
+        if set_status:
+            notion_update["Status"] = {"select": {"name": set_status}}
+        if sync_checkbox:
+            notion_update[sync_checkbox] = {"checkbox": True}
+        if notion_update:
+            update_page(session, page.page_id, notion_update)
+
+    if not dry_run:
+        _save_candidates(candidates_index)
+
+    return PromotionSummary(processed=processed, added=added, skipped=skipped, errored=errored)
+
+
+def main():  # pragma: no cover - CLI entry point
     parser = argparse.ArgumentParser(description="Promueve candidatos validados en Notion.")
     parser.add_argument("--token", help="Token de integración Notion (default NOTION_API_TOKEN).")
     parser.add_argument("--database", help="Database ID (default NOTION_DATABASE_ID).")
@@ -107,62 +155,22 @@ def main():
     if not token or not database_id:
         raise SystemExit("Configura NOTION_API_TOKEN y NOTION_DATABASE_ID o pasa --token/--database.")
 
-    candidates_index = _load_candidates()
-    if not candidates_index:
-        return
+    summary = promote_validated_topics(
+        token=token,
+        database_id=database_id,
+        status=args.status,
+        set_status=args.set_status,
+        sync_checkbox=args.synced_property,
+        dry_run=args.dry_run,
+    )
 
-    session = build_session(token)
-    pages = pull_validated_pages(session, database_id, args.status)
-    if not pages:
-        logger.info("No se encontraron páginas en estado '%s'.", args.status)
-        return
-
-    cfg = load_config()
-    promoted = 0
-    for page in pages:
-        properties = page.get("properties") or {}
-        if args.synced_property and _extract_checkbox(properties, args.synced_property):
-            continue
-
-        candidate_id = _extract_rich_text(properties, "Candidate ID")
-        if not candidate_id:
-            logger.warning("Página %s sin Candidate ID. Se omite.", page.get("id"))
-            continue
-
-        entry = candidates_index.get(candidate_id)
-        if not entry:
-            logger.warning("Candidate ID %s no encontrado en índice local. Se omite.", candidate_id)
-            continue
-
-        record = build_topic_record(entry, page_id=page["id"], approved_status=args.status)
-        if args.dry_run:
-            logger.info("[Dry-run] Promovería %s (%s).", record.topic_id, record.abstract)
-        else:
-            summary = persist_topics([record], cfg)
-            logger.info(
-                "Promovido %s | añadidos=%s saltados=%s errores=%s",
-                record.topic_id,
-                summary.added,
-                summary.skipped,
-                summary.errored,
-            )
-            promoted += summary.added
-
-            entry["topic_record"]["metadata"] = record.metadata
-            entry["promoted_at"] = record.metadata["approved_at"]
-            candidates_index[candidate_id] = entry
-
-            notion_update = {}
-            if args.set_status:
-                notion_update["Status"] = {"select": {"name": args.set_status}}
-            if args.synced_property:
-                notion_update[args.synced_property] = {"checkbox": True}
-            if notion_update:
-                update_page(session, page["id"], notion_update)
-
-    if not args.dry_run:
-        _save_candidates(candidates_index)
-    logger.info("Promoción finalizada. Nuevos temas añadidos: %s", promoted)
+    logger.info(
+        "Promoción finalizada. Procesados=%s añadidos=%s saltados=%s errores=%s",
+        summary.processed,
+        summary.added,
+        summary.skipped,
+        summary.errored,
+    )
 
 
 if __name__ == "__main__":  # pragma: no cover

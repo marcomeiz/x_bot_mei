@@ -58,6 +58,10 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
   - Contrato creativo/estilístico activo. `copywriter_contract.md` queda como referencia histórica y puede reactivarse vía `STYLE_CONTRACT_PATH`.
 - `config/final_review_guidelines.md`
   - Pautas complementarias anti-cliché/anti-IA aplicadas en la revisión final (modo "warden"): si no se cumplen, la generación se rechaza con feedback. Puedes cambiar el archivo con `FINAL_REVIEW_GUIDELINES_PATH`.
+- `notion_ops.py` / `notifications.py`
+  - Utilidades compartidas para consultar Notion, marcar páginas y enviar alertas a Telegram.
+- `scripts/notion_report.py`, `scripts/promote_and_notify.py`, `scripts/promote_daily.sh`
+  - Scripts CLI para el scheduler (GitHub Actions o cron) que avisan de pendientes y promueven automáticamente.
 - `huggingface_ingestion/` + `hf_ingestion.py`
   - Descargan datasets del Hub (config `config/hf_sources.json`), aplican evaluador “cabrón”, generan candidatos con metadatos y los guardan en JSON + índice.
 - `hf_notion_sync.py` / `promote_notion_topics.py`
@@ -79,7 +83,7 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 
 ## Flujo de Datos (camino feliz)
 
-0) Radar (opcional): `hf_ingestion.py` crea candidatos (`status=candidate`) → `hf_notion_sync.py` los sube a Notion → humano marca `Validated` → `promote_notion_topics.py` actualiza `status=approved` y los añade a `topics_collection`.
+0) Radar (automático): `hf_ingestion.py` crea candidatos (`status=candidate`) → `hf_notion_sync.py` los sube a Notion → humano marca `Validated` → `promote_and_notify.py` actualiza `status=approved`, avisa por Telegram y los añade a `topics_collection`.
 1) Ingesta tradicional: PDF a `uploads/` → texto → chunks → extracción temas (JSON) → validación COO (JSON) → embeddings → `topics_collection`.
 2) Generación: `core_generator.generate_tweet_from_topic(abstract)` produce `[EN - A]` y `[EN - B]` ≤ 280 (iterativo LLM), revisa similitud previa.
 3) Bot: `/generate` → elige tema aprobado o fallback general, muestra A/B con tema+PDF+conteo, callbacks para aprobar y persistir en `memory_collection`.

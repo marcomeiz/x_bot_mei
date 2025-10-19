@@ -39,7 +39,7 @@ timestamp() {
 
 {
   echo "[$(timestamp)] Lanzando promote_notion_topics (status=${PROMOTE_STATUS} → ${TARGET_STATUS})"
-  python "${REPO_DIR}/promote_notion_topics.py" \
+python "${REPO_DIR}/scripts/promote_and_notify.py" \
     --token "${NOTION_API_TOKEN}" \
     --database "${NOTION_DATABASE_ID}" \
     --status "${PROMOTE_STATUS}" \

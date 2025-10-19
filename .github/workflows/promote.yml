@@ -11,7 +11,16 @@ permissions:
 jobs:
   promote:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
+
+    env:
+      NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
+      NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      HF_INGEST_LIMIT: ${{ vars.HF_INGEST_LIMIT }}
+      FALLBACK_PROVIDER_ORDER: gemini
 
     steps:
       - name: Checkout
@@ -22,16 +31,29 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install promoter dependencies
+      - name: Install dependencies
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          pip install python-dotenv requests chromadb
+          pip install -r requirements.txt
 
-      - name: Promote Notion topics
-        env:
-          NOTION_API_TOKEN: ${{ secrets.NOTION_API_TOKEN }}
-          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+      - name: Ingest Hugging Face signals
         run: |
           set -euo pipefail
-          python promote_notion_topics.py --status Validated --set-status Promoted
+          LIMIT="${HF_INGEST_LIMIT:-50}"
+          python hf_ingestion.py --limit "$LIMIT" --notify
+
+      - name: Sync candidates to Notion
+        run: |
+          set -euo pipefail
+          python hf_notion_sync.py --status Review
+
+      - name: Notify pending review count
+        run: |
+          set -euo pipefail
+          python scripts/notion_report.py --status Review --threshold 1
+
+      - name: Promote validated topics
+        run: |
+          set -euo pipefail
+          python scripts/promote_and_notify.py --status Validated --set-status Promoted

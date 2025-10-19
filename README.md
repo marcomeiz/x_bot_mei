@@ -52,6 +52,7 @@
   - Credenciales de X/Twitter si se usan scripts relacionados
   - `NOTION_API_TOKEN`, `NOTION_DATABASE_ID` si conectas la revisión humana vía Notion.
   - `HF_SOURCES_PATH`, `HF_CANDIDATE_DIR`, `HF_CANDIDATE_INDEX`, `HF_STATE_PATH` para ajustar rutas del pipeline Hugging Face.
+  - Añade `GOOGLE_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` y, si usas GitHub Actions, la variable `HF_INGEST_LIMIT` en los Secrets/Variables del repositorio.
  - Visualización opcional:
    - `SHOW_TOPIC_ID` (`0` por defecto). Si `1`, muestra el ID de tema en el encabezado del mensaje del bot aun cuando exista `Origen`. Por defecto el ID queda oculto salvo que no haya `Origen`.
 - Estilo (opcional):
@@ -111,11 +112,11 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
   - `python hf_ingestion.py` descarga señales y genera candidatos con evaluador estricto (estado `candidate`).
   - `python hf_notion_sync.py` sube/actualiza los candidatos en tu base Notion para revisión.
   - Marca en Notion los ítems que superan las preguntas como `Validated`.
-  - `python promote_notion_topics.py` promueve los validados, marca `status=approved` y los añade a ChromaDB (priorizados por `find_relevant_topic`).
+  - `python scripts/promote_and_notify.py` promueve los validados, marca `status=approved`, los añade a ChromaDB y avisa por Telegram si hubo novedades.
   - Base Notion sugerida: propiedades `Name` (Title), `Status` (Select: Review/Validated/Promoted), `Candidate ID`, `Topic ID`, `Pain`, `Leverage`, `Stage` (Select), `Tags` (Multi-select), `Snippet`, `Source`, `Dataset`, `Source Fields`, `ICP Fit`, `Actionable`, `Stage Context`, `Urgency`, `Synced` (Checkbox).
   - Automatiza la promoción diaria:
     - **Local cron (opcional):** exporta `NOTION_API_TOKEN` y `NOTION_DATABASE_ID`, luego añade a `crontab -e` algo como `0 7 * * * /home/mei/Desktop/MMEI/x_bot_mei/scripts/promote_daily.sh`. El script registra los resultados en `logs/promote.log`.
-    - **GitHub Actions:** usa `.github/workflows/promote.yml`, añade los secretos `NOTION_API_TOKEN` y `NOTION_DATABASE_ID` en el repositorio y la promoción correrá a las 07:00 UTC cada día (trigger manual disponible vía *workflow_dispatch*).
+    - **GitHub Actions:** `.github/workflows/promote.yml` automatiza ingestión → sync → recordatorio → promoción a las 07:00 UTC (también via *workflow_dispatch*). Configura los secretos `NOTION_API_TOKEN`, `NOTION_DATABASE_ID`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `GOOGLE_API_KEY` y la variable `HF_INGEST_LIMIT` si quieres ajustar el límite de ingestión.
 
 **Fallback LLM (OpenRouter → Gemini)**
 - Configuración y uso: `llm_fallback.py:1`.
@@ -161,6 +162,9 @@ Referencias en código:
 **Comandos Útiles**
 - Instalar deps: `pip install -r requirements.txt`
 - Ver modelos Gemini disponibles (Python): ver bloque en “Solución de Problemas”.
+- Ingestar señales y notificar: `python hf_ingestion.py --notify`
+- Recordatorio de revisión: `python scripts/notion_report.py --status Review`
+- Promover y avisar: `python scripts/promote_and_notify.py`
 - Ejecutar watcher (con metadatos): `python watcher_app.py`
 - Generación offline de dos alternativas: `python offline_generate.py`
 - Resetear la memoria (dataset aprobado) de ChromaDB: `python reset_memory.py` (añade `-y` para omitir confirmación)

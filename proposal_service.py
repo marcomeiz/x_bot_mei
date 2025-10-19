@@ -1,7 +1,7 @@
 import os
 import threading
 from typing import Dict, Optional
-from urllib.parse import quote_plus
+from urllib.parse import quote
 
 from callback_parser import CallbackAction, CallbackType, parse_callback
 from core_generator import (
@@ -318,7 +318,7 @@ class ProposalService:
             except Exception:
                 total_memory = None
 
-        intent_url = f"{self.share_base_url}{quote_plus(chosen_tweet)}"
+        intent_url = f"{self.share_base_url}{quote(chosen_tweet, safe='') }"
         keyboard = {"inline_keyboard": [[{"text": f"🚀 Publicar Opción {option}", "url": intent_url}]]}
         if message_prefix:
             self.telegram.send_message(chat_id, message_prefix)

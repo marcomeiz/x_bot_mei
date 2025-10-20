@@ -35,6 +35,7 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 - `variant_generators.py`
   - Encapsula prompts, refinamientos, control de longitud y selección de categorías para las variantes A/B/C.
   - Antes de escribir cada borrador, genera ángulos “tail” (probabilidad < 0.15) para romper narrativas mainstream y pegarlas como columna vertebral de los textos.
+  - Después de generar cada variante, corre un debate interno (contrarian, compliance, clarity reviewers) y reescribe con ese feedback antes del pulido final.
 - `prompt_context.py`
   - Provee el bundle del contrato, ICP y pautas de revisión para inyectar en los prompts.
 - `evaluation.py`

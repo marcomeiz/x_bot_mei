@@ -2,7 +2,7 @@ import os
 import random
 import re
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from llm_fallback import llm
 from logger_config import logger
@@ -161,6 +161,37 @@ BULLET_CATEGORIES = {
 _CACHED_POST_CATEGORIES: List[Dict[str, str]] = []
 
 TAIL_SAMPLING_COUNT = int(os.getenv("TAIL_SAMPLING_COUNT", "3") or 3)
+
+REVIEWER_PROFILES: List[Dict[str, str]] = [
+    {
+        "name": "Contrarian Reviewer",
+        "role": (
+            "You are obsessed with tail-distribution insights. You hate safe takes and call out any mainstream phrasing. "
+            "Your job is to force the writer to lead with a bold, uncomfortable truth that still fits the ICP."
+        ),
+        "focus": (
+            "Identify where the draft slips into common wisdom. Suggest one sharper, lower-probability angle or detail that hits harder."
+        ),
+    },
+    {
+        "name": "Compliance Reviewer",
+        "role": (
+            "You enforce the COOlogy style contract. No hedging, no bloated sentences, voice must stay NYC bar sharp."
+        ),
+        "focus": (
+            "Point the exact spots where tone drifts, verbs weaken, o el contrato/ICP se violan. Ofrece una corrección directa."
+        ),
+    },
+    {
+        "name": "Clarity Reviewer",
+        "role": (
+            "You are ruthless about clarity and specificity. If algo suena abstracto, exiges un ejemplo concreto o métrica."
+        ),
+        "focus": (
+            "Resalta afirmaciones vagas, métricas faltantes o stakes difusos. Sugiere qué detalle tangible lo haría innegable."
+        ),
+    },
+]
 
 SENTENCE_SPLIT_REGEX = re.compile(r"(?<=[.!?])\s+")
 
@@ -476,6 +507,25 @@ def generate_variant_ab_pair(
     else:
         logger.info(f"Auditoría B: sin cambios. Detalle: {audit_b}")
 
+    draft_a = _apply_internal_debate("A", draft_a, topic_abstract, context, tail_angles, settings.validation_model)
+    draft_b = _apply_internal_debate("B", draft_b, topic_abstract, context, tail_angles, settings.validation_model)
+
+    draft_a = _refine_single_tweet_style(draft_a, settings.validation_model, context)
+    post_improved_a, post_audit_a = improve_style(draft_a, context.contract)
+    if post_improved_a and post_improved_a != draft_a:
+        logger.info(f"Auditoría post-debate A: se aplicó revisión de estilo. Detalle: {post_audit_a}")
+        draft_a = post_improved_a
+    elif post_audit_a:
+        logger.info(f"Auditoría post-debate A: sin cambios. Detalle: {post_audit_a}")
+
+    draft_b = _refine_single_tweet_style(draft_b, settings.validation_model, context)
+    post_improved_b, post_audit_b = improve_style(draft_b, context.contract)
+    if post_improved_b and post_improved_b != draft_b:
+        logger.info(f"Auditoría post-debate B: se aplicó revisión de estilo. Detalle: {post_audit_b}")
+        draft_b = post_improved_b
+    elif post_audit_b:
+        logger.info(f"Auditoría post-debate B: sin cambios. Detalle: {post_audit_b}")
+
     if _count_sentences(draft_b) != 2:
         draft_b = _enforce_sentence_count(draft_b, 2, context, settings.validation_model)
 
@@ -570,6 +620,8 @@ def generate_variant_c(
     c1 = _refine_single_tweet_style_flexible(raw_c, settings.validation_model, context)
     improved_c, _ = improve_style(c1, context.contract)
     c2 = improved_c or c1
+
+    c2 = _apply_internal_debate("C", c2, topic_abstract, context, tail_angles, settings.validation_model)
 
     if _count_sentences(c2) != 1:
         c2 = _enforce_sentence_count(c2, 1, context, settings.validation_model)
@@ -667,6 +719,182 @@ Keep each field ≤ 180 characters."""
 def _count_sentences(text: str) -> int:
     sentences = [s for s in SENTENCE_SPLIT_REGEX.split(text.strip()) if s]
     return len(sentences)
+
+
+def _format_tail_angles_for_prompt(tail_angles: List[Dict[str, str]]) -> str:
+    if not tail_angles:
+        return ""
+    formatted = []
+    for idx, item in enumerate(tail_angles, 1):
+        line = f"{idx}. [p={item['probability']}] {item['angle']}"
+        if item.get("rationale"):
+            line += f" (Why: {item['rationale']})"
+        formatted.append(line)
+    return "\n".join(formatted)
+
+
+def _run_internal_reviews(
+    variant_label: str,
+    draft: str,
+    topic_abstract: str,
+    context: PromptContext,
+    tail_angles: List[Dict[str, str]],
+    model: str,
+) -> str:
+    if not REVIEWER_PROFILES:
+        return ""
+
+    feedback_blocks: List[str] = []
+    tail_section = _format_tail_angles_for_prompt(tail_angles)
+
+    for reviewer in REVIEWER_PROFILES:
+        system_message = (
+            reviewer["role"]
+            + "\n\nRespect the COOlogy style contract, ICP, and complementary guidelines. Respond ONLY with strict JSON."
+            + "\n\n<STYLE_CONTRACT>\n"
+            + context.contract
+            + "\n</STYLE_CONTRACT>\n<ICP>\n"
+            + context.icp
+            + "\n</ICP>\n<FINAL_REVIEW_GUIDELINES>\n"
+            + context.final_guidelines
+            + "\n</FINAL_REVIEW_GUIDELINES>"
+        )
+
+        user_prompt = """
+Variant: {variant_label}
+Topic: {topic}
+Current draft:
+---
+{draft}
+---
+
+{tail_section}
+
+Provide up to 3 bullet critiques focused on: {focus}
+Format strictly as {{"bullets": ["..."]}}. Bullets ≤ 140 characters.
+""".format(
+            variant_label=variant_label,
+            topic=topic_abstract,
+            draft=draft,
+            tail_section=("Tail angles to respect:\n" + tail_section) if tail_section else "",
+            focus=reviewer["focus"],
+        )
+
+        try:
+            resp = llm.chat_json(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.25,
+            )
+        except Exception as exc:
+            logger.warning("Internal review (%s) failed: %s", reviewer["name"], exc)
+            continue
+
+        bullets = resp.get("bullets") if isinstance(resp, dict) else None
+        if not isinstance(bullets, list):
+            continue
+        cleaned = [str(b).strip() for b in bullets if str(b).strip()]
+        if cleaned:
+            feedback_blocks.append(f"{reviewer['name']}: " + " | ".join(cleaned))
+
+    return "\n".join(feedback_blocks)
+
+
+def _revise_with_reviews(
+    variant_label: str,
+    draft: str,
+    feedback: str,
+    topic_abstract: str,
+    context: PromptContext,
+    tail_angles: List[Dict[str, str]],
+    model: str,
+) -> Optional[str]:
+    if not feedback.strip():
+        return None
+
+    tail_section = _format_tail_angles_for_prompt(tail_angles)
+    variant_rules = {
+        "A": "Stay under 280 characters. One punchy paragraph or 1–2 short sentences.",
+        "B": "Exactly two sentences. No filler. ≤280 characters.",
+        "C": "Exactly one sentence. Ruthless. ≤280 characters.",
+    }
+    variant_instruction = variant_rules.get(variant_label.upper(), "Stay under 280 characters.")
+
+    user_prompt = """
+Variant {variant_label} must be rewritten using the internal feedback.
+
+Topic: {topic}
+Current draft:
+---
+{draft}
+---
+
+Feedback received:
+{feedback}
+
+{tail_block}
+
+Rewrite constraints:
+- {variant_instruction}
+- Maintain COOlogy style contract, ICP, y pautas complementarias.
+- Cero hedging, sin tono corporativo, manténlo humano y directo.
+- Devuelve SOLO el texto revisado (sin comillas ni comentarios).
+""".format(
+        variant_label=variant_label,
+        topic=topic_abstract,
+        draft=draft,
+        feedback=feedback,
+        tail_block=("Tail angles to honor:\n" + tail_section) if tail_section else "",
+        variant_instruction=variant_instruction,
+    )
+
+    system_message = (
+        "You are a world-class ghostwriter revising copy after an internal debate."
+        " Respect the style contract, ICP, and complementary guidelines strictly."
+        "\n\n<STYLE_CONTRACT>\n"
+        + context.contract
+        + "\n</STYLE_CONTRACT>\n<ICP>\n"
+        + context.icp
+        + "\n</ICP>\n<FINAL_REVIEW_GUIDELINES>\n"
+        + context.final_guidelines
+        + "\n</FINAL_REVIEW_GUIDELINES>"
+    )
+
+    try:
+        revised = llm.chat_text(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.4,
+        )
+        if isinstance(revised, str):
+            return revised.strip()
+    except Exception as exc:
+        logger.warning("No se pudo aplicar revisión interna (%s): %s", variant_label, exc)
+    return None
+
+
+def _apply_internal_debate(
+    variant_label: str,
+    draft: str,
+    topic_abstract: str,
+    context: PromptContext,
+    tail_angles: List[Dict[str, str]],
+    model: str,
+) -> str:
+    feedback = _run_internal_reviews(variant_label, draft, topic_abstract, context, tail_angles, model)
+    if not feedback:
+        return draft
+    logger.info("Internal feedback for variant %s:\n%s", variant_label, feedback)
+    revised = _revise_with_reviews(variant_label, draft, feedback, topic_abstract, context, tail_angles, model)
+    if revised and revised.strip():
+        return revised.strip()
+    return draft
 
 
 def _enforce_sentence_count(

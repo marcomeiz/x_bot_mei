@@ -34,6 +34,7 @@ class ProposalService:
             "THREADS_SHARE_URL",
             "https://www.threads.net/intent/post?text=",
         )
+        self.show_internal_summary = os.getenv("SHOW_INTERNAL_SUMMARY", "0").lower() in {"1", "true", "yes", "y"}
 
     # ------------------------------------------------------------------ public
     def do_the_work(self, chat_id: int) -> None:
@@ -147,16 +148,17 @@ class ProposalService:
         )
 
         if self.telegram.send_message(chat_id, message_text, reply_markup=keyboard, as_html=True):
-            summary_blocks = []
-            if ab_result.reasoning_summary:
-                summary_blocks.append(ab_result.reasoning_summary)
-            if c_result.reasoning_summary:
-                c_summary = c_result.reasoning_summary
-                if c_summary.startswith("🧠"):
-                    c_summary = c_summary.replace("🧠", "🧠 (C)", 1)
-                summary_blocks.append(c_summary)
-            if summary_blocks:
-                self.telegram.send_message(chat_id, "\n\n".join(summary_blocks))
+            if self.show_internal_summary:
+                summary_blocks = []
+                if ab_result.reasoning_summary:
+                    summary_blocks.append(ab_result.reasoning_summary)
+                if c_result.reasoning_summary:
+                    c_summary = c_result.reasoning_summary
+                    if c_summary.startswith("🧠"):
+                        c_summary = c_summary.replace("🧠", "🧠 (C)", 1)
+                    summary_blocks.append(c_summary)
+                if summary_blocks:
+                    self.telegram.send_message(chat_id, "\n\n".join(summary_blocks))
             return True
         logger.error("[CHAT_ID: %s] Falló el envío de propuestas para topic %s.", chat_id, topic_id)
         return False

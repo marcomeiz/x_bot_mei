@@ -54,6 +54,7 @@
   - `HF_SOURCES_PATH`, `HF_CANDIDATE_DIR`, `HF_CANDIDATE_INDEX`, `HF_STATE_PATH` para ajustar rutas del pipeline Hugging Face.
   - Añade `GOOGLE_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` y, si usas GitHub Actions, la variable `HF_INGEST_LIMIT` en los Secrets/Variables del repositorio.
   - `TAIL_SAMPLING_COUNT` (opcional): número de ángulos contrarios generados antes de cada borrador (por defecto 3).
+  - `SHOW_INTERNAL_SUMMARY` (`0` por defecto): si `1`, envía en Telegram el resumen del debate interno/tail sampling tras la propuesta.
  - Visualización opcional:
    - `SHOW_TOPIC_ID` (`0` por defecto). Si `1`, muestra el ID de tema en el encabezado del mensaje del bot aun cuando exista `Origen`. Por defecto el ID queda oculto salvo que no haya `Origen`.
 - Estilo (opcional):
@@ -114,7 +115,7 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
   - `python hf_notion_sync.py` sube/actualiza los candidatos en tu base Notion para revisión.
   - Marca en Notion los ítems que superan las preguntas como `Validated`.
   - `python scripts/promote_and_notify.py` promueve los validados, marca `status=approved`, los añade a ChromaDB y avisa por Telegram si hubo novedades.
-  - Tras cada propuesta en Telegram recibes un mensaje breve con el resumen del razonamiento interno (tail angles, contraste ganador y el primer comentario de cada revisor A/B/C).
+  - Opcional: si `SHOW_INTERNAL_SUMMARY=1`, tras cada propuesta en Telegram verás el resumen del razonamiento interno (tail angles, contraste ganador y el primer comentario de cada revisor A/B/C).
   - Cada borrador también pasa por un evaluador estilo G-Eval: puntúa estilo, señal contraria, claridad y factualidad; en Telegram verás ⭐ estilo, factualidad y una nota destacada.
   - Base Notion sugerida: propiedades `Name` (Title), `Status` (Select: Review/Validated/Promoted), `Candidate ID`, `Topic ID`, `Pain`, `Leverage`, `Stage` (Select), `Tags` (Multi-select), `Snippet`, `Source`, `Dataset`, `Source Fields`, `ICP Fit`, `Actionable`, `Stage Context`, `Urgency`, `Synced` (Checkbox).
   - Automatiza la promoción diaria:

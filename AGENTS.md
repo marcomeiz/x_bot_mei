@@ -64,6 +64,8 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
   - Utilidades compartidas para consultar Notion, marcar páginas y enviar alertas a Telegram.
 - `scripts/notion_report.py`, `scripts/promote_and_notify.py`, `scripts/promote_daily.sh`
   - Scripts CLI para el scheduler (GitHub Actions o cron) que avisan de pendientes y promueven automáticamente.
+- `ProposalService`
+  - Si `SHOW_INTERNAL_SUMMARY=1`, envía en Telegram un resumen del tail sampling y los principales comentarios del debate interno después de cada propuesta.
 - `huggingface_ingestion/` + `hf_ingestion.py`
   - Descargan datasets del Hub (config `config/hf_sources.json`), aplican evaluador “cabrón”, generan candidatos con metadatos y los guardan en JSON + índice.
 - `hf_notion_sync.py` / `promote_notion_topics.py`

@@ -398,36 +398,12 @@ def _compact_text(text: str, limit: int = 1200) -> str:
     return cut + "…"
 
 
-def _ensure_question_at_end(text: str, model: str, context: PromptContext) -> str:
-    if "?" in text:
-        return text
-    prompt = (
-        "Rewrite the comment so it still says the same thing but ends with a sharp, specific question that invites a reply. "
-        "Keep it under 280 characters, no emojis or hashtags."
-    )
-    system_message = (
-        "You are a world-class ghostwriter tightening a short social media reply.\n\n<STYLE_CONTRACT>\n"
-        + context.contract
-        + "\n</STYLE_CONTRACT>\n\n<ICP>\n"
-        + context.icp
-        + "\n</ICP>\n\n<FINAL_REVIEW_GUIDELINES>\n"
-        + context.final_guidelines
-        + "\n</FINAL_REVIEW_GUIDELINES>"
-    )
-    try:
-        revised = llm.chat_text(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": f"{prompt}\n\nCOMMENT:\n{text}"},
-            ],
-            temperature=0.4,
-        )
-        if isinstance(revised, str) and revised.strip():
-            return revised.strip()
-    except Exception:
-        pass
-    return text
+def _ensure_question_at_end(text: str) -> str:
+    stripped = text.rstrip()
+    if stripped.endswith("?"):
+        return stripped
+    stripped = stripped.rstrip(".!")
+    return stripped + "?"
 
 
 def _limit_lines(text: str, max_lines: int = 2) -> str:
@@ -443,6 +419,32 @@ def _limit_lines(text: str, max_lines: int = 2) -> str:
     first = lines[0]
     second = " ".join(lines[1:])
     return "\n".join([first, second])
+
+
+def _enforce_line_limit(text: str, max_lines: int = 2) -> str:
+    lines = [ln.rstrip() for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return text.strip()
+    if len(lines) <= max_lines:
+        return "\n".join(lines)
+    if max_lines == 1:
+        return " ".join(lines)
+    first = lines[0]
+    second = " ".join(lines[1:])
+    return "\n".join([first, second])
+
+
+def _limit_sentences(text: str, max_sentences: int = 2) -> str:
+    if max_sentences <= 0:
+        return text.strip()
+    parts = re.split(r"(?<=[.!?])\s+", text.strip())
+    sentences = [p.strip() for p in parts if p.strip()]
+    if not sentences:
+        return text.strip()
+    clipped = sentences[:max_sentences]
+    if len(clipped) == 1:
+        return clipped[0]
+    return "\n".join(clipped)
 
 
 def _validate_comment_relevance(
@@ -1074,15 +1076,17 @@ Rules:
     elif audit:
         logger.info("Auditoría comentario: sin cambios. %s", audit)
 
-    comment = _limit_lines(comment, max_lines=2)
+    comment = _limit_sentences(comment, max_sentences=2)
+    comment = _enforce_line_limit(comment, max_lines=2)
     sentence_count = _count_sentences(comment)
-    if sentence_count > 2:
-        comment = _enforce_sentence_count(comment, 2, context, settings.validation_model)
-    elif sentence_count == 0:
+    if sentence_count == 0:
         comment = _enforce_sentence_count(comment, 1, context, settings.validation_model)
-
-    comment = _limit_lines(comment, max_lines=2)
-    comment = _ensure_question_at_end(comment, settings.validation_model, context)
+        comment = _limit_sentences(comment, max_sentences=1)
+    elif sentence_count > 2:
+        comment = _enforce_sentence_count(comment, 2, context, settings.validation_model)
+        comment = _limit_sentences(comment, max_sentences=2)
+    comment = _enforce_line_limit(comment, max_lines=2)
+    comment = _ensure_question_at_end(comment)
     if len(comment) > 280:
         comment = ensure_under_limit_via_llm(comment, settings.validation_model, 280, attempts=4)
 

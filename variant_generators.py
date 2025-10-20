@@ -46,6 +46,11 @@ class CommentAssessment:
     hook: Optional[str] = None
     risk: Optional[str] = None
 
+@dataclass
+class CommentRelevance:
+    is_relevant: bool
+    reason: str = ""
+
 
 DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
     {
@@ -363,6 +368,57 @@ def _limit_lines(text: str, max_lines: int = 2) -> str:
     first = lines[0]
     second = " ".join(lines[1:])
     return "\n".join([first, second])
+
+
+def _validate_comment_relevance(
+    source_excerpt: str,
+    comment_text: str,
+    context: PromptContext,
+    model: str,
+) -> CommentRelevance:
+    prompt = f"""
+We only want to reply if the comment clearly references the post and adds value to operators/COO ICP.
+
+POST (excerpt):
+\"\"\"{source_excerpt}\"\"\"
+
+COMMENT:
+\"\"\"{comment_text}\"\"\"
+
+Answer strictly as JSON:
+{{
+  "is_relevant": boolean,
+  "reason": string (<=160 chars)
+}}
+
+Mark is_relevant=true ONLY if the comment references a concrete detail/tension from the post AND extends it with a meaningful operator-focused insight or question.
+If the comment is vague, generic, or ignores the post's content, return false and explain why in reason.
+"""
+    system_message = (
+        "You are a strict reviewer preventing spammy replies. Enforce relevance to the excerpt and ICP value.\n\n<STYLE_CONTRACT>\n"
+        + context.contract
+        + "\n</STYLE_CONTRACT>\n\n<ICP>\n"
+        + context.icp
+        + "\n</ICP>\n\n<FINAL_REVIEW_GUIDELINES>\n"
+        + context.final_guidelines
+        + "\n</FINAL_REVIEW_GUIDELINES>"
+    )
+    try:
+        data = llm.chat_json(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.1,
+        )
+        if isinstance(data, dict):
+            relevant = bool(data.get("is_relevant", False))
+            reason = str(data.get("reason", "")).strip()[:160]
+            return CommentRelevance(is_relevant=relevant, reason=reason)
+    except Exception as exc:
+        logger.warning("No se pudo validar relevancia del comentario: %s", exc)
+    return CommentRelevance(is_relevant=True, reason="Relevancia no verificada (fallback).")
 
 
 def assess_comment_opportunity(
@@ -852,6 +908,7 @@ Rules:
 - End with a pointed question or next-step challenge to spark conversation.
 - Voice: NYC bar sharp, no fluff, no emojis/hashtags, English only.
 - Two sentences maximum. Keep it human and direct.
+- Format: output either ONE single line OR TWO lines separated by exactly one newline. Never produce more than one newline.
 """
     if assessment and assessment.hook:
         prompt += f"\nFocus your reply on this wedge: {assessment.hook}\n"
@@ -929,6 +986,10 @@ Rules:
     if len(comment) > 280:
         raise StyleRejection("Comentario excede los 280 caracteres tras ajustes.")
 
+    relevance = _validate_comment_relevance(excerpt, comment, context, settings.validation_model)
+    if not relevance.is_relevant:
+        raise StyleRejection(f"Comentario descartado por irrelevante: {relevance.reason}")
+
     metadata: Dict[str, object] = {"audit": audit, "source_excerpt": excerpt}
     if insight:
         metadata["insight"] = insight
@@ -938,6 +999,7 @@ Rules:
             metadata["assessment_hook"] = assessment.hook
         if assessment.risk:
             metadata["assessment_risk"] = assessment.risk
+    metadata["relevance_reason"] = relevance.reason
 
     return CommentResult(comment=comment.strip(), insight=insight, metadata=metadata)
 

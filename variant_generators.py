@@ -402,9 +402,8 @@ def _compact_text(text: str, limit: int = 1200) -> str:
 def _ensure_question_at_end(text: str) -> str:
     stripped = text.rstrip()
     if stripped.endswith("?"):
-        return stripped
-    stripped = stripped.rstrip(".!")
-    return stripped + "?"
+        return stripped[:-1] + "."
+    return stripped.rstrip(".!") + "."
 
 
 def _limit_lines(text: str, max_lines: int = 2) -> str:

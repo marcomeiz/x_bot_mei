@@ -342,6 +342,21 @@ def _ensure_question_at_end(text: str, model: str, context: PromptContext) -> st
     return text
 
 
+def _limit_lines(text: str, max_lines: int = 2) -> str:
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return text.strip()
+    if max_lines <= 0:
+        return " ".join(lines)
+    if len(lines) <= max_lines:
+        return "\n".join(lines)
+    if max_lines == 1:
+        return " ".join(lines)
+    first = lines[0]
+    second = " ".join(lines[1:])
+    return "\n".join([first, second])
+
+
 def _build_ab_prompt(topic_abstract: str, context: PromptContext) -> str:
     return f"""
             You are a ghostwriter. Your task is to write TWO distinct alternatives for a tweet based on the topic below. Strictly follow the provided contract.
@@ -818,6 +833,14 @@ Rules:
     elif audit:
         logger.info("Auditoría comentario: sin cambios. %s", audit)
 
+    comment = _limit_lines(comment, max_lines=2)
+    sentence_count = _count_sentences(comment)
+    if sentence_count > 2:
+        comment = _enforce_sentence_count(comment, 2, context, settings.validation_model)
+    elif sentence_count == 0:
+        comment = _enforce_sentence_count(comment, 1, context, settings.validation_model)
+
+    comment = _limit_lines(comment, max_lines=2)
     comment = _ensure_question_at_end(comment, settings.validation_model, context)
     if len(comment) > 280:
         comment = ensure_under_limit_via_llm(comment, settings.validation_model, 280, attempts=4)

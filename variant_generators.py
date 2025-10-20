@@ -100,6 +100,7 @@ STOPWORDS = {
     "much",
     "very",
     "like",
+    "felt",
     "them",
     "ours",
     "ourselves",
@@ -445,6 +446,35 @@ def _limit_sentences(text: str, max_sentences: int = 2) -> str:
     if len(clipped) == 1:
         return clipped[0]
     return "\n".join(clipped)
+
+
+def _normalize_token(token: str) -> str:
+    word = token.lower().strip(".,!?\"'()[]{}")
+    if len(word) <= 2:
+        return ""
+    if word.endswith("ies") and len(word) > 4:
+        word = word[:-3] + "y"
+    elif word.endswith("ing") and len(word) > 4:
+        word = word[:-3]
+    elif word.endswith("ied") and len(word) > 4:
+        word = word[:-3] + "y"
+    elif word.endswith("ed") and len(word) > 3:
+        word = word[:-2]
+    elif word.endswith("es") and len(word) > 4:
+        word = word[:-2]
+    elif word.endswith("s") and len(word) > 3:
+        word = word[:-1]
+    return word
+
+
+def _normalized_token_set(text: str) -> set[str]:
+    tokens = re.findall(r"[A-Za-z']+", text.lower())
+    normalized = set()
+    for token in tokens:
+        norm = _normalize_token(token)
+        if norm and len(norm) >= 3 and norm not in STOPWORDS:
+            normalized.add(norm)
+    return normalized
 
 
 def _validate_comment_relevance(
@@ -995,6 +1025,8 @@ def generate_comment_reply(
 
     excerpt = _compact_text(source_text, limit=1200)
     key_terms = _extract_key_terms(excerpt)
+    normalized_key_terms = [_normalize_token(term) for term in key_terms]
+    normalized_key_terms = [term for term in normalized_key_terms if term and len(term) >= 3]
     prompt = f"""
 We are replying to the following post. Draft ONE short comment (<=280 characters) that proves we actually read it and invites a response.
 
@@ -1093,9 +1125,24 @@ Rules:
     if len(comment) > 280:
         raise StyleRejection("Comentario excede los 280 caracteres tras ajustes.")
 
-    comment_lower = comment.lower()
-    if key_terms and not any(term in comment_lower for term in key_terms):
-        raise StyleRejection("Comentario descartado: no referencia el núcleo del post.")
+    normalized_comment_tokens = _normalized_token_set(comment)
+    if normalized_key_terms and not normalized_comment_tokens.intersection(normalized_key_terms):
+        anchor_term = None
+        for original in key_terms:
+            norm = _normalize_token(original)
+            if norm and norm in normalized_key_terms:
+                anchor_term = original
+                break
+        if not anchor_term and key_terms:
+            anchor_term = key_terms[0]
+        if anchor_term:
+            comment = f"{anchor_term.capitalize()}: {comment.lstrip()}"
+            comment = _limit_sentences(comment, max_sentences=2)
+            comment = _enforce_line_limit(comment, max_lines=2)
+            comment = _ensure_question_at_end(comment)
+            normalized_comment_tokens = _normalized_token_set(comment)
+        if normalized_key_terms and not normalized_comment_tokens.intersection(normalized_key_terms):
+            raise StyleRejection("Comentario descartado: no referencia el núcleo del post.")
 
     relevance = _validate_comment_relevance(
         excerpt,

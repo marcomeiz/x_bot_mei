@@ -4,3 +4,4 @@ datasets
 huggingface_hub
 google-generativeai
 chromadb
+instructor

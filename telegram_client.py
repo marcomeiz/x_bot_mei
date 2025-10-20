@@ -124,19 +124,12 @@ class TelegramClient:
                 {"text": "👍 Aprobar A", "callback_data": f"approve_A_{topic_id}"},
                 {"text": "👍 Aprobar B", "callback_data": f"approve_B_{topic_id}"},
             ],
-            [
-                {"text": "📋 Copiar A", "callback_data": f"copy_A_{topic_id}"},
-                {"text": "📋 Copiar B", "callback_data": f"copy_B_{topic_id}"},
-            ],
         ]
 
         if has_variant_c:
             if allow_variant_c:
                 rows.append(
                     [{"text": "👍 Aprobar C", "callback_data": f"approve_C_{topic_id}"}]
-                )
-                rows.append(
-                    [{"text": "📋 Copiar C", "callback_data": f"copy_C_{topic_id}"}]
                 )
             else:
                 rows.append(

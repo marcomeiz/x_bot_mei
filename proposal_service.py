@@ -195,8 +195,6 @@ class ProposalService:
             )
             if action.topic_id:
                 self.drafts.delete(chat_id, action.topic_id)
-        elif action.type == CallbackType.COPY:
-            self._handle_copy(chat_id, action)
         elif action.type == CallbackType.NOOP:
             logger.info("[CHAT_ID: %s] Acción noop ignorada.", chat_id)
         elif action.type == CallbackType.GENERATE:
@@ -298,25 +296,6 @@ class ProposalService:
                 "⚠️ No pude completar la confirmación. Genera uno nuevo.",
                 reply_markup=self.telegram.get_new_tweet_keyboard(),
             )
-
-    def _handle_copy(self, chat_id: int, action: CallbackAction) -> None:
-        if not action.topic_id or not action.option:
-            logger.warning("[CHAT_ID: %s] Callback copy incompleto: %s", chat_id, action.raw)
-            self.telegram.send_message(chat_id, "⚠️ No pude localizar el borrador a copiar.")
-            return
-        try:
-            payload = self.drafts.load(chat_id, action.topic_id)
-            chosen_tweet = payload.get_variant(action.option)
-            if not chosen_tweet:
-                raise ValueError("Opción elegida no encontrada")
-            body = (
-                f"<b>Opción {action.option.upper()} (copiar)</b>\n"
-                f"<pre>{self.telegram.escape(chosen_tweet)}</pre>"
-            )
-            self.telegram.send_message(chat_id, body, as_html=True)
-        except Exception as exc:
-            logger.error("[CHAT_ID: %s] Error al copiar opción %s: %s", chat_id, action.option, exc, exc_info=True)
-            self.telegram.send_message(chat_id, "⚠️ No pude obtener el texto a copiar.")
 
     def _finalize_choice(
         self,

@@ -4,7 +4,6 @@ from enum import Enum
 
 class CallbackType(Enum):
     APPROVE = "approve"
-    COPY = "copy"
     CONFIRM = "confirm"
     CANCEL = "cancel"
     REJECT = "reject"
@@ -33,11 +32,6 @@ def parse_callback(data: str) -> CallbackAction:
         topic_id = parts[2]
         return CallbackAction(CallbackType.APPROVE, topic_id=topic_id, option=option, raw=data)
 
-    if prefix == "copy" and len(parts) >= 3:
-        option = parts[1]
-        topic_id = parts[2]
-        return CallbackAction(CallbackType.COPY, topic_id=topic_id, option=option, raw=data)
-
     if prefix == "confirm" and len(parts) >= 3:
         option = parts[1]
         topic_id = parts[2]
@@ -60,4 +54,3 @@ def parse_callback(data: str) -> CallbackAction:
         return CallbackAction(CallbackType.GENERATE, topic_id=topic_id, raw=data)
 
     return CallbackAction(CallbackType.UNKNOWN, raw=data)
-

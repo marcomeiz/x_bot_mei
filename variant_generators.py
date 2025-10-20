@@ -46,10 +46,85 @@ class CommentAssessment:
     hook: Optional[str] = None
     risk: Optional[str] = None
 
+
 @dataclass
 class CommentRelevance:
     is_relevant: bool
     reason: str = ""
+
+@dataclass
+class CommentRelevance:
+    is_relevant: bool
+    reason: str = ""
+
+
+STOPWORDS = {
+    "the",
+    "and",
+    "that",
+    "with",
+    "this",
+    "from",
+    "they",
+    "have",
+    "will",
+    "your",
+    "their",
+    "about",
+    "there",
+    "what",
+    "when",
+    "where",
+    "while",
+    "would",
+    "could",
+    "should",
+    "might",
+    "into",
+    "over",
+    "under",
+    "only",
+    "just",
+    "been",
+    "being",
+    "once",
+    "also",
+    "more",
+    "less",
+    "than",
+    "then",
+    "such",
+    "even",
+    "some",
+    "most",
+    "much",
+    "very",
+    "like",
+    "them",
+    "ours",
+    "ourselves",
+    "yours",
+    "yourself",
+    "myself",
+    "hers",
+    "herself",
+    "himself",
+    "itself",
+    "each",
+    "because",
+    "which",
+    "into",
+    "onto",
+    "among",
+    "after",
+    "before",
+    "again",
+    "between",
+    "across",
+    "around",
+    "through",
+    "every",
+}
 
 
 DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
@@ -375,6 +450,7 @@ def _validate_comment_relevance(
     comment_text: str,
     context: PromptContext,
     model: str,
+    key_terms: Optional[List[str]] = None,
 ) -> CommentRelevance:
     prompt = f"""
 We only want to reply if the comment clearly references the post and adds value to operators/COO ICP.
@@ -394,6 +470,8 @@ Answer strictly as JSON:
 Mark is_relevant=true ONLY if the comment references a concrete detail/tension from the post AND extends it with a meaningful operator-focused insight or question.
 If the comment is vague, generic, or ignores the post's content, return false and explain why in reason.
 """
+    if key_terms:
+        prompt += "\nKey focus terms: " + ", ".join(key_terms[:6]) + "\n"
     system_message = (
         "You are a strict reviewer preventing spammy replies. Enforce relevance to the excerpt and ICP value.\n\n<STYLE_CONTRACT>\n"
         + context.contract
@@ -487,6 +565,24 @@ Guidelines:
         should_comment=True,
         reason="Sin evaluación LLM (fallback).",
     )
+
+
+def _extract_key_terms(text: str, max_terms: int = 6) -> List[str]:
+    tokens = re.findall(r"[A-Za-z']+", text.lower())
+    seen: set[str] = set()
+    key_terms: List[str] = []
+    for token in tokens:
+        if len(token) < 4:
+            continue
+        if token in STOPWORDS:
+            continue
+        if token in seen:
+            continue
+        seen.add(token)
+        key_terms.append(token)
+        if len(key_terms) >= max_terms:
+            break
+    return key_terms
 
 
 def _build_ab_prompt(topic_abstract: str, context: PromptContext) -> str:
@@ -896,6 +992,7 @@ def generate_comment_reply(
     """
 
     excerpt = _compact_text(source_text, limit=1200)
+    key_terms = _extract_key_terms(excerpt)
     prompt = f"""
 We are replying to the following post. Draft ONE short comment (<=280 characters) that proves we actually read it and invites a response.
 
@@ -910,6 +1007,12 @@ Rules:
 - Two sentences maximum. Keep it human and direct.
 - Format: output either ONE single line OR TWO lines separated by exactly one newline. Never produce more than one newline.
 """
+    if key_terms:
+        prompt += (
+            "\nYou MUST explicitly reference at least one of these terms (quote or clearly paraphrase) to prove we read the post: "
+            + ", ".join(key_terms)
+            + "."
+        )
     if assessment and assessment.hook:
         prompt += f"\nFocus your reply on this wedge: {assessment.hook}\n"
     if assessment and assessment.risk:
@@ -986,7 +1089,17 @@ Rules:
     if len(comment) > 280:
         raise StyleRejection("Comentario excede los 280 caracteres tras ajustes.")
 
-    relevance = _validate_comment_relevance(excerpt, comment, context, settings.validation_model)
+    comment_lower = comment.lower()
+    if key_terms and not any(term in comment_lower for term in key_terms):
+        raise StyleRejection("Comentario descartado: no referencia el núcleo del post.")
+
+    relevance = _validate_comment_relevance(
+        excerpt,
+        comment,
+        context,
+        settings.validation_model,
+        key_terms=key_terms,
+    )
     if not relevance.is_relevant:
         raise StyleRejection(f"Comentario descartado por irrelevante: {relevance.reason}")
 
@@ -999,6 +1112,8 @@ Rules:
             metadata["assessment_hook"] = assessment.hook
         if assessment.risk:
             metadata["assessment_risk"] = assessment.risk
+    if key_terms:
+        metadata["key_terms"] = key_terms
     metadata["relevance_reason"] = relevance.reason
 
     return CommentResult(comment=comment.strip(), insight=insight, metadata=metadata)

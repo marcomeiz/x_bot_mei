@@ -22,14 +22,22 @@ from variant_generators import (
     GenerationSettings,
     ABGenerationResult,
     VariantCResult,
+    CommentResult,
     generate_variant_ab_pair,
     generate_variant_c,
+    generate_comment_reply,
 )
 
 
 class TweetDrafts(BaseModel):
     draft_a: str = Field(..., description="The first tweet draft, labeled as A.")
     draft_b: str = Field(..., description="The second tweet draft, labeled as B.")
+
+
+class CommentDraft(BaseModel):
+    comment: str = Field(..., description="Single comment ready to reply with.")
+    insight: Optional[str] = Field(default=None, description="Short note about the angle used.")
+    metadata: Dict[str, object] = Field(default_factory=dict)
 
 
 load_dotenv()
@@ -168,7 +176,34 @@ def generate_third_tweet_variant(topic_abstract: str) -> VariantCResult:
         raise
     except Exception as exc:
         logger.error("Error generating third variant: %s", exc, exc_info=True)
-        return VariantCResult(draft="", category="", reasoning_summary=None)
+    return VariantCResult(draft="", category="", reasoning_summary=None)
+
+
+def generate_comment_from_text(source_text: str) -> CommentDraft:
+    """Generate a conversational comment responding to arbitrary source text."""
+    context = build_prompt_context()
+    settings = _build_settings()
+    last_style_feedback = ""
+    last_error = ""
+
+    for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
+        logger.info("Intento %s/%s de generar comentario para interacción.", attempt, MAX_GENERATION_ATTEMPTS)
+        try:
+            result: CommentResult = generate_comment_reply(source_text, context, settings)
+            return CommentDraft(comment=result.comment, insight=result.insight, metadata=result.metadata)
+        except StyleRejection as rejection:
+            last_style_feedback = str(rejection).strip()
+            logger.warning("Rechazo de estilo en comentario (intento %s): %s", attempt, last_style_feedback)
+        except Exception as exc:
+            last_error = str(exc)
+            logger.error("Error generando comentario en intento %s: %s", attempt, exc, exc_info=True)
+
+    if last_style_feedback:
+        raise StyleRejection(f"Falló la auditoría de estilo al generar comentario: {last_style_feedback}")
+    raise RuntimeError(
+        "No se pudo generar un comentario válido."
+        + (f" Último error: {last_error}" if last_error else "")
+    )
 
 
 def find_relevant_topic(sample_size: int = 5):

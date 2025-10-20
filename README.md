@@ -106,6 +106,8 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
     - `python -i core_generator.py`
     - `generate_tweet_from_topic("<abstract del tema>")`
   - Comportamiento: crea `[EN - A]` y `[EN - B]`, refina estilo y recorta si >280. Antes de escribir, el modelo genera ángulos “tail” (p < 0.15) que desafían la narrativa mainstream y sirven de columna vertebral para cada variante. Luego pasa por un debate interno con tres revisores (contrarian, compliance y clarity) que devuelven feedback; el borrador se reescribe incorporando esas notas antes del pulido final. Durante generación y refinado se inyectan el contrato configurado (por defecto `copywriter_contract_hormozi.md`), el ICP (`config/icp.md`) y las pautas de revisión complementarias (`config/final_review_guidelines.md`) para asegurar voz, audiencia y naturalidad humana. Antes de enviar, cada borrador recibe una evaluación automática (tono/factualidad) que se muestra al usuario; si el revisor final detecta desviaciones graves, la generación se rechaza con feedback explícito. Cada variante llega en bloque `<code>` para copiarla fácilmente, y al aprobar usas el botón “Publicar” que abre Threads con el texto listo.
+- Responder publicaciones externas (modo comentario):
+  - En el bot de Telegram envía `/comentar <texto del post>`. El texto pasa por el mismo contrato/ICP, se audita contra el validador externo y te devuelve un único comentario listo en bloque `<code>`, terminado con una pregunta para seguir la conversación.
 
 - Generar dos variantes offline (sin LLM):
   - `python offline_generate.py`

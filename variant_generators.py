@@ -32,6 +32,13 @@ class VariantCResult:
     metadata: Dict[str, object] = field(default_factory=dict)
 
 
+@dataclass
+class CommentResult:
+    comment: str
+    insight: Optional[str] = None
+    metadata: Dict[str, object] = field(default_factory=dict)
+
+
 DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
     {
         "key": "contrast_statement",
@@ -291,6 +298,48 @@ def ensure_under_limit_via_llm(
         except Exception:
             continue
     return best
+
+
+def _compact_text(text: str, limit: int = 1200) -> str:
+    cleaned = re.sub(r"\s+", " ", (text or "")).strip()
+    if len(cleaned) <= limit:
+        return cleaned
+    cut = cleaned[:limit].rstrip()
+    if " " in cut:
+        cut = cut[: cut.rfind(" ")].rstrip()
+    return cut + "…"
+
+
+def _ensure_question_at_end(text: str, model: str, context: PromptContext) -> str:
+    if "?" in text:
+        return text
+    prompt = (
+        "Rewrite the comment so it still says the same thing but ends with a sharp, specific question that invites a reply. "
+        "Keep it under 280 characters, no emojis or hashtags."
+    )
+    system_message = (
+        "You are a world-class ghostwriter tightening a short social media reply.\n\n<STYLE_CONTRACT>\n"
+        + context.contract
+        + "\n</STYLE_CONTRACT>\n\n<ICP>\n"
+        + context.icp
+        + "\n</ICP>\n\n<FINAL_REVIEW_GUIDELINES>\n"
+        + context.final_guidelines
+        + "\n</FINAL_REVIEW_GUIDELINES>"
+    )
+    try:
+        revised = llm.chat_text(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": f"{prompt}\n\nCOMMENT:\n{text}"},
+            ],
+            temperature=0.4,
+        )
+        if isinstance(revised, str) and revised.strip():
+            return revised.strip()
+    except Exception:
+        pass
+    return text
 
 
 def _build_ab_prompt(topic_abstract: str, context: PromptContext) -> str:
@@ -686,6 +735,101 @@ def generate_variant_c(
     }
 
     return VariantCResult(c2.strip(), cat_name, reasoning_summary, metadata)
+
+
+def generate_comment_reply(
+    source_text: str,
+    context: PromptContext,
+    settings: GenerationSettings,
+) -> CommentResult:
+    """
+    Generate a single conversational reply/comment anchored on the provided source text.
+    The output keeps the ICP voice and ends with an invitation to continue the conversation.
+    """
+
+    excerpt = _compact_text(source_text, limit=1200)
+    prompt = f"""
+We are replying to the following post. Draft ONE short comment (<=280 characters) that proves we actually read it and invites a response.
+
+POST (raw):
+\"\"\"{excerpt}\"\"\"
+
+Rules:
+- Lead with a concrete tension or observation lifted from the post (quote/paraphrase).
+- Add one tactic or lens tied to operator/COO pains (ICP).
+- End with a pointed question or next-step challenge to spark conversation.
+- Voice: NYC bar sharp, no fluff, no emojis/hashtags, English only.
+- Two sentences maximum. Keep it human and direct.
+"""
+
+    system_message = (
+        "You are a fractional COO ghostwriter crafting a conversation-driving reply. "
+        "Respect the style contract, ICP and complementary guidelines strictly.\n\n<STYLE_CONTRACT>\n"
+        + context.contract
+        + "\n</STYLE_CONTRACT>\n\n<ICP>\n"
+        + context.icp
+        + "\n</ICP>\n\n<FINAL_REVIEW_GUIDELINES>\n"
+        + context.final_guidelines
+        + "\n</FINAL_REVIEW_GUIDELINES>"
+    )
+
+    try:
+        data = llm.chat_json(
+            model=settings.generation_model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.55,
+        )
+        comment = ""
+        insight = None
+        if isinstance(data, dict):
+            comment = str(data.get("comment") or data.get("reply") or "").strip()
+            insight_raw = data.get("insight") or data.get("focus")
+            if isinstance(insight_raw, str):
+                insight = insight_raw.strip()[:160]
+        else:
+            comment = ""
+    except Exception:
+        comment = ""
+        insight = None
+
+    if not comment:
+        raw = llm.chat_text(
+            model=settings.generation_model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.65,
+        )
+        if isinstance(raw, str):
+            comment = raw.strip()
+
+    if not comment:
+        raise StyleRejection("LLM no generó un comentario válido.")
+
+    comment = _refine_single_tweet_style_flexible(comment, settings.validation_model, context)
+    improved, audit = improve_style(comment, context.contract)
+    if improved and improved != comment:
+        logger.info("Auditoría comentario: se reforzó el estilo. %s", audit)
+        comment = improved
+    elif audit:
+        logger.info("Auditoría comentario: sin cambios. %s", audit)
+
+    comment = _ensure_question_at_end(comment, settings.validation_model, context)
+    if len(comment) > 280:
+        comment = ensure_under_limit_via_llm(comment, settings.validation_model, 280, attempts=4)
+
+    if len(comment) > 280:
+        raise StyleRejection("Comentario excede los 280 caracteres tras ajustes.")
+
+    metadata: Dict[str, object] = {"audit": audit, "source_excerpt": excerpt}
+    if insight:
+        metadata["insight"] = insight
+
+    return CommentResult(comment=comment.strip(), insight=insight, metadata=metadata)
 
 
 def _verbalized_tail_sampling(

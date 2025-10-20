@@ -76,6 +76,31 @@ class TelegramClient:
 
         return "\n\n".join(["\n".join(header)] + blocks).strip()
 
+    def format_comment_message(
+        self,
+        reference_excerpt: str,
+        comment_text: str,
+        evaluation: Optional[Dict[str, object]] = None,
+        insight: Optional[str] = None,
+    ) -> str:
+        header: list[str] = ["<b>Comentario listo</b>"]
+        if insight:
+            header.append(f"<b>Ángulo:</b> {self.escape(insight)}")
+        if reference_excerpt:
+            header.append(f"<b>Sobre:</b> {self.escape(reference_excerpt)}")
+        header.append("")
+        header.append("Selecciona y copia el bloque para responder en la conversación.")
+
+        code_block = f"<pre><code>{self.escape(comment_text)}</code></pre>"
+        sections = ["\n".join(header), code_block]
+
+        if evaluation:
+            eval_block = self._format_evaluation(evaluation)
+            if eval_block:
+                sections.append(eval_block)
+
+        return "\n\n".join(sections).strip()
+
     def _format_variant_block(
         self,
         icon: str,

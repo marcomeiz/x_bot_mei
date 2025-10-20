@@ -9,6 +9,7 @@ from core_generator import (
     generate_third_tweet_variant,
     generate_tweet_from_topic,
     find_topic_by_id,
+    generate_comment_from_text,
 )
 from variant_generators import VariantCResult
 from draft_repository import DraftPayload, DraftRepository
@@ -61,6 +62,48 @@ class ProposalService:
             "❌ No pude generar propuesta, incluso permitiendo similitud.",
             reply_markup=self.telegram.get_new_tweet_keyboard(),
         )
+
+    def generate_comment(self, chat_id: int, source_text: str) -> None:
+        cleaned = (source_text or "").strip()
+        if not cleaned:
+            self.telegram.send_message(chat_id, "Necesito que pegues el texto de la publicación después de /comentar.")
+            return
+
+        snippet = self.telegram.clean_abstract(cleaned, max_len=180)
+        pre_lines = [
+            "💬 Preparando respuesta…",
+            f"🗞️ Post: {snippet}",
+        ]
+        self.telegram.send_message(chat_id, "\n".join(pre_lines))
+
+        try:
+            comment_result = generate_comment_from_text(cleaned)
+        except StyleRejection as rejection:
+            feedback = str(rejection).strip()
+            logger.warning("[CHAT_ID: %s] Comentario rechazado por estilo: %s", chat_id, feedback)
+            self.telegram.send_message(
+                chat_id,
+                "⚠️ El validador externo rechazó el comentario. Ajusta el texto o intenta de nuevo.",
+            )
+            return
+        except Exception as exc:
+            logger.error("[CHAT_ID: %s] Error generando comentario: %s", chat_id, exc, exc_info=True)
+            self.telegram.send_message(
+                chat_id,
+                "❌ No pude generar un comentario ahora mismo. Inténtalo nuevamente en unos minutos.",
+            )
+            return
+
+        context = build_prompt_context()
+        evaluation = evaluate_draft(comment_result.comment, context)
+
+        message = self.telegram.format_comment_message(
+            reference_excerpt=snippet,
+            comment_text=comment_result.comment,
+            evaluation=evaluation,
+            insight=comment_result.insight,
+        )
+        self.telegram.send_message(chat_id, message, as_html=True)
 
     def propose_tweet(self, chat_id: int, topic: Dict, ignore_similarity: bool = False) -> bool:
         topic_abstract = topic.get("abstract")

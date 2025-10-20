@@ -65,7 +65,7 @@ class TelegramClient:
         if draft_c and safe_category:
             header.append(f"<b>Categoría (C):</b> {safe_category}")
         header.append("")
-        header.append("Pulsa ✅ para aprobar o 📋 para copiar una versión.")
+        header.append("Pulsa ✅ para aprobar o selecciona el bloque de código para copiar.")
 
         blocks = [
             self._format_variant_block("🅰️", "A", draft_a, evaluations),
@@ -85,7 +85,8 @@ class TelegramClient:
     ) -> str:
         text = text or ""
         safe_text = self.escape(text)
-        block = [f"{icon} <b>Opción {label}</b> · {len(text)}/280", safe_text]
+        code_block = f"<pre><code>{safe_text}</code></pre>"
+        block = [f"{icon} <b>Opción {label}</b> · {len(text)}/280", code_block]
 
         if evaluations and label in evaluations:
             eval_block = self._format_evaluation(evaluations[label])

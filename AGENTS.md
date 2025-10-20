@@ -39,7 +39,7 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 - `prompt_context.py`
   - Provee el bundle del contrato, ICP y pautas de revisión para inyectar en los prompts.
 - `evaluation.py`
-  - Evalúa cada borrador (tono/factualidad) y devuelve un resumen que se adjunta en Telegram.
+  - Evalúa cada borrador con rubricas de estilo, señal contraria, claridad y factualidad (formato G-Eval) y devuelve un resumen que se adjunta en Telegram.
 - `telegram_client.py`
   - Cliente HTTP + helpers de formato (HTML seguro, teclados) para Telegram.
 - `proposal_service.py`

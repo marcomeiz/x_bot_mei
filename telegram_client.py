@@ -104,6 +104,13 @@ class TelegramClient:
         summary = str(data.get("summary", "")).strip()
         if summary:
             parts.append(summary)
+        analysis = data.get("analysis")
+        if isinstance(analysis, list) and analysis:
+            first = analysis[0]
+            if isinstance(first, dict):
+                comment = str(first.get("comment", "")).strip()
+                if comment:
+                    parts.append(comment[:120])
         if not parts:
             return ""
         needs_revision = bool(data.get("needs_revision"))

@@ -1033,9 +1033,10 @@ POST (raw):
 \"\"\"{excerpt}\"\"\"
 
 Rules:
-- Lead with a concrete tension or observation lifted from the post (quote/paraphrase).
+- Ground the opening in a concrete detail from the post (quote/paraphrase) and show quick alignment before pushing your take.
 - Add one tactic or lens tied to operator/COO pains (ICP).
-- End with a pointed question or next-step challenge to spark conversation.
+- Keep it constructive: build on the author's point, avoid dunking, ridicule, or dismissive language.
+- End with a pointed, collaborative question or next-step challenge to spark conversation.
 - Voice: NYC bar sharp, no fluff, no emojis/hashtags, English only.
 - Two sentences maximum. Keep it human and direct.
 - Format: output either ONE single line OR TWO lines separated by exactly one newline. Never produce more than one newline.
@@ -1053,6 +1054,7 @@ Rules:
 
     system_message = (
         "You are a fractional COO ghostwriter crafting a conversation-driving reply. "
+        "Balance conviction with respect—build on the author's perspective instead of tearing it down. "
         "Respect the style contract, ICP and complementary guidelines strictly.\n\n<STYLE_CONTRACT>\n"
         + context.contract
         + "\n</STYLE_CONTRACT>\n\n<ICP>\n"

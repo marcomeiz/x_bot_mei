@@ -39,6 +39,14 @@ class CommentResult:
     metadata: Dict[str, object] = field(default_factory=dict)
 
 
+@dataclass
+class CommentAssessment:
+    should_comment: bool
+    reason: str = ""
+    hook: Optional[str] = None
+    risk: Optional[str] = None
+
+
 DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
     {
         "key": "contrast_statement",
@@ -355,6 +363,74 @@ def _limit_lines(text: str, max_lines: int = 2) -> str:
     first = lines[0]
     second = " ".join(lines[1:])
     return "\n".join([first, second])
+
+
+def assess_comment_opportunity(
+    source_text: str,
+    context: PromptContext,
+    settings: GenerationSettings,
+) -> CommentAssessment:
+    excerpt = _compact_text(source_text, limit=1200)
+    prompt = f"""
+We are deciding whether to reply to this post as a fractional COO ghostwriter whose north star is delivering value to operators.
+
+Post excerpt:
+\"\"\"{excerpt}\"\"\"
+
+Answer in strict JSON with:
+{{
+  "should_comment": boolean,
+  "reason": string (<=160 chars),
+  "hook": string (<=160 chars, optional),
+  "risk": string (<=160 chars, optional)
+}}
+
+Guidelines:
+- should_comment = true ONLY if we can credibly add value for our ICP: tactical advice, challenge, or question that advances the conversation.
+- Return false if the post is off-topic, purely self-promotional, or would force us into speculation.
+- reason must be specific (e.g., "Author is venting about churn math—can share handoff cadence tip").
+- If false, reason should state why (e.g., "Topic is crypto trading — outside ICP").
+"""
+
+    system_message = (
+        "You are a strategist deciding whether to engage publicly. Protect the ICP focus and voice.\n\n<STYLE_CONTRACT>\n"
+        + context.contract
+        + "\n</STYLE_CONTRACT>\n\n<ICP>\n"
+        + context.icp
+        + "\n</ICP>\n\n<FINAL_REVIEW_GUIDELINES>\n"
+        + context.final_guidelines
+        + "\n</FINAL_REVIEW_GUIDELINES>"
+    )
+
+    try:
+        data = llm.chat_json(
+            model=settings.generation_model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+        )
+        if isinstance(data, dict):
+            should = bool(data.get("should_comment", False))
+            reason = str(data.get("reason", "")).strip()[:160]
+            hook = str(data.get("hook", "")).strip()[:160] if data.get("hook") else None
+            risk = str(data.get("risk", "")).strip()[:160] if data.get("risk") else None
+            logger.info(
+                "Comment assessment: should_comment=%s | reason=%s | hook=%s | risk=%s",
+                should,
+                reason,
+                hook,
+                risk,
+            )
+            return CommentAssessment(should_comment=should, reason=reason, hook=hook, risk=risk)
+    except Exception as exc:
+        logger.warning("No se pudo evaluar la oportunidad de comentar: %s", exc)
+
+    return CommentAssessment(
+        should_comment=True,
+        reason="Sin evaluación LLM (fallback).",
+    )
 
 
 def _build_ab_prompt(topic_abstract: str, context: PromptContext) -> str:
@@ -756,6 +832,7 @@ def generate_comment_reply(
     source_text: str,
     context: PromptContext,
     settings: GenerationSettings,
+    assessment: Optional[CommentAssessment] = None,
 ) -> CommentResult:
     """
     Generate a single conversational reply/comment anchored on the provided source text.
@@ -776,6 +853,10 @@ Rules:
 - Voice: NYC bar sharp, no fluff, no emojis/hashtags, English only.
 - Two sentences maximum. Keep it human and direct.
 """
+    if assessment and assessment.hook:
+        prompt += f"\nFocus your reply on this wedge: {assessment.hook}\n"
+    if assessment and assessment.risk:
+        prompt += f"\nAvoid this pitfall: {assessment.risk}\n"
 
     system_message = (
         "You are a fractional COO ghostwriter crafting a conversation-driving reply. "
@@ -851,6 +932,12 @@ Rules:
     metadata: Dict[str, object] = {"audit": audit, "source_excerpt": excerpt}
     if insight:
         metadata["insight"] = insight
+    if assessment:
+        metadata["assessment_reason"] = assessment.reason
+        if assessment.hook:
+            metadata["assessment_hook"] = assessment.hook
+        if assessment.risk:
+            metadata["assessment_risk"] = assessment.risk
 
     return CommentResult(comment=comment.strip(), insight=insight, metadata=metadata)
 

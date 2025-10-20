@@ -23,8 +23,10 @@ from variant_generators import (
     ABGenerationResult,
     VariantCResult,
     CommentResult,
+    CommentAssessment,
     generate_variant_ab_pair,
     generate_variant_c,
+    assess_comment_opportunity,
     generate_comment_reply,
 )
 
@@ -38,6 +40,14 @@ class CommentDraft(BaseModel):
     comment: str = Field(..., description="Single comment ready to reply with.")
     insight: Optional[str] = Field(default=None, description="Short note about the angle used.")
     metadata: Dict[str, object] = Field(default_factory=dict)
+
+
+class CommentSkip(Exception):
+    """Raised when the model decides the post is not worth commenting."""
+
+    def __init__(self, message: str = "") -> None:
+        super().__init__(message)
+        self.message = message
 
 
 load_dotenv()
@@ -186,11 +196,25 @@ def generate_comment_from_text(source_text: str) -> CommentDraft:
     last_style_feedback = ""
     last_error = ""
 
+    assessment: CommentAssessment = assess_comment_opportunity(source_text, context, settings)
+    if not assessment.should_comment:
+        reason = assessment.reason or "No hay valor claro para aportar."
+        logger.info("Comentario omitido por evaluación previa: %s", reason)
+        raise CommentSkip(reason)
+
     for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
         logger.info("Intento %s/%s de generar comentario para interacción.", attempt, MAX_GENERATION_ATTEMPTS)
         try:
-            result: CommentResult = generate_comment_reply(source_text, context, settings)
-            return CommentDraft(comment=result.comment, insight=result.insight, metadata=result.metadata)
+            result: CommentResult = generate_comment_reply(
+                source_text, context, settings, assessment=assessment
+            )
+            metadata = dict(result.metadata)
+            metadata.setdefault("assessment_reason", assessment.reason)
+            if assessment.hook and "assessment_hook" not in metadata:
+                metadata["assessment_hook"] = assessment.hook
+            if assessment.risk and "assessment_risk" not in metadata:
+                metadata["assessment_risk"] = assessment.risk
+            return CommentDraft(comment=result.comment, insight=result.insight, metadata=metadata)
         except StyleRejection as rejection:
             last_style_feedback = str(rejection).strip()
             logger.warning("Rechazo de estilo en comentario (intento %s): %s", attempt, last_style_feedback)

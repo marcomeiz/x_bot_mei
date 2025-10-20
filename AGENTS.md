@@ -66,7 +66,7 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
   - Scripts CLI para el scheduler (GitHub Actions o cron) que avisan de pendientes y promueven automáticamente.
 - `ProposalService`
   - Si `SHOW_INTERNAL_SUMMARY=1`, envía en Telegram un resumen del tail sampling y los principales comentarios del debate interno después de cada propuesta.
-  - Con `/comentar <texto>` orquesta un comentario único: pasa por el mismo pipeline (contrato, debate interno, auditor externo) y devuelve la réplica en bloque `<code>` lista para copiar.
+  - Con `/comentar <texto>` evalúa primero si el post merece respuesta para el ICP; si pasa el filtro, genera un único comentario (contrato + auditor externo) y lo entrega en bloque `<code>` listo para copiar.
 - `reddit_ingestion.py` *(pausado)*  
   - Debe habilitarse con `ENABLE_REDDIT_INGESTION=1` antes de ejecutarse. Recupera posts recientes vía JSON API pública, aplica filtros por keywords (`config/reddit_sources.json`) y pasa el evaluador/tópicos del radar.
 - `huggingface_ingestion/` + `hf_ingestion.py`

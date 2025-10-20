@@ -10,6 +10,7 @@ from core_generator import (
     generate_tweet_from_topic,
     find_topic_by_id,
     generate_comment_from_text,
+    CommentSkip,
 )
 from variant_generators import VariantCResult
 from draft_repository import DraftPayload, DraftRepository
@@ -78,6 +79,15 @@ class ProposalService:
 
         try:
             comment_result = generate_comment_from_text(cleaned)
+        except CommentSkip as skip_reason:
+            extracted_reason = str(skip_reason).strip()
+            reason = extracted_reason or getattr(skip_reason, "message", "") or "Sin ángulo claro para aportar valor."
+            logger.info("[CHAT_ID: %s] Comentario omitido: %s", chat_id, reason)
+            self.telegram.send_message(
+                chat_id,
+                f"🙅‍♂️ Mejor no comentar: {reason}",
+            )
+            return
         except StyleRejection as rejection:
             feedback = str(rejection).strip()
             logger.warning("[CHAT_ID: %s] Comentario rechazado por estilo: %s", chat_id, feedback)

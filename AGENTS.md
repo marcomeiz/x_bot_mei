@@ -34,6 +34,7 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
   - Refinado de estilo + “acortado iterativo” vía LLM hasta ≤ 280 (sin truncar localmente).
 - `variant_generators.py`
   - Encapsula prompts, refinamientos, control de longitud y selección de categorías para las variantes A/B/C.
+  - Antes de escribir cada borrador, genera ángulos “tail” (probabilidad < 0.15) para romper narrativas mainstream y pegarlas como columna vertebral de los textos.
 - `prompt_context.py`
   - Provee el bundle del contrato, ICP y pautas de revisión para inyectar en los prompts.
 - `evaluation.py`
@@ -184,11 +185,21 @@ Acceso y despliegue (referencia)
 
 ## Propuestas OTB (alternativas “Out‑of‑the‑Box”)
 
-- Circuit breaker de proveedor: si OpenRouter falla por créditos, memorizar el estado X minutos para no reintentar hasta entonces.
-- Escape MarkdownV2 opcional: helper para evitar errores 400 sin renunciar a formato.
-- Scheduler ligero (cron/apscheduler): generación programada de propuestas sin intervención manual.
-- Métricas mínimas: contador de entregas, ratio de fallback, ratio de ≤280 a la primera, tiempos medios (logging agregable).
-- Límite “objetivo” 260 en generación inicial para aumentar probabilidad de ≤280 tras refinado (configurable).
+### Ruta recomendada (impacto alto → bajo)
+1. **Self-Consistency / Debate interno**: añadir revisores automáticos (contrarian, compliance, factual) que discutan la respuesta antes del output final.
+2. **Chain of Contrast**: forzar al modelo a comparar narrativas opuestas y elegir la que golpea más fuerte (complementa el tail sampling actual).
+3. **Evaluadores SOTA**: usar evaluadores externos (G-Eval2, Claude Sonnet, Llama Guard) para revisión de estilo/factualidad con mayor precisión.
+4. **Retrieval contextual**: ingerir señales frescas (Reddit, Discord, newsletters) con embeddings y jobs automáticos; los temas se nutren de datos vivos.
+5. **ReAct / Toolformer**: permitir que el LLM invoque herramientas (búsqueda, cálculos rápidos) para añadir cifras o hechos relevantes.
+6. **Feedback loop con métricas reales**: usar CTR/replies para priorizar ángulos, descartar duplicados y retroalimentar el tail sampling.
+7. **Persona tuning ligero (LoRA/instruct)**: entrenar un adaptador con los mejores posts para fijar voz/ritmo sin reescribir el contrato principal.
+
+### Ideas adicionales
+- Circuit breaker de proveedor: cachear fallos de OpenRouter y evitar reintentos inmediatos.
+- Escape MarkdownV2 opcional: helper para evitar errores 400 sin perder formato.
+- Scheduler local (cron/apscheduler) para generación programada fuera de GitHub Actions.
+- Métricas mínimas: contador de entregas, ratio de fallback, ratio ≤280, tiempos medios (logging agregable).
+- Límite objetivo de 260 caracteres en la primera pasada para aumentar probabilidades de quedar ≤280 tras refinado.
 - Cola local (disk-backed) para propuestas en caso de red inestable.
 
 ## Qué NO hacer sin aprobación explícita

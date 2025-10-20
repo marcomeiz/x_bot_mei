@@ -53,6 +53,7 @@
   - `NOTION_API_TOKEN`, `NOTION_DATABASE_ID` si conectas la revisión humana vía Notion.
   - `HF_SOURCES_PATH`, `HF_CANDIDATE_DIR`, `HF_CANDIDATE_INDEX`, `HF_STATE_PATH` para ajustar rutas del pipeline Hugging Face.
   - Añade `GOOGLE_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` y, si usas GitHub Actions, la variable `HF_INGEST_LIMIT` en los Secrets/Variables del repositorio.
+  - `TAIL_SAMPLING_COUNT` (opcional): número de ángulos contrarios generados antes de cada borrador (por defecto 3).
  - Visualización opcional:
    - `SHOW_TOPIC_ID` (`0` por defecto). Si `1`, muestra el ID de tema en el encabezado del mensaje del bot aun cuando exista `Origen`. Por defecto el ID queda oculto salvo que no haya `Origen`.
 - Estilo (opcional):
@@ -103,7 +104,7 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
   - Vía REPL de Python:
     - `python -i core_generator.py`
     - `generate_tweet_from_topic("<abstract del tema>")`
-  - Comportamiento: crea `[EN - A]` y `[EN - B]`, refina estilo y recorta si >280. Durante generación y refinado se inyectan el contrato configurado (por defecto `copywriter_contract_hormozi.md`), el ICP (`config/icp.md`) y las pautas de revisión complementarias (`config/final_review_guidelines.md`) para asegurar voz, audiencia y naturalidad humana. Antes de enviar, cada borrador recibe una evaluación automática (tono/factualidad) que se muestra al usuario; si el revisor final detecta desviaciones graves, la generación se rechaza con feedback explícito. Puedes copiar cada opción con los botones “📋 Copiar …” y, al aprobar, el botón “Publicar” abre Threads con el texto listo.
+  - Comportamiento: crea `[EN - A]` y `[EN - B]`, refina estilo y recorta si >280. Antes de escribir, el modelo genera ángulos “tail” (p < 0.15) que desafían la narrativa mainstream y sirven de columna vertebral para cada variante. Durante generación y refinado se inyectan el contrato configurado (por defecto `copywriter_contract_hormozi.md`), el ICP (`config/icp.md`) y las pautas de revisión complementarias (`config/final_review_guidelines.md`) para asegurar voz, audiencia y naturalidad humana. Antes de enviar, cada borrador recibe una evaluación automática (tono/factualidad) que se muestra al usuario; si el revisor final detecta desviaciones graves, la generación se rechaza con feedback explícito. Puedes copiar cada opción con los botones “📋 Copiar …” y, al aprobar, el botón “Publicar” abre Threads con el texto listo.
 
 - Generar dos variantes offline (sin LLM):
   - `python offline_generate.py`

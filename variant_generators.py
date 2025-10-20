@@ -160,6 +160,8 @@ BULLET_CATEGORIES = {
 
 _CACHED_POST_CATEGORIES: List[Dict[str, str]] = []
 
+TAIL_SAMPLING_COUNT = int(os.getenv("TAIL_SAMPLING_COUNT", "3") or 3)
+
 SENTENCE_SPLIT_REGEX = re.compile(r"(?<=[.!?])\s+")
 
 
@@ -375,10 +377,30 @@ def generate_variant_ab_pair(
     context: PromptContext,
     settings: GenerationSettings,
 ) -> Tuple[str, str]:
+    tail_angles = _verbalized_tail_sampling(topic_abstract, context, settings.generation_model)
+    tail_prompt = ""
+    if tail_angles:
+        logger.info("Tail sampling generated %s hook angles for A/B.", len(tail_angles))
+        formatted_lines: List[str] = []
+        for idx, item in enumerate(tail_angles, 1):
+            parts = [f"{idx}. [p={item['probability']}] {item['angle']}"]
+            if item.get("mainstream"):
+                parts.append(f"Mainstream: {item['mainstream']}")
+            if item.get("rationale"):
+                parts.append(f"Why it matters: {item['rationale']}")
+            formatted_lines.append(" | ".join(parts))
+        tail_prompt = (
+            "\n\nTail-sampled contrarian angles (use them as the spine of your outputs):\n"
+            + "\n".join(formatted_lines)
+            + "\n- Variant A must lean into the boldest, most contrarian angle above.\n"
+            + "- Variant B must use a different angle, highlighting contrast or tension."
+        )
+
     prompt = (
         _build_ab_prompt(topic_abstract, context)
         + "\n\nVariant A: You may be fully creative as long as the persona, ICP, and tone contract are obeyed."
         + "\nVariant B: Output exactly two sentences (no more, no fewer), each punchy and aligned with the persona."
+        + tail_prompt
     )
     logger.info("Generando variantes A y B via LLM (JSON preferred).")
     draft_a = ""
@@ -501,6 +523,19 @@ def generate_variant_c(
 **Topic:** {topic_abstract}
 """
 
+    tail_angles = _verbalized_tail_sampling(topic_abstract, context, settings.generation_model, max_angles=2)
+    if tail_angles:
+        formatted = []
+        for idx, item in enumerate(tail_angles, 1):
+            line = f"{idx}. [p={item['probability']}] {item['angle']}"
+            if item.get("rationale"):
+                line += f" (Why: {item['rationale']})"
+            formatted.append(line)
+        prompt += (
+            "\nTail-sampled spikes to infuse (choose one and make it unavoidable):\n"
+            + "\n".join(formatted)
+        )
+
     if use_bullets:
         prompt += "\n**Hint:** Short bullet list is acceptable for this pattern.\n"
 
@@ -546,6 +581,89 @@ def generate_variant_c(
         raise StyleRejection("Variant C exceeds 280 characters tras reescritura.")
 
     return c2.strip(), cat_name
+
+
+def _verbalized_tail_sampling(
+    topic_abstract: str,
+    context: PromptContext,
+    model: str,
+    max_angles: int = TAIL_SAMPLING_COUNT,
+) -> List[Dict[str, str]]:
+    """Generate low-probability hook ideas to prime final drafts."""
+
+    if max_angles <= 0:
+        return []
+
+    system_message = (
+        "You are a contrarian strategist hunting tail-distribution insights while staying relevant to the COO ICP.\n"
+        "Respect the style contract, ICP, and complementary guidelines. Respond ONLY with strict JSON.\n\n"
+        "<STYLE_CONTRACT>\n"
+        + context.contract
+        + "\n</STYLE_CONTRACT>\n"
+        "<ICP>\n"
+        + context.icp
+        + "\n</ICP>\n"
+        "<FINAL_REVIEW_GUIDELINES>\n"
+        + context.final_guidelines
+        + "\n</FINAL_REVIEW_GUIDELINES>"
+    )
+
+    user_prompt = f"""
+We are drafting content for a fractional COO persona. Use verbalized sampling to explore {max_angles} low-probability hooks (p < 0.15) about:
+
+TOPIC: {topic_abstract}
+
+For each hook:
+1. Identify the mainstream narrative you're challenging.
+2. Summarize the contrarian/orthogonal insight (≤ 2 sentences).
+3. Provide a probability string like "0.08" (must be < 0.15).
+4. Explain briefly why this tail angle matters for an overwhelmed day 1–year 1 solopreneur.
+
+Return JSON like:
+{{
+  "angles": [
+    {{
+      "probability": "0.09",
+      "mainstream": "...",
+      "angle": "...",
+      "rationale": "..."
+    }}
+  ]
+}}
+
+Keep each field ≤ 180 characters."""
+
+    try:
+        resp = llm.chat_json(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.55,
+        )
+        angles = resp.get("angles") if isinstance(resp, dict) else None
+        if not isinstance(angles, list):
+            return []
+        cleaned: List[Dict[str, str]] = []
+        for item in angles[:max_angles]:
+            angle = str(item.get("angle", "")).strip()
+            if not angle:
+                continue
+            cleaned.append(
+                {
+                    "probability": str(item.get("probability", "0.09")).strip() or "0.09",
+                    "angle": angle,
+                    "mainstream": str(item.get("mainstream", "")).strip(),
+                    "rationale": str(item.get("rationale", "")).strip(),
+                }
+            )
+        return cleaned
+    except Exception as exc:
+        logger.warning("Tail sampling failed: %s", exc)
+        return []
+
+
 def _count_sentences(text: str) -> int:
     sentences = [s for s in SENTENCE_SPLIT_REGEX.split(text.strip()) if s]
     return len(sentences)

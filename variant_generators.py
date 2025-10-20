@@ -1,7 +1,7 @@
 import os
 import random
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 from llm_fallback import llm
@@ -14,6 +14,22 @@ from style_guard import StyleRejection, improve_style
 class GenerationSettings:
     generation_model: str
     validation_model: str
+
+
+@dataclass
+class ABGenerationResult:
+    draft_a: str
+    draft_b: str
+    reasoning_summary: Optional[str] = None
+    metadata: Dict[str, object] = field(default_factory=dict)
+
+
+@dataclass
+class VariantCResult:
+    draft: str
+    category: str
+    reasoning_summary: Optional[str] = None
+    metadata: Dict[str, object] = field(default_factory=dict)
 
 
 DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
@@ -407,24 +423,33 @@ def generate_variant_ab_pair(
     topic_abstract: str,
     context: PromptContext,
     settings: GenerationSettings,
-) -> Tuple[str, str]:
+) -> ABGenerationResult:
     tail_angles = _verbalized_tail_sampling(topic_abstract, context, settings.generation_model)
     tail_prompt = ""
     if tail_angles:
         logger.info("Tail sampling generated %s hook angles for A/B.", len(tail_angles))
-        formatted_lines: List[str] = []
+        formatted_lines = []
         for idx, item in enumerate(tail_angles, 1):
-            parts = [f"{idx}. [p={item['probability']}] {item['angle']}"]
-            if item.get("mainstream"):
-                parts.append(f"Mainstream: {item['mainstream']}")
+            line = f"{idx}. [p={item['probability']}] {item['angle']}"
             if item.get("rationale"):
-                parts.append(f"Why it matters: {item['rationale']}")
-            formatted_lines.append(" | ".join(parts))
+                line += f" (Why: {item['rationale']})"
+            formatted_lines.append(line)
         tail_prompt = (
             "\n\nTail-sampled contrarian angles (use them as the spine of your outputs):\n"
             + "\n".join(formatted_lines)
-            + "\n- Variant A must lean into the boldest, most contrarian angle above.\n"
+            + "\n- Variant A must lean into the boldest angle above.\n"
             + "- Variant B must use a different angle, highlighting contrast or tension."
+        )
+
+    contrast = _generate_contrast_analysis(topic_abstract, context, settings.generation_model)
+    contrast_prompt = ""
+    if contrast:
+        contrast_prompt = (
+            "\n\nContrast analysis (mainstream vs contrarian):\n"
+            f"- Mainstream: {contrast.get('mainstream', '')}\n"
+            f"- Contrarian: {contrast.get('contrarian', '')}\n"
+            f"- Winner: {contrast.get('winner', '')} (reason: {contrast.get('reason', '')})\n"
+            "Anchor both variants in the winning perspective."
         )
 
     prompt = (
@@ -432,7 +457,9 @@ def generate_variant_ab_pair(
         + "\n\nVariant A: You may be fully creative as long as the persona, ICP, and tone contract are obeyed."
         + "\nVariant B: Output exactly two sentences (no more, no fewer), each punchy and aligned with the persona."
         + tail_prompt
+        + contrast_prompt
     )
+
     logger.info("Generando variantes A y B via LLM (JSON preferred).")
     draft_a = ""
     draft_b = ""
@@ -507,8 +534,8 @@ def generate_variant_ab_pair(
     else:
         logger.info(f"Auditoría B: sin cambios. Detalle: {audit_b}")
 
-    draft_a = _apply_internal_debate("A", draft_a, topic_abstract, context, tail_angles, settings.validation_model)
-    draft_b = _apply_internal_debate("B", draft_b, topic_abstract, context, tail_angles, settings.validation_model)
+    draft_a, feedback_a = _apply_internal_debate("A", draft_a, topic_abstract, context, tail_angles, settings.validation_model)
+    draft_b, feedback_b = _apply_internal_debate("B", draft_b, topic_abstract, context, tail_angles, settings.validation_model)
 
     draft_a = _refine_single_tweet_style(draft_a, settings.validation_model, context)
     post_improved_a, post_audit_a = improve_style(draft_a, context.contract)
@@ -537,7 +564,15 @@ def generate_variant_ab_pair(
     if len(draft_a) > 280 or len(draft_b) > 280:
         raise StyleRejection("Alguna alternativa excede los 280 caracteres tras reescritura.")
 
-    return draft_a.strip(), draft_b.strip()
+    feedback_map = {"A": feedback_a, "B": feedback_b}
+    reasoning_summary = _build_reasoning_summary(tail_angles, contrast, feedback_map)
+    metadata = {
+        "tail_angles": tail_angles,
+        "contrast": contrast,
+        "feedback": feedback_map,
+    }
+
+    return ABGenerationResult(draft_a.strip(), draft_b.strip(), reasoning_summary, metadata)
 
 
 def generate_variant_c(
@@ -586,6 +621,16 @@ def generate_variant_c(
             + "\n".join(formatted)
         )
 
+    contrast = _generate_contrast_analysis(topic_abstract, context, settings.generation_model)
+    if contrast:
+        prompt += (
+            "\nContrast insight:\n"
+            f"- Mainstream: {contrast.get('mainstream', '')}\n"
+            f"- Contrarian: {contrast.get('contrarian', '')}\n"
+            f"- Winner: {contrast.get('winner', '')} (reason: {contrast.get('reason', '')})\n"
+            "Fuse the winning narrative into the single sentence."
+        )
+
     if use_bullets:
         prompt += "\n**Hint:** Short bullet list is acceptable for this pattern.\n"
 
@@ -621,7 +666,7 @@ def generate_variant_c(
     improved_c, _ = improve_style(c1, context.contract)
     c2 = improved_c or c1
 
-    c2 = _apply_internal_debate("C", c2, topic_abstract, context, tail_angles, settings.validation_model)
+    c2, feedback_c = _apply_internal_debate("C", c2, topic_abstract, context, tail_angles, settings.validation_model)
 
     if _count_sentences(c2) != 1:
         c2 = _enforce_sentence_count(c2, 1, context, settings.validation_model)
@@ -632,7 +677,15 @@ def generate_variant_c(
     if len(c2) > 280:
         raise StyleRejection("Variant C exceeds 280 characters tras reescritura.")
 
-    return c2.strip(), cat_name
+    feedback_map = {"C": feedback_c}
+    reasoning_summary = _build_reasoning_summary(tail_angles, contrast, feedback_map)
+    metadata = {
+        "tail_angles": tail_angles,
+        "contrast": contrast,
+        "feedback": feedback_map,
+    }
+
+    return VariantCResult(c2.strip(), cat_name, reasoning_summary, metadata)
 
 
 def _verbalized_tail_sampling(
@@ -714,6 +767,61 @@ Keep each field ≤ 180 characters."""
     except Exception as exc:
         logger.warning("Tail sampling failed: %s", exc)
         return []
+
+
+def _generate_contrast_analysis(
+    topic_abstract: str,
+    context: PromptContext,
+    model: str,
+) -> Dict[str, str]:
+    system_message = (
+        "You analyse narratives for a COO-focused audience. Respect the style contract, ICP, and complementary guidelines."
+        " Respond ONLY with strict JSON.\n\n<STYLE_CONTRACT>\n"
+        + context.contract
+        + "\n</STYLE_CONTRACT>\n<ICP>\n"
+        + context.icp
+        + "\n</ICP>\n<FINAL_REVIEW_GUIDELINES>\n"
+        + context.final_guidelines
+        + "\n</FINAL_REVIEW_GUIDELINES>"
+    )
+
+    user_prompt = f"""
+Topic: {topic_abstract}
+
+1. Describe the mainstream narrative most creators repeat about este tópico (≤160 chars).
+2. Describe a contrarian/orthogonal narrative that un COO fractional sí debería empujar (≤160 chars).
+3. Decide cuál narrativa golpea más duro al ICP y explica por qué en ≤160 chars.
+
+Return strict JSON:
+{{
+  "mainstream": "...",
+  "contrarian": "...",
+  "winner": "mainstream|contrarian",
+  "reason": "..."
+}}
+"""
+
+    try:
+        resp = llm.chat_json(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.35,
+        )
+        if isinstance(resp, dict):
+            winner = str(resp.get("winner", "")).strip()
+            if winner in {"mainstream", "contrarian"}:
+                return {
+                    "mainstream": str(resp.get("mainstream", "")).strip(),
+                    "contrarian": str(resp.get("contrarian", "")).strip(),
+                    "winner": winner,
+                    "reason": str(resp.get("reason", "")).strip(),
+                }
+    except Exception as exc:
+        logger.warning("Contrast analysis failed: %s", exc)
+    return {}
 
 
 def _count_sentences(text: str) -> int:
@@ -886,15 +994,43 @@ def _apply_internal_debate(
     context: PromptContext,
     tail_angles: List[Dict[str, str]],
     model: str,
-) -> str:
+) -> Tuple[str, str]:
     feedback = _run_internal_reviews(variant_label, draft, topic_abstract, context, tail_angles, model)
     if not feedback:
-        return draft
+        return draft, ""
     logger.info("Internal feedback for variant %s:\n%s", variant_label, feedback)
     revised = _revise_with_reviews(variant_label, draft, feedback, topic_abstract, context, tail_angles, model)
     if revised and revised.strip():
-        return revised.strip()
-    return draft
+        return revised.strip(), feedback
+    return draft, feedback
+
+
+def _summarise_feedback(feedback: str) -> Optional[str]:
+    if not feedback:
+        return None
+    first_line = feedback.split("\n", 1)[0]
+    return first_line.strip() if first_line.strip() else None
+
+
+def _build_reasoning_summary(
+    tail_angles: List[Dict[str, str]],
+    contrast: Dict[str, str],
+    feedback_map: Dict[str, str],
+) -> str:
+    lines = ["🧠 Internal reasoning"]
+    if tail_angles:
+        top_angles = [f"[p={item['probability']}] {item['angle']}" for item in tail_angles[:3]]
+        lines.append("• Tail angles: " + " / ".join(top_angles))
+    if contrast and contrast.get("winner"):
+        winner = contrast["winner"].capitalize()
+        reason = contrast.get("reason") or contrast.get(winner.lower(), "")
+        summary = f"• Contrast winner: {winner} — {reason[:120]}" if reason else f"• Contrast winner: {winner}"
+        lines.append(summary)
+    for label in ("A", "B", "C"):
+        fb = _summarise_feedback(feedback_map.get(label, ""))
+        if fb:
+            lines.append(f"• Reviewer {label}: {fb}")
+    return "\n".join(lines)
 
 
 def _enforce_sentence_count(

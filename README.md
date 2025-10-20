@@ -114,6 +114,7 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
   - `python hf_notion_sync.py` sube/actualiza los candidatos en tu base Notion para revisión.
   - Marca en Notion los ítems que superan las preguntas como `Validated`.
   - `python scripts/promote_and_notify.py` promueve los validados, marca `status=approved`, los añade a ChromaDB y avisa por Telegram si hubo novedades.
+  - Tras cada propuesta en Telegram recibes un mensaje breve con el resumen del razonamiento interno (tail angles, contraste ganador y el primer comentario de cada revisor A/B/C).
   - Base Notion sugerida: propiedades `Name` (Title), `Status` (Select: Review/Validated/Promoted), `Candidate ID`, `Topic ID`, `Pain`, `Leverage`, `Stage` (Select), `Tags` (Multi-select), `Snippet`, `Source`, `Dataset`, `Source Fields`, `ICP Fit`, `Actionable`, `Stage Context`, `Urgency`, `Synced` (Checkbox).
   - Automatiza la promoción diaria:
     - **Local cron (opcional):** exporta `NOTION_API_TOKEN` y `NOTION_DATABASE_ID`, luego añade a `crontab -e` algo como `0 7 * * * /home/mei/Desktop/MMEI/x_bot_mei/scripts/promote_daily.sh`. El script registra los resultados en `logs/promote.log`.

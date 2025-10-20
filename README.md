@@ -110,8 +110,9 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
 - Generar dos variantes offline (sin LLM):
   - `python offline_generate.py`
   - Lee un tema aleatorio de `topics_collection` y produce dos alternativas.
-- Radar Hugging Face → Notion → Aprobado:
-  - `python hf_ingestion.py` descarga señales y genera candidatos con evaluador estricto (estado `candidate`).
+- Radar Reddit/Hugging Face → Notion → Aprobado:
+  - `python reddit_ingestion.py` *(pausado)*: define `ENABLE_REDDIT_INGESTION=1` antes de ejecutarlo si quieres reactivar la ingesta experimental desde `config/reddit_sources.json`.
+  - `python hf_ingestion.py` procesa señales curadas/manuales desde Hugging Face (`config/hf_sources.json`).
   - `python hf_notion_sync.py` sube/actualiza los candidatos en tu base Notion para revisión.
   - Marca en Notion los ítems que superan las preguntas como `Validated`.
   - `python scripts/promote_and_notify.py` promueve los validados, marca `status=approved`, los añade a ChromaDB y avisa por Telegram si hubo novedades.

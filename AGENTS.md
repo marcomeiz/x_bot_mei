@@ -66,8 +66,10 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
   - Scripts CLI para el scheduler (GitHub Actions o cron) que avisan de pendientes y promueven automáticamente.
 - `ProposalService`
   - Si `SHOW_INTERNAL_SUMMARY=1`, envía en Telegram un resumen del tail sampling y los principales comentarios del debate interno después de cada propuesta.
+- `reddit_ingestion.py` *(pausado)*  
+  - Debe habilitarse con `ENABLE_REDDIT_INGESTION=1` antes de ejecutarse. Recupera posts recientes vía JSON API pública, aplica filtros por keywords (`config/reddit_sources.json`) y pasa el evaluador/tópicos del radar.
 - `huggingface_ingestion/` + `hf_ingestion.py`
-  - Descargan datasets del Hub (config `config/hf_sources.json`), aplican evaluador “cabrón”, generan candidatos con metadatos y los guardan en JSON + índice.
+  - Procesan señales curadas/manuales desde Hugging Face (config `config/hf_sources.json`), aplican evaluador “cabrón”, generan candidatos con metadatos y los guardan en JSON + índice compartido.
 - `hf_notion_sync.py` / `promote_notion_topics.py`
   - Sincronizan candidatos con Notion para revisión humana y promueven los marcados como “Validated” a ChromaDB (`status=approved`).
 

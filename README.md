@@ -1,7 +1,7 @@
 **Guía Rápida (4 pasos)**
 - 1) Instalar: `python -m venv venv && source venv/bin/activate && pip install -r requirements.txt`.
 - 2) Configurar `.env`: define `GOOGLE_API_KEY`, opcional `OPENROUTER_API_KEY`, y deja `FALLBACK_PROVIDER_ORDER=gemini,openrouter`, `GEMINI_MODEL=gemini-2.5-pro`.
-- 3) Iniciar watcher: `python watcher_app.py` y copia un PDF a `uploads/`. Se extraen, validan y guardan temas en `db/` + `json/`.
+- 3) Iniciar watcher local: `python run_watcher.py` y copia un PDF a `uploads/`. Se extraen, validan y guardan temas en `db/`.
 - 4) Generar tweets: `python -i core_generator.py` y ejecuta `generate_tweet_from_topic("<abstract>")`.
 - Nota rápida: si tu sistema usa `python3`, ajusta los comandos anteriores a `python3` y `python3 -m venv`.
 
@@ -17,7 +17,8 @@
 - `pdf_extractor.py`: utilidades simples para convertir PDFs en texto plano.
 - `topic_pipeline.py`: extracción de tópicos (LlamaIndex + fallback), validación y gating de estilo.
 - `persistence_service.py`: persiste tópicos en Chroma, sincroniza con endpoints remotos y genera resúmenes JSON.
-- `watcher_app.py`: watcher principal que observa `uploads/` y delega en los módulos anteriores.
+- `watcher_v2.py`: lógica del watcher que observa `uploads/` y delega en los módulos anteriores.
+- `run_watcher.py`: punto de entrada para ejecutar el watcher local.
 - `huggingface_ingestion/`: adapta datasets del Hub (config `config/hf_sources.json`), ejecuta un evaluador estricto y genera candidatos con metadatos listos para revisión.
 - `hf_ingestion.py`: CLI para descargar señales gratuitas (Hugging Face), evaluarlas y guardar candidatos en `json/hf_candidates/` + índice en `db/hf_candidate_records.json`.
 - `hf_notion_sync.py`: sube/actualiza los candidatos en una base Notion para revisión humana.
@@ -92,14 +93,11 @@ Nota: `/.env` está en `.gitignore`. No subas tus claves.
   - También puedes partir de `.env.example`.
 
 **Flujos Principales**
-- Extraer temas desde PDFs con validación y embeddings:
-  - `python watcher_app.py`
-  - Copia PDFs a `uploads/`. El watcher:
-    - Convierte el PDF a texto con PyMuPDF.
-    - Extrae 8–12 tópicos vía LlamaIndex (fallback a Gemini si no está disponible).
-    - Valida relevancia para el COO y aplica auditoría de estilo si corresponde (`WATCHER_ENFORCE_STYLE_AUDIT`).
-    - Genera embeddings con Google y añade a `topics_collection` en `db/`.
-    - Guarda un resumen en `json/<nombre>.json`, sincroniza opcionalmente con `REMOTE_INGEST_URL` y envía notificación de escritorio.
+- **Local PDF Ingestion Watcher:**
+  - Ejecuta el watcher en tu máquina local para procesar PDFs y alimentar la base de datos de temas.
+  - Comando: `python run_watcher.py`
+  - Simplemente copia los archivos PDF que quieras procesar en el directorio `uploads/`.
+  - El watcher detectará los nuevos archivos, extraerá el texto, generará temas y embeddings, y los guardará en la base de datos ChromaDB.
 
 - Generar dos tweets desde un tema (LLM):
   - Vía REPL de Python:

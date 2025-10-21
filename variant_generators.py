@@ -976,6 +976,22 @@ def generate_variant_ab_pair(
     if len(draft_a) > 280 or len(draft_b) > 280:
         raise StyleRejection("Alguna alternativa excede los 280 caracteres tras reescritura.")
 
+    if format_a.name == "staccato":
+        original_sentence_count_a = _count_sentences(draft_a)
+        if not (3 <= original_sentence_count_a <= 5):
+            logger.info(f"Variant A (staccato) has {original_sentence_count_a} sentences. Enforcing 3-5.")
+            draft_a = _enforce_sentence_count(draft_a, 3, context, settings.validation_model)
+            if not (3 <= _count_sentences(draft_a) <= 5):
+                draft_a = _enforce_sentence_count(draft_a, 5, context, settings.validation_model)
+
+    if format_b.name == "staccato":
+        original_sentence_count_b = _count_sentences(draft_b)
+        if not (3 <= original_sentence_count_b <= 5):
+            logger.info(f"Variant B (staccato) has {original_sentence_count_b} sentences. Enforcing 3-5.")
+            draft_b = _enforce_sentence_count(draft_b, 3, context, settings.validation_model)
+            if not (3 <= _count_sentences(draft_b) <= 5):
+                draft_b = _enforce_sentence_count(draft_b, 5, context, settings.validation_model)
+
     _enforce_variant_compliance("A", draft_a, format_a, allow_analogy_a)
     _enforce_variant_compliance("B", draft_b, format_b, allow_analogy_b)
 

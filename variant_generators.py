@@ -1107,6 +1107,11 @@ Remember: the category spirit guides the message; the format and hook guardrails
     if len(c2) > 280:
         raise StyleRejection("Variant C exceeds 280 characters tras reescritura.")
 
+    # Remove commas before final compliance check
+    if "," in c2:
+        logger.info("Variant C contains commas. Removing them to comply with mandatory rule.")
+        c2 = c2.replace(",", "")
+
     _enforce_variant_compliance("C", c2, format_profile, allow_analogy)
 
     feedback_map = {"C": feedback_c}

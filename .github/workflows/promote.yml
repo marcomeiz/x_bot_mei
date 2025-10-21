@@ -19,8 +19,9 @@ jobs:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       HF_INGEST_LIMIT: ${{ vars.HF_INGEST_LIMIT }}
-      FALLBACK_PROVIDER_ORDER: gemini
+      FALLBACK_PROVIDER_ORDER: gemini,openrouter
 
     steps:
       - name: Checkout
@@ -36,6 +37,12 @@ jobs:
           set -euo pipefail
           python -m pip install --upgrade pip
           pip install --no-cache-dir -r requirements.workflow.txt
+
+      - name: Ingest Reddit signals
+        run: |
+          set -euo pipefail
+          LIMIT="${HF_INGEST_LIMIT:-80}"
+          python reddit_ingestion.py --limit "$LIMIT" --notify
 
       - name: Ingest Hugging Face signals
         run: |

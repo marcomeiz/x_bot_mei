@@ -54,12 +54,12 @@ def telegram_webhook():
         text = (message.get("text") or "").strip()
         chat_id = message["chat"]["id"]
 
-        if text == "/generate":
-            logger.info("[CHAT_ID: %s] Comando '/generate' recibido.", chat_id)
+        if text == "/g":
+            logger.info("[CHAT_ID: %s] Comando '/g' recibido.", chat_id)
             threading.Thread(target=proposal_service.do_the_work, args=(chat_id,)).start()
-        elif text.startswith("/comentar"):
-            logger.info("[CHAT_ID: %s] Comando '/comentar' recibido.", chat_id)
-            payload = text[len("/comentar"):].strip()
+        elif text.startswith("/c"):
+            logger.info("[CHAT_ID: %s] Comando '/c' recibido.", chat_id)
+            payload = text[len("/c"):].strip()
             threading.Thread(target=proposal_service.generate_comment, args=(chat_id, payload)).start()
         elif text.startswith("/pdfs"):
             logger.info("[CHAT_ID: %s] Comando '/pdfs' recibido.", chat_id)

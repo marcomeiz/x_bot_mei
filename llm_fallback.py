@@ -237,9 +237,14 @@ class LLMFallback:
                         raise
 
             if provider == "gemini" and self._ensure_gemini():
-                logger.info(f"LLM provider (JSON): Gemini ({self._gemini_model_name})")
-                text = self._gemini_chat(messages=messages, temperature=temperature, json_mode=True)
-                return _parse_json_robust(text)
+                try:
+                    logger.info(f"LLM provider (JSON): Gemini ({self._gemini_model_name})")
+                    text = self._gemini_chat(messages=messages, temperature=temperature, json_mode=True)
+                    return _parse_json_robust(text)
+                except Exception as e:
+                    last_err = e
+                    logger.warning(f"Falló Gemini (JSON), aplicando fallback: {e}")
+                    continue
 
         if last_err:
             raise last_err

@@ -1,0 +1,59 @@
+[
+  {
+    "name": "reddit_operator_pains",
+    "subreddit": "Entrepreneur",
+    "include_keywords": [
+      "client",
+      "automation",
+      "onboarding",
+      "cohort",
+      "subscription",
+      "delivery",
+      "fulfillment",
+      "retention",
+      "cashflow"
+    ],
+    "exclude_keywords": [
+      "crypto",
+      "stock",
+      "drop shipping",
+      "real estate",
+      "amazon fba"
+    ],
+    "tags": [
+      "reddit_signal",
+      "operator_pain"
+    ],
+    "stage": "delivery",
+    "max_posts": 50,
+    "min_score": 10,
+    "timeframe_hours": 72,
+    "throttle_seconds": 0.5
+  },
+  {
+    "name": "reddit_systems_builders",
+    "subreddit": "Notion",
+    "include_keywords": [
+      "client",
+      "workspace",
+      "automation",
+      "template",
+      "system"
+    ],
+    "exclude_keywords": [
+      "school",
+      "student",
+      "aesthetic",
+      "widget"
+    ],
+    "tags": [
+      "reddit_signal",
+      "systems"
+    ],
+    "stage": "pre-sale",
+    "max_posts": 40,
+    "min_score": 5,
+    "timeframe_hours": 96,
+    "throttle_seconds": 0.5
+  }
+]

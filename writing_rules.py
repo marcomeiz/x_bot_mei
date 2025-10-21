@@ -66,6 +66,7 @@ class FormatProfile:
     name: str
     description: str
     instructions: str
+    mandatory: bool = True
 
 
 FORMAT_PROFILES: Dict[str, FormatProfile] = {
@@ -77,6 +78,7 @@ FORMAT_PROFILES: Dict[str, FormatProfile] = {
             "Line 2 = 10-16 words. Line 3 = 16-22 words. No commas; each sentence stands alone.\n"
             "- Escalate tension: each sentence raises the stakes or detail.\n"
         ),
+        mandatory=False,
     ),
     "stair_down": FormatProfile(
         name="stair_down",
@@ -86,6 +88,7 @@ FORMAT_PROFILES: Dict[str, FormatProfile] = {
             "Line 2 = 12-16 words. Line 3 = 6-9 words. No commas.\n"
             "- Use the final short line as the hammer.\n"
         ),
+        mandatory=False,
     ),
     "staccato": FormatProfile(
         name="staccato",
@@ -94,6 +97,7 @@ FORMAT_PROFILES: Dict[str, FormatProfile] = {
             "- Format: 3-5 sentences, each <=8 words. No commas. No conjunctions.\n"
             "- Every line must be drawable — concrete action or object.\n"
         ),
+        mandatory=True,
     ),
     "list_strikes": FormatProfile(
         name="list_strikes",
@@ -103,6 +107,7 @@ FORMAT_PROFILES: Dict[str, FormatProfile] = {
             "Each strike <=12 words, actionable, drawable, no conjunctions.\n"
             "- The last strike must be the inspirational hammer.\n"
         ),
+        mandatory=True,
     ),
 }
 

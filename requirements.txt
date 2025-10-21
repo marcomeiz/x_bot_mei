@@ -11,7 +11,4 @@ google-generativeai
 chromadb
 pydantic
 instructor
-llama-index
-llama-index-llms-openai
-llama-index-embeddings-google
 datasets

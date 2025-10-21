@@ -64,7 +64,7 @@ steps:
         IMG="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$${TAG}"
         docker push "$$IMG"
 
-  # Deploy to Cloud Run with Ollama Sidecar (CLI, no per-container resources)
+  # Deploy to Cloud Run (CLI, no per-container resources)
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     entrypoint: bash
     secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]

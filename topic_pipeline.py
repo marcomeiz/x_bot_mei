@@ -9,13 +9,6 @@ from prompt_context import PromptContext
 from style_guard import audit_style
 from ingestion_config import WatcherConfig
 
-LLAMA_AVAILABLE = True
-try:
-    from llama_index.core import Document, Settings, VectorStoreIndex
-    from llama_index.llms.openai import OpenAI as LlamaOpenAI
-except ImportError:
-    LLAMA_AVAILABLE = False
-
 from pydantic import BaseModel, Field
 
 
@@ -39,23 +32,7 @@ class ValidationResponse(BaseModel):
     is_relevant: bool
 
 
-def configure_llama_index(ollama_host: Optional[str] = None) -> None:
-    if not LLAMA_AVAILABLE:
-        logger.info("LlamaIndex no disponible; se usará fallback LLM para extracción de temas.")
-        return
-    host = ollama_host or os.getenv("OLLAMA_HOST", "http://localhost:11434")
-    Settings.llm = LlamaOpenAI(api_base=f"{host}/v1", api_key="ollama", model="phi3")
-
-
 def extract_topics(text: str, context: PromptContext) -> List[str]:
-    if LLAMA_AVAILABLE:
-        try:
-            topics = _extract_topics_with_llama(text)
-            if topics:
-                return topics
-            logger.warning("LlamaIndex no devolvió temas. Se usará fallback LLM.")
-        except Exception as exc:
-            logger.warning("Fallo en LlamaIndex: %s. Se usará fallback LLM.", exc)
     return _extract_topics_with_llm(text, context)
 
 
@@ -104,21 +81,6 @@ def collect_valid_topics(
 
 def _build_topic_id(pdf_name: str, abstract: str) -> str:
     return hashlib.md5(f"{pdf_name}:{abstract}".encode()).hexdigest()[:10]
-
-
-def _extract_topics_with_llama(text: str) -> List[str]:
-    documents = [Document(text=text)]
-    index = VectorStoreIndex.from_documents(documents)
-    query_engine = index.as_query_engine(output_cls=RagTopicList, response_mode="compact")
-    query = (
-        "Extract 8-12 high-quality, tweet-worthy topics from the document. "
-        "Focus on counter-intuitive insights, practical advice, or strong opinions relevant to a COO. "
-        "Each topic should be a concise, self-contained statement."
-    )
-    response = query_engine.query(query)
-    topics = [topic.abstract.strip() for topic in (response.topics if response else []) if topic.abstract]
-    logger.info("LlamaIndex extrajo %s temas potenciales.", len(topics))
-    return topics
 
 
 def _extract_topics_with_llm(text: str, context: PromptContext) -> List[str]:
@@ -175,20 +137,6 @@ def _validate_topic(abstract: str, cfg: WatcherConfig) -> bool:
         )
     else:
         prompt = f'Is this topic "{abstract}" relevant for a COO persona?'
-    try:
-        response = llm.chat_structured(
-            model="ollama/phi3",
-            messages=[
-                {"role": "system", "content": "You are a strict validation assistant. Decide if the topic is relevant."},
-                {"role": "user", "content": prompt},
-            ],
-            response_model=ValidationResponse,
-            temperature=0.0,
-        )
-        if response:
-            return bool(response.is_relevant)
-    except Exception as exc:
-        logger.warning("Validación local falló, usando fallback LLM: %s", exc)
 
     fallback = llm.chat_json(
         model=os.getenv("GEMINI_MODEL", "gemini-2.5-pro"),

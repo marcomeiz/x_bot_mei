@@ -72,10 +72,6 @@ class LLMFallback:
     def __init__(self) -> None:
         self.provider_order = [p.strip() for p in os.getenv("FALLBACK_PROVIDER_ORDER", "gemini,openrouter").split(",") if p.strip()]
 
-        # Ollama
-        self._ollama_host = os.getenv("OLLAMA_HOST")
-        self._ollama_client: Optional[OpenAI] = None
-
         # OpenRouter
         self._openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
         self._openrouter_client: Optional[OpenAI] = None
@@ -87,17 +83,6 @@ class LLMFallback:
         self._gemini_model: Optional[Any] = None
 
     # --- Inicializadores perezosos ---
-    def _ensure_ollama(self) -> bool:
-        if not self._ollama_host:
-            logger.debug("OLLAMA_HOST no configurada; saltando Ollama.")
-            return False
-        if self._ollama_client is None:
-            logger.info(f"Conectando al host de Ollama en: {self._ollama_host}")
-            self._ollama_client = OpenAI(base_url=f"{self._ollama_host}/v1", api_key="ollama")
-            self._ollama_client = instructor.patch(self._ollama_client, mode=instructor.Mode.TOOLS)
-            logger.info("Instructor patch applied to Ollama client.")
-        return True
-
     def _ensure_openrouter(self) -> bool:
         if not self._openrouter_api_key:
             logger.warning("OPENROUTER_API_KEY no configurada; saltando OpenRouter.")
@@ -181,15 +166,6 @@ class LLMFallback:
     def chat_text(self, *, model: str, messages: List[Dict[str, str]], temperature: float = 0.7) -> str:
         last_err: Optional[Exception] = None
         for provider in self.provider_order:
-            if provider == "ollama" and self._ensure_ollama():
-                try:
-                    ollama_model_name = model.split('/')[-1] if '/' in model else model
-                    logger.info(f"LLM provider: Ollama ({ollama_model_name})")
-                    return self._create_chat_completion(self._ollama_client, ollama_model_name, messages, temperature, False)
-                except Exception as e:
-                    last_err = e
-                    logger.warning(f"Falló Ollama, aplicando fallback: {e}")
-
             if provider == "openrouter" and self._ensure_openrouter():
                 try:
                     logger.info(f"LLM provider: OpenRouter ({model})")
@@ -213,16 +189,6 @@ class LLMFallback:
     def chat_json(self, *, model: str, messages: List[Dict[str, str]], temperature: float = 0.2) -> Any:
         last_err: Optional[Exception] = None
         for provider in self.provider_order:
-            if provider == "ollama" and self._ensure_ollama():
-                try:
-                    ollama_model_name = model.split('/')[-1] if '/' in model else model
-                    logger.info(f"LLM provider (JSON): Ollama ({ollama_model_name})")
-                    text = self._create_chat_completion(self._ollama_client, ollama_model_name, messages, temperature, True)
-                    return _parse_json_robust(text)
-                except Exception as e:
-                    last_err = e
-                    logger.warning(f"Falló Ollama (JSON), aplicando fallback: {e}")
-
             if provider == "openrouter" and self._ensure_openrouter():
                 try:
                     logger.info(f"LLM provider (JSON): OpenRouter ({model})")
@@ -255,13 +221,8 @@ class LLMFallback:
         for provider in self.provider_order:
             client: Optional[OpenAI] = None
             provider_model_name = model
-
-            if provider == "ollama" and self._ensure_ollama():
-                client = self._ollama_client
-                provider_model_name = model.split('/')[-1] if '/' in model else model
-                logger.info(f"LLM provider (Structured): Ollama ({provider_model_name})")
             
-            elif provider == "openrouter" and self._ensure_openrouter():
+            if provider == "openrouter" and self._ensure_openrouter():
                 client = self._openrouter_client
                 logger.info(f"LLM provider (Structured): OpenRouter ({model})")
 

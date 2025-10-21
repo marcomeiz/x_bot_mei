@@ -135,20 +135,25 @@ class ProposalService:
         pre_lines.append("Generando 3 alternativas…")
         self.telegram.send_message(chat_id, "\n".join(pre_lines))
 
-        ab_result = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
-        draft_a = ab_result.draft_a
-        draft_b = ab_result.draft_b
         try:
-            c_result = generate_third_tweet_variant(topic_abstract)
-            draft_c = c_result.draft
-            category_name = c_result.category
-        except StyleRejection as rejection:
-            feedback = str(rejection).strip()
-            logger.warning("[CHAT_ID: %s] Variante C rechazada: %s", chat_id, feedback)
-            feedback_short = (feedback[:200] + "…") if len(feedback) > 200 else feedback
-            draft_c = f"[Rejected by final reviewer: {feedback_short}]"
-            category_name = "Rejected"
-            c_result = VariantCResult(draft=draft_c, category=category_name, reasoning_summary=None)
+            ab_result = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
+            draft_a = ab_result.draft_a
+            draft_b = ab_result.draft_b
+            try:
+                c_result = generate_third_tweet_variant(topic_abstract)
+                draft_c = c_result.draft
+                category_name = c_result.category
+            except StyleRejection as rejection:
+                feedback = str(rejection).strip()
+                logger.warning("[CHAT_ID: %s] Variante C rechazada: %s", chat_id, feedback)
+                feedback_short = (feedback[:200] + "…") if len(feedback) > 200 else feedback
+                draft_c = f"[Rejected by final reviewer: {feedback_short}]"
+                category_name = "Rejected"
+                c_result = VariantCResult(draft=draft_c, category=category_name, reasoning_summary=None)
+        except Exception as e:
+            logger.error(f"[CHAT_ID: {chat_id}] Error generating tweet from topic: {e}", exc_info=True)
+            self.telegram.send_message(chat_id, "❌ Ocurrió un error inesperado al generar las propuestas. El equipo ha sido notificado.")
+            return False
 
         context = build_prompt_context()
         evaluations: Dict[str, Dict[str, object]] = {}

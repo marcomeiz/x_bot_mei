@@ -177,15 +177,21 @@ class TelegramClient:
                 pass
             if response.status_code != 200 or not data.get("ok", True):
                 logger.error(
-                    "[CHAT_ID: %s] Telegram API error: status=%s, resp=%s",
+                    "[CHAT_ID: %s] Telegram API error: status=%s, ok=%s, description=%s, resp=%s",
                     chat_id,
                     response.status_code,
+                    data.get("ok"),
+                    data.get("description"),
                     data,
                 )
                 return False
+            logger.info("[CHAT_ID: %s] Telegram API call successful: %s", chat_id, endpoint)
             return True
+        except requests.exceptions.RequestException as req_exc:
+            logger.error("[CHAT_ID: %s] Telegram HTTP request error: %s", chat_id, req_exc, exc_info=True)
+            return False
         except Exception as exc:
-            logger.error("[CHAT_ID: %s] Telegram HTTP error: %s", chat_id, exc, exc_info=True)
+            logger.error("[CHAT_ID: %s] Unexpected error in Telegram _post: %s", chat_id, exc, exc_info=True)
             return False
 
     def send_message(self, chat_id: int, text: str, reply_markup=None, as_html: bool = False) -> bool:

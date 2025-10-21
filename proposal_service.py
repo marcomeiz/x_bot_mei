@@ -205,6 +205,7 @@ class ProposalService:
             evaluations=evaluations,
         )
 
+        logger.info("[CHAT_ID: %s] Intentando enviar propuesta a Telegram.", chat_id)
         if self.telegram.send_message(chat_id, message_text, reply_markup=keyboard, as_html=True):
             if self.show_internal_summary:
                 summary_blocks = []
@@ -217,6 +218,7 @@ class ProposalService:
                     summary_blocks.append(c_summary)
                 if summary_blocks:
                     self.telegram.send_message(chat_id, "\n\n".join(summary_blocks))
+            logger.info("[CHAT_ID: %s] Propuesta enviada correctamente a Telegram.", chat_id)
             return True
         logger.error("[CHAT_ID: %s] Falló el envío de propuestas para topic %s.", chat_id, topic_id)
         return False

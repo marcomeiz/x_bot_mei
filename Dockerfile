@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Instala solo dependencias de runtime para el servicio en Cloud Run.
-# Las dependencias de watchers (PyMuPDF, watchdog, etc.)
+# Las dependencias de watchers (llama-index, PyMuPDF, watchdog, etc.)
 # permanecen en requirements.txt para uso local, pero no se instalan en la imagen.
 COPY requirements.runtime.txt ./
 RUN pip install --upgrade pip && pip install -r requirements.runtime.txt

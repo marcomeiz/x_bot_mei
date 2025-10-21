@@ -9,6 +9,13 @@ from prompt_context import PromptContext
 from style_guard import audit_style
 from ingestion_config import WatcherConfig
 
+LLAMA_AVAILABLE = True
+try:
+    from llama_index.core import Document, Settings, VectorStoreIndex
+    from llama_index.llms.openai import OpenAI as LlamaOpenAI
+except ImportError:
+    LLAMA_AVAILABLE = False
+
 from pydantic import BaseModel, Field
 
 
@@ -32,7 +39,22 @@ class ValidationResponse(BaseModel):
     is_relevant: bool
 
 
+def configure_llama_index() -> None:
+    if not LLAMA_AVAILABLE:
+        logger.info("LlamaIndex no disponible; se usará fallback LLM para extracción de temas.")
+        return
+    pass # No se configura Settings.llm aquí directamente para evitar dependencia de Ollama.
+
+
 def extract_topics(text: str, context: PromptContext) -> List[str]:
+    if LLAMA_AVAILABLE:
+        try:
+            topics = _extract_topics_with_llama(text)
+            if topics:
+                return topics
+            logger.warning("LlamaIndex no devolvió temas. Se usará fallback LLM.")
+        except Exception as exc:
+            logger.warning("Fallo en LlamaIndex: %s. Se usará fallback LLM.", exc)
     return _extract_topics_with_llm(text, context)
 
 
@@ -81,6 +103,21 @@ def collect_valid_topics(
 
 def _build_topic_id(pdf_name: str, abstract: str) -> str:
     return hashlib.md5(f"{pdf_name}:{abstract}".encode()).hexdigest()[:10]
+
+
+def _extract_topics_with_llama(text: str) -> List[str]:
+    documents = [Document(text=text)]
+    index = VectorStoreIndex.from_documents(documents)
+    query_engine = index.as_query_engine(output_cls=RagTopicList, response_mode="compact")
+    query = (
+        "Extract 8-12 high-quality, tweet-worthy topics from the document. "
+        "Focus on counter-intuitive insights, practical advice, or strong opinions relevant to a COO. "
+        "Each topic should be a concise, self-contained statement."
+    )
+    response = query_engine.query(query)
+    topics = [topic.abstract.strip() for topic in (response.topics if response else []) if topic.abstract]
+    logger.info("LlamaIndex extrajo %s temas potenciales.", len(topics))
+    return topics
 
 
 def _extract_topics_with_llm(text: str, context: PromptContext) -> List[str]:

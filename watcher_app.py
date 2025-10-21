@@ -12,7 +12,7 @@ from logger_config import logger
 from pdf_extractor import extract_text_from_pdf
 from persistence_service import PersistenceSummary, persist_topics, write_summary_json
 from prompt_context import build_prompt_context
-from topic_pipeline import TopicRecord, collect_valid_topics, configure_llama_index, extract_topics
+from topic_pipeline import TopicRecord, collect_valid_topics, extract_topics
 
 
 class TopicIngestionService:
@@ -81,7 +81,6 @@ class PDFHandler(FileSystemEventHandler):
 def main():  # pragma: no cover - CLI entry point
     cfg = load_config()
     ensure_directories((cfg.upload_dir, cfg.text_dir, cfg.json_dir))
-    configure_llama_index()
 
     service = TopicIngestionService(cfg)
     handler = PDFHandler(service)

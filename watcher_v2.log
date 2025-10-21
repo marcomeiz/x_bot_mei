@@ -1,0 +1,7 @@
+Starting watcher in test mode...
+Created dummy PDF: /home/mei/Desktop/MMEI/x_bot_mei/uploads/dummy.pdf
+Watching directory: /home/mei/Desktop/MMEI/x_bot_mei/uploads
+Processing /home/mei/Desktop/MMEI/x_bot_mei/uploads/dummy.pdf...
+Finished processing /home/mei/Desktop/MMEI/x_bot_mei/uploads/dummy.pdf and saved to DB.
+Result for dummy.pdf: processed
+Watcher stopped by user.

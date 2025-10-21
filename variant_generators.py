@@ -1098,8 +1098,13 @@ Remember: the category spirit guides the message; the format and hook guardrails
 
     c2, feedback_c = _apply_internal_debate("C", c2, topic_abstract, context, tail_angles, settings.validation_model)
 
+    # Enforce single sentence and single line for Variant C as per user request
     if _count_sentences(c2) != 1:
+        logger.info("Variant C has more than one sentence. Enforcing single sentence.")
         c2 = _enforce_sentence_count(c2, 1, context, settings.validation_model)
+    
+    # Ensure it's a single line (no newlines)
+    c2 = _enforce_line_limit(c2, max_lines=1)
 
     if len(c2) > 280:
         c2 = ensure_under_limit_via_llm(c2, settings.validation_model, 280, attempts=4)

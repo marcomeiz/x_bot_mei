@@ -36,8 +36,12 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
   - Encapsula prompts, refinamientos, control de longitud y selección de categorías para las variantes A/B/C.
   - Antes de escribir cada borrador, genera ángulos “tail” (probabilidad < 0.15) para romper narrativas mainstream y pegarlas como columna vertebral de los textos.
   - Después de generar cada variante, corre un debate interno (contrarian, compliance, clarity reviewers) y reescribe con ese feedback antes del pulido final.
+  - Usa `writing_rules.py` para rotar formatos (stair up/down, staccato, list strikes), asignar hooks (dolor, vulnerabilidad, controversia, credibilidad, curiosidad, cambio radical) y bloquear vocabulario o sintaxis prohibida (sin comas, sin “-mente”/“-ly”, sin “y/o”).
+  - Cada variante valida el formato y la limpieza léxica antes de entregarse; si no respeta la escalera/ritmo asignado o usa palabras vetadas, se rechaza y se regenera.
 - `prompt_context.py`
   - Provee el bundle del contrato, ICP y pautas de revisión para inyectar en los prompts.
+- `writing_rules.py`
+  - Fuente única de formatos, hooks, bloqueos de vocabulario y validadores de estructura usados por los generadores y `/comentar`.
 - `evaluation.py`
   - Evalúa cada borrador con rubricas de estilo, señal contraria, claridad y factualidad (formato G-Eval) y devuelve un resumen que se adjunta en Telegram.
 - `telegram_client.py`

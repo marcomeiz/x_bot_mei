@@ -8,6 +8,22 @@ from llm_fallback import llm
 from logger_config import logger
 from prompt_context import PromptContext
 from style_guard import StyleRejection, improve_style
+from writing_rules import (
+    BANNED_WORDS,
+    FormatProfile,
+    HOOK_GUIDELINES,
+    closing_rule_prompt,
+    comma_guard_prompt,
+    count_analogy_markers,
+    conjunction_guard_prompt,
+    detect_banned_elements,
+    hook_menu,
+    select_format,
+    should_allow_analogy,
+    visual_anchor_prompt,
+    validate_format,
+    words_blocklist_prompt,
+)
 
 
 @dataclass(frozen=True)
@@ -46,11 +62,6 @@ class CommentAssessment:
     hook: Optional[str] = None
     risk: Optional[str] = None
 
-
-@dataclass
-class CommentRelevance:
-    is_relevant: bool
-    reason: str = ""
 
 @dataclass
 class CommentRelevance:
@@ -126,6 +137,69 @@ STOPWORDS = {
     "through",
     "every",
 }
+
+
+def _pick_hooks_for_variants(rng: random.Random, count: int) -> List[int]:
+    """Return indices into HOOK_GUIDELINES ensuring variety."""
+    population = list(range(len(HOOK_GUIDELINES)))
+    if count >= len(population):
+        rng.shuffle(population)
+        return population[:count]
+    return rng.sample(population, count)
+
+
+def _build_shared_rules() -> str:
+    return (
+        "Common guardrails for every variant:\n"
+        f"{hook_menu()}\n"
+        "- First sentence MUST deploy the chosen hook in ≤8 words (unless the format overrides it).\n"
+        f"{visual_anchor_prompt()}"
+        f"{words_blocklist_prompt()}"
+        f"{comma_guard_prompt()}"
+        f"{conjunction_guard_prompt()}"
+        "- Zero emojis, hashtags, or Spanish. English only.\n"
+        "- Everything under 280 characters.\n"
+        f"{closing_rule_prompt()}"
+    )
+
+
+def _format_block(label: str, format_text: str, hook_name: str, allow_analogy: bool) -> str:
+    analogy_line = (
+        "- Optional: include one tight analogy if it uses drawable imagery (max one short clause).\n"
+        if allow_analogy
+        else "- Do NOT use analogies in this variant.\n"
+    )
+    return (
+        f"Variant {label} guardrails:\n"
+        f"- Hook type: {hook_name}. Show it in the first 3 words.\n"
+        f"{format_text}"
+        f"{analogy_line}"
+        "- Prefer verbs and nouns over adjectives. If a descriptor isn't measurable, replace it with an action.\n"
+    )
+
+
+def _enforce_variant_compliance(
+    label: str,
+    draft: str,
+    format_profile: Optional[FormatProfile],
+    allow_analogy: bool,
+) -> None:
+    issues = detect_banned_elements(draft)
+    if issues:
+        raise StyleRejection(f"Variant {label} rejected: {', '.join(issues)}.")
+
+    if format_profile:
+        is_valid, reason = validate_format(draft, format_profile)
+        if not is_valid:
+            raise StyleRejection(f"Variant {label} broke format '{format_profile.name}': {reason}.")
+
+    analogy_hits = count_analogy_markers(draft)
+    if allow_analogy:
+        if analogy_hits > 1:
+            raise StyleRejection(f"Variant {label} usa demasiadas analogías ({analogy_hits}).")
+    else:
+        if analogy_hits:
+            raise StyleRejection(f"Variant {label} no debe usar analogías.")
 
 
 DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
@@ -616,31 +690,33 @@ def _extract_key_terms(text: str, max_terms: int = 6) -> List[str]:
     return key_terms
 
 
-def _build_ab_prompt(topic_abstract: str, context: PromptContext) -> str:
-    return f"""
-            You are a ghostwriter. Your task is to write TWO distinct alternatives for a tweet based on the topic below. Strictly follow the provided contract.
-
-            **Contract for style and tone:**
-            {context.contract}
-            ---
-            **Complementary polish guardrails (do not override the contract/ICP):**
-            {context.final_guidelines}
-            ---
-            **Topic:** {topic_abstract}
-
-            **Style Amplifier (must do):**
-            - NYC bar voice: smart, direct, slightly impatient; zero corporate tone.
-            - Open with a punchy first line (no 'Most people…', no 'Counter‑intuitive truth:').
-            - Include one concrete image or tactical detail (micro‑visual) to make it feel real.
-            - No hedging or qualifiers (no seems/maybe/might). Strong verbs only.
-            - 2–4 short paragraphs separated by a blank line. English only. No quotes around the output. No emojis/hashtags.
-            - A and B MUST use different opening patterns (e.g., question vs. bold statement vs. vivid image).
-
-            **CRITICAL OUTPUT REQUIREMENTS:**
-            - Provide two high-quality, distinct alternatives in English.
-            - Both alternatives MUST be under 280 characters.
-            - The output will be automatically structured, so do not add any labels like [EN - A] or [EN - B].
-            """
+def _build_ab_prompt(
+    topic_abstract: str,
+    context: PromptContext,
+    shared_rules: str,
+    variant_blocks: List[str],
+) -> str:
+    sections = [
+        "You are a ghostwriter. Your task is to write TWO distinct alternatives for a tweet based on the topic below. "
+        "Obey the contract, the ICP, and the formatting guardrails exactly. No extra narration.",
+        "**Contract for style and tone:**",
+        context.contract,
+        "---",
+        "**Complementary polish guardrails (do not override the contract/ICP):**",
+        context.final_guidelines,
+        "---",
+        f"**Topic:** {topic_abstract}",
+        shared_rules,
+    ]
+    sections.extend(variant_blocks)
+    sections.append(
+        "**CRITICAL OUTPUT REQUIREMENTS:**\n"
+        "- Provide two high-quality, distinct alternatives in English.\n"
+        "- Respect the assigned format and hook for each variant.\n"
+        "- Both alternatives MUST be under 280 characters.\n"
+        "- Output will be parsed automatically. Do not add labels like [A] or [B]."
+    )
+    return "\n\n".join(sections)
 
 
 def _build_system_message(context: PromptContext) -> str:
@@ -661,14 +737,20 @@ def _build_system_message(context: PromptContext) -> str:
 
 def _refine_single_tweet_style(raw_text: str, model: str, context: PromptContext) -> str:
     prompt = (
-        "Rewrite the text to hit a sharper, NYC bar voice — smart, direct, a bit impatient — without losing the core insight.\n"
-        "Do NOT add emojis or hashtags. Do NOT use Spanish.\n\n"
+        "Polish the text to hit a sharper NYC bar voice — smart, direct, slightly impatient — while preserving meaning.\n"
+        "Respect the existing sentence count and order. Do not merge or add sentences.\n"
+        "Do NOT add emojis, hashtags, or Spanish.\n\n"
         "Amplifiers (must do):\n"
-        "- Start with a punchy opener (no 'Most people…', no hedging).\n"
-        "- Include one concrete image or tactical detail (micro‑visual).\n"
-        "- Cut filler, adverbs, qualifiers (seems, maybe, might).\n"
-        "- Strong verbs, short sentences, no corporate wording.\n"
-        "- 2–4 short paragraphs separated by a blank line.\n"
+        "- First sentence must stay a hard hook (no soft lead-ins).\n"
+        "- Every sentence must describe something drawable; add micro-visual detail if missing.\n"
+        "- If you see commas or conjunctions 'and'/'or' (or 'y'/'o'), split the idea into separate sentences instead.\n"
+        "- Cut adverbs ending in 'mente' or dull '-ly' fillers. Remove words: bueno, bien, solo, entonces, ya.\n"
+        "- Prefer verbs and nouns over adjectives. If an adjective is vague, swap it for a concrete action/object.\n"
+        "- Keep the inspirational hammer in the final sentence.\n"
+        f"{comma_guard_prompt()}"
+        f"{conjunction_guard_prompt()}"
+        f"{visual_anchor_prompt()}"
+        f"{words_blocklist_prompt()}"
         "- Keep under 280 characters.\n\n"
         f"RAW TEXT: --- {raw_text} ---"
     )
@@ -701,18 +783,20 @@ def _refine_single_tweet_style(raw_text: str, model: str, context: PromptContext
 
 def _refine_single_tweet_style_flexible(raw_text: str, model: str, context: PromptContext) -> str:
     prompt = (
-        "Rewrite the text to hit a sharper, NYC bar voice — smart, direct, a bit impatient — without losing the core insight.\n"
-        "Do NOT add emojis or hashtags. Do NOT use Spanish.\n\n"
-        "Amplifiers (must do):\n"
-        "- Start with a punchy opener (no hedging).\n"
-        "- Include one concrete image or tactical detail (micro‑visual).\n"
-        "- Cut filler, adverbs, qualifiers (seems, maybe, might).\n"
-        "- Strong verbs, short sentences, no corporate wording.\n\n"
-        "Structure (flexible for C):\n"
-        "- You MAY output a single hard‑hitting sentence.\n"
-        "- Or 1–3 short sentences, same paragraph.\n"
-        "- Or up to 2 very short paragraphs.\n"
-        "- Keep it under 280 characters.\n\n"
+        "Refine the text while keeping the meaning, format, and cadence intact. Maintain the same number of sentences or bullet strikes.\n"
+        "Voice = NYC bar: smart, direct, a bit impatient. No emojis, no hashtags, no Spanish.\n\n"
+        "Amplifiers:\n"
+        "- Keep the opening punch stronger than before — hook in ≤8 words if format allows.\n"
+        "- Each sentence must be drawable and rooted in physical detail.\n"
+        "- Remove commas and conjunctions 'and'/'or' ('y'/'o'). Split thoughts into separate sentences instead.\n"
+        "- Delete adverbs ending in 'mente' or filler '-ly' words. Ban: bueno, bien, solo, entonces, ya.\n"
+        "- Use actions/items instead of adjectives. If an adjective is vague, replace it.\n"
+        "- Ensure the final sentence is the inspirational hammer, no cheese.\n"
+        f"{comma_guard_prompt()}"
+        f"{conjunction_guard_prompt()}"
+        f"{visual_anchor_prompt()}"
+        f"{words_blocklist_prompt()}"
+        "- Keep the total under 280 characters.\n\n"
         f"RAW TEXT: --- {raw_text} ---"
     )
     system_message = (
@@ -747,6 +831,15 @@ def generate_variant_ab_pair(
     context: PromptContext,
     settings: GenerationSettings,
 ) -> ABGenerationResult:
+    rng = random.Random(hash(topic_abstract) & 0xFFFFFFFF)
+    format_a = select_format(rng, "A")
+    format_b = select_format(rng, "B")
+    hook_indices = _pick_hooks_for_variants(rng, 2)
+    hook_a = HOOK_GUIDELINES[hook_indices[0]]
+    hook_b = HOOK_GUIDELINES[hook_indices[1]]
+    allow_analogy_a = should_allow_analogy(rng)
+    allow_analogy_b = should_allow_analogy(rng)
+
     tail_angles = _verbalized_tail_sampling(topic_abstract, context, settings.generation_model)
     tail_prompt = ""
     if tail_angles:
@@ -775,13 +868,12 @@ def generate_variant_ab_pair(
             "Anchor both variants in the winning perspective."
         )
 
-    prompt = (
-        _build_ab_prompt(topic_abstract, context)
-        + "\n\nVariant A: You may be fully creative as long as the persona, ICP, and tone contract are obeyed."
-        + "\nVariant B: Output exactly two sentences (no more, no fewer), each punchy and aligned with the persona."
-        + tail_prompt
-        + contrast_prompt
-    )
+    shared_rules = _build_shared_rules()
+    variant_blocks = [
+        _format_block("A", format_a.instructions, hook_a.name, allow_analogy_a),
+        _format_block("B", format_b.instructions, hook_b.name, allow_analogy_b),
+    ]
+    prompt = _build_ab_prompt(topic_abstract, context, shared_rules, variant_blocks) + tail_prompt + contrast_prompt
 
     logger.info("Generando variantes A y B via LLM (JSON preferred).")
     draft_a = ""
@@ -876,9 +968,6 @@ def generate_variant_ab_pair(
     elif post_audit_b:
         logger.info(f"Auditoría post-debate B: sin cambios. Detalle: {post_audit_b}")
 
-    if _count_sentences(draft_b) != 2:
-        draft_b = _enforce_sentence_count(draft_b, 2, context, settings.validation_model)
-
     if len(draft_a) > 280:
         draft_a = ensure_under_limit_via_llm(draft_a, settings.validation_model, 280, attempts=4)
     if len(draft_b) > 280:
@@ -887,12 +976,26 @@ def generate_variant_ab_pair(
     if len(draft_a) > 280 or len(draft_b) > 280:
         raise StyleRejection("Alguna alternativa excede los 280 caracteres tras reescritura.")
 
+    _enforce_variant_compliance("A", draft_a, format_a, allow_analogy_a)
+    _enforce_variant_compliance("B", draft_b, format_b, allow_analogy_b)
+
     feedback_map = {"A": feedback_a, "B": feedback_b}
     reasoning_summary = _build_reasoning_summary(tail_angles, contrast, feedback_map)
     metadata = {
+        "variant_a": {
+            "format": format_a.name,
+            "hook": hook_a.name,
+            "allow_analogy": allow_analogy_a,
+        },
+        "variant_b": {
+            "format": format_b.name,
+            "hook": hook_b.name,
+            "allow_analogy": allow_analogy_b,
+        },
         "tail_angles": tail_angles,
         "contrast": contrast,
         "feedback": feedback_map,
+        "shared_rules": shared_rules,
     }
 
     return ABGenerationResult(draft_a.strip(), draft_b.strip(), reasoning_summary, metadata)
@@ -902,14 +1005,19 @@ def generate_variant_c(
     topic_abstract: str,
     context: PromptContext,
     settings: GenerationSettings,
-) -> Tuple[str, str]:
+) -> VariantCResult:
+    rng = random.Random((hash(topic_abstract) ^ 0x9E3779B1) & 0xFFFFFFFF)
+    format_profile = select_format(rng, "C")
+    hook_idx = _pick_hooks_for_variants(rng, 1)[0]
+    hook = HOOK_GUIDELINES[hook_idx]
+    allow_analogy = should_allow_analogy(rng)
+
     category = pick_random_post_category()
     cat_name = category["name"]
     cat_desc = category["pattern"]
     cat_struct = (category.get("structure") or "").strip()
     cat_why = (category.get("why") or "").strip()
 
-    use_bullets = category.get("key") in BULLET_CATEGORIES
     prompt = f"""
 **Audience:** Remember you are talking to a friend who fits the Ideal Customer Profile (ICP) below. Your tone should be like giving direct, valuable advice to them.
 
@@ -921,12 +1029,12 @@ def generate_variant_c(
 - Structure: {('Structure template: ' + cat_struct) if cat_struct else ''}
 - Rationale: {('Technique rationale: ' + cat_why) if cat_why else ''}
 
-**Style and Output Rules:**
-- **CRITICAL Constraint:** You MUST output a single sentence that hits like a slap in the face for the ICP. No hedging, no metaphors, no analogies.
-- Voice: NYC bar voice: smart, direct, slightly impatient; zero corporate tone.
-- Structure: exactly one sentence, ruthless and unavoidable.
-- Format: No emojis or hashtags. No quotes around the output. English only.
-- Length: Keep under 280 characters (hard requirement).
+**Shared guardrails:**
+{_build_shared_rules()}
+
+{_format_block('C', format_profile.instructions, hook.name, allow_analogy)}
+
+Remember: the category spirit guides the message; the format and hook guardrails above outrank any legacy structure notes.
 
 **Topic:** {topic_abstract}
 """
@@ -954,9 +1062,6 @@ def generate_variant_c(
             "Fuse the winning narrative into the single sentence."
         )
 
-    if use_bullets:
-        prompt += "\n**Hint:** Short bullet list is acceptable for this pattern.\n"
-
     system_message = (
         "You are a world-class ghostwriter. Obey the following style contract strictly.\n\n<STYLE_CONTRACT>\n"
         + context.contract
@@ -977,8 +1082,8 @@ def generate_variant_c(
                 "role": "user",
                 "content": (
                     prompt
-                    + "\n\nOverride for C: Ignore any paragraph-count constraints from the style contract. "
-                    "You may output a single strong sentence, 1–3 short sentences, or up to 2 very short paragraphs."
+                    + "\n\nOverride for C: Ignore paragraph-count constraints from the original contract. "
+                    "Follow the assigned format exactly (staircase, staccato, or list strikes) without adding commas or conjunctions."
                 ),
             },
         ],
@@ -1000,9 +1105,17 @@ def generate_variant_c(
     if len(c2) > 280:
         raise StyleRejection("Variant C exceeds 280 characters tras reescritura.")
 
+    _enforce_variant_compliance("C", c2, format_profile, allow_analogy)
+
     feedback_map = {"C": feedback_c}
     reasoning_summary = _build_reasoning_summary(tail_angles, contrast, feedback_map)
     metadata = {
+        "variant_c": {
+            "format": format_profile.name,
+            "hook": hook.name,
+            "allow_analogy": allow_analogy,
+            "category": category.get("key"),
+        },
         "tail_angles": tail_angles,
         "contrast": contrast,
         "feedback": feedback_map,
@@ -1022,6 +1135,10 @@ def generate_comment_reply(
     The output keeps the ICP voice and ends with an invitation to continue the conversation.
     """
 
+    rng = random.Random(hash(source_text) & 0xFFFFFFFF)
+    hook_idx = _pick_hooks_for_variants(rng, 1)[0]
+    hook = HOOK_GUIDELINES[hook_idx]
+
     excerpt = _compact_text(source_text, limit=1200)
     key_terms = _extract_key_terms(excerpt)
     normalized_key_terms = [_normalize_token(term) for term in key_terms]
@@ -1038,8 +1155,15 @@ Rules:
 - Keep it constructive: build on the author's point, avoid dunking, ridicule, or dismissive language.
 - End with a pointed, collaborative question or next-step challenge to spark conversation.
 - Voice: NYC bar sharp, no fluff, no emojis/hashtags, English only.
+- Opening hook to deploy: {hook.name.upper()} — {hook.description} Example: {hook.sample}
 - Two sentences maximum. Keep it human and direct.
 - Format: output either ONE single line OR TWO lines separated by exactly one newline. Never produce more than one newline.
+- No commas. If you feel a pause, split into another sentence.
+- Avoid conjunctions 'and'/'or' ('y'/'o'). Stack short sentences instead.
+- Ban these words: {", ".join(sorted(BANNED_WORDS))}.
+- No adverbs ending in 'mente' or filler '-ly' words.
+- Make it drawable: describe physical scenes, objects, or reactions tied to the post.
+- Finish with an inspirational jab, not cheese, in the final question or challenge.
 """
     if key_terms:
         prompt += (
@@ -1155,6 +1279,8 @@ Rules:
     if not relevance.is_relevant:
         raise StyleRejection(f"Comentario descartado por irrelevante: {relevance.reason}")
 
+    _enforce_variant_compliance("Comment", comment, None, False)
+
     metadata: Dict[str, object] = {"audit": audit, "source_excerpt": excerpt}
     if insight:
         metadata["insight"] = insight
@@ -1167,6 +1293,7 @@ Rules:
     if key_terms:
         metadata["key_terms"] = key_terms
     metadata["relevance_reason"] = relevance.reason
+    metadata["hook"] = hook.name
 
     return CommentResult(comment=comment.strip(), insight=insight, metadata=metadata)
 

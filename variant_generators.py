@@ -1071,9 +1071,11 @@ Remember: the category spirit guides the message; the format and hook guardrails
         "Complementary polish rules (do not override the contract/ICP):\n<FINAL_REVIEW_GUIDELINES>\n"
         + context.final_guidelines
         + "\n</FINAL_REVIEW_GUIDELINES>"
-            )
-    
-            start_time_llm_c = time.time()        raw_c = llm.chat_text(        model=settings.generation_model,
+    )
+
+    start_time_llm_c = time.time()
+    raw_c = llm.chat_text(
+        model=settings.generation_model,
         messages=[
             {"role": "system", "content": system_message},
             {
@@ -1084,9 +1086,9 @@ Remember: the category spirit guides the message; the format and hook guardrails
                     "Follow the assigned format exactly (staircase, staccato, or list strikes) without adding commas or conjunctions."
                 ),
             },
-        ],_x000D_
-        temperature=0.75,_x000D_
-    )_x000D_
+        ],
+        temperature=0.75,
+    )
     logger.info(f"[PERF] LLM generation for C took {time.time() - start_time_llm_c:.2f} seconds.")
 
     c1 = _refine_single_tweet_style_flexible(raw_c, settings.validation_model, context)

@@ -1,0 +1,24 @@
+steps:
+# 1. Build the container image
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'europe-west1-docker.pkg.dev/${PROJECT_ID}/x-bot-mei/x-bot-mei:latest', '.']
+
+# 2. Push the container image to Artifact Registry
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'europe-west1-docker.pkg.dev/${PROJECT_ID}/x-bot-mei/x-bot-mei:latest']
+
+# 3. Deploy to Cloud Run
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+    - 'run'
+    - 'deploy'
+    - 'x-bot-mei'
+    - '--image=europe-west1-docker.pkg.dev/${PROJECT_ID}/x-bot-mei/x-bot-mei:latest'
+    - '--region=europe-west1'
+    - '--platform=managed'
+    - '--quiet'
+    # Las variables de entorno y secretos se mantienen de la configuración del servicio existente
+
+images:
+- 'europe-west1-docker.pkg.dev/${PROJECT_ID}/x-bot-mei/x-bot-mei:latest'

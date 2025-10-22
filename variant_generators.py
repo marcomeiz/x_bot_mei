@@ -833,6 +833,7 @@ def generate_variant_ab_pair(
     topic_abstract: str,
     context: PromptContext,
     settings: GenerationSettings,
+    rag_context: Optional[List[str]] = None,
 ) -> ABGenerationResult:
     rng = random.Random(hash(topic_abstract) & 0xFFFFFFFF)
     format_a = select_format(rng, "A")
@@ -843,7 +844,7 @@ def generate_variant_ab_pair(
     allow_analogy_a = should_allow_analogy(rng)
     allow_analogy_b = should_allow_analogy(rng)
 
-    tail_angles = _verbalized_tail_sampling(topic_abstract, context, settings.generation_model)
+    tail_angles = _verbalized_tail_sampling(topic_abstract, context, settings.generation_model, rag_context=rag_context)
     tail_prompt = ""
     if tail_angles:
         logger.info("Tail sampling generated %s hook angles for A/B.", len(tail_angles))
@@ -860,7 +861,7 @@ def generate_variant_ab_pair(
             + "- Variant B must use a different angle, highlighting contrast or tension."
         )
 
-    contrast = _generate_contrast_analysis(topic_abstract, context, settings.generation_model)
+    contrast = _generate_contrast_analysis(topic_abstract, context, settings.generation_model, rag_context=rag_context)
     contrast_prompt = ""
     if contrast:
         contrast_prompt = (
@@ -1007,6 +1008,7 @@ def generate_variant_c(
     topic_abstract: str,
     context: PromptContext,
     settings: GenerationSettings,
+    rag_context: Optional[List[str]] = None,
 ) -> VariantCResult:
     rng = random.Random((hash(topic_abstract) ^ 0x9E3779B1) & 0xFFFFFFFF)
     format_profile = select_format(rng, "C")
@@ -1041,7 +1043,7 @@ Remember: the category spirit guides the message; the format and hook guardrails
 **Topic:** {topic_abstract}
 """
 
-    tail_angles = _verbalized_tail_sampling(topic_abstract, context, settings.generation_model, max_angles=2)
+    tail_angles = _verbalized_tail_sampling(topic_abstract, context, settings.generation_model, rag_context=rag_context, max_angles=2)
     if tail_angles:
         formatted = []
         for idx, item in enumerate(tail_angles, 1):
@@ -1054,15 +1056,7 @@ Remember: the category spirit guides the message; the format and hook guardrails
             + "\n".join(formatted)
         )
 
-    contrast = _generate_contrast_analysis(topic_abstract, context, settings.generation_model)
-    if contrast:
-        prompt += (
-            "\nContrast insight:\n"
-            f"- Mainstream: {contrast.get('mainstream', '')}\n"
-            f"- Contrarian: {contrast.get('contrarian', '')}\n"
-            f"- Winner: {contrast.get('winner', '')} (reason: {contrast.get('reason', '')})\n"
-            "Fuse the winning narrative into the single sentence."
-        )
+    contrast = _generate_contrast_analysis(topic_abstract, context, settings.generation_model, rag_context=rag_context)
 
     system_message = (
         "You are a world-class ghostwriter. Obey the following style contract strictly.\n\n<STYLE_CONTRACT>\n"
@@ -1314,6 +1308,7 @@ def _verbalized_tail_sampling(
     topic_abstract: str,
     context: PromptContext,
     model: str,
+    rag_context: Optional[List[str]] = None,
     max_angles: int = TAIL_SAMPLING_COUNT,
 ) -> List[Dict[str, str]]:
     """Generate low-probability hook ideas to prime final drafts."""
@@ -1339,7 +1334,11 @@ def _verbalized_tail_sampling(
 We are drafting content for a fractional COO persona. Use verbalized sampling to explore {max_angles} low-probability hooks (p < 0.15) about:
 
 TOPIC: {topic_abstract}
+"""
+    if rag_context:
+        user_prompt += "\\nInspirational Context:\\n" + "\\n".join(f"- {doc}" for doc in rag_context) + "\\n"
 
+    user_prompt += """
 For each hook:
 1. Identify the mainstream narrative you're challenging.
 2. Summarize the contrarian/orthogonal insight (≤ 2 sentences).
@@ -1395,6 +1394,7 @@ def _generate_contrast_analysis(
     topic_abstract: str,
     context: PromptContext,
     model: str,
+    rag_context: Optional[List[str]] = None,
 ) -> Dict[str, str]:
     system_message = (
         "You analyse narratives for a COO-focused audience. Respect the style contract, ICP, and complementary guidelines."
@@ -1409,7 +1409,11 @@ def _generate_contrast_analysis(
 
     user_prompt = f"""
 Topic: {topic_abstract}
-
+"""
+    if rag_context:
+        user_prompt += "\nInspirational Context:\n" + "\n".join(f"- {doc}" for doc in rag_context) + "\n"
+        
+    user_prompt += """
 1. Describe the mainstream narrative most creators repeat about este tópico (≤160 chars).
 2. Describe a contrarian/orthogonal narrative that un COO fractional sí debería empujar (≤160 chars).
 3. Decide cuál narrativa golpea más duro al ICP y explica por qué en ≤160 chars.
@@ -1422,6 +1426,7 @@ Return strict JSON:
   "reason": "..."
 }}
 """
+
 
     try:
         resp = llm.chat_json(

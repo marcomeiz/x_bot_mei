@@ -14,7 +14,7 @@ from typing import Dict, Optional
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
-from embeddings_manager import get_embedding, get_memory_collection, get_topics_collection
+from embeddings_manager import get_embedding, get_memory_collection, get_topics_collection, find_similar_topics
 from logger_config import logger
 from prompt_context import build_prompt_context
 from style_guard import StyleRejection
@@ -149,11 +149,14 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
 
     _log_similarity(topic_abstract, ignore_similarity)
 
+    # RAG: Find similar topics to enrich the context
+    rag_context = find_similar_topics(topic_abstract)
+
     last_style_feedback = ""
     for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
         logger.info("Intento de generación de IA %s/%s…", attempt, MAX_GENERATION_ATTEMPTS)
         try:
-            result = generate_variant_ab_pair(topic_abstract, context, settings)
+            result = generate_variant_ab_pair(topic_abstract, context, settings, rag_context)
             logger.info("Intento %s: borradores A/B generados y validados.", attempt)
             return result
         except StyleRejection as rejection:
@@ -179,8 +182,12 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
 def generate_third_tweet_variant(topic_abstract: str) -> VariantCResult:
     context = build_prompt_context()
     settings = _build_settings()
+    
+    # RAG: Find similar topics to enrich the context
+    rag_context = find_similar_topics(topic_abstract)
+    
     try:
-        return generate_variant_c(topic_abstract, context, settings)
+        return generate_variant_c(topic_abstract, context, settings, rag_context)
     except StyleRejection:
         # Se deja propagar para que el llamador maneje el feedback.
         raise

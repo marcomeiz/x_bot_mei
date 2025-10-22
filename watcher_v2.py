@@ -1,61 +1,74 @@
+import shutil
 import asyncio
 import os
 import fitz  # PyMuPDF
 import json
-import urllib.request
 from typing import List, Dict, Optional
 import sys
 import uuid
 
 from dotenv import load_dotenv
 from llm_fallback import llm
-from embeddings_manager import get_topics_collection
+from embeddings_manager import get_topics_collection, get_embedding
+from logger_config import logger
 
 # Load environment variables
 load_dotenv()
 
 # Model configuration
 TOPIC_EXTRACTION_MODEL = "anthropic/claude-3.5-sonnet"
-EMBEDDING_MODEL = "mxbai-embed-large"
-
-def get_embedding_sync(text: str, model: str = EMBEDDING_MODEL):
-    try:
-        url = "http://localhost:11434/api/embeddings"
-        data = json.dumps({"model": model, "prompt": text}).encode("utf-8")
-        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req) as response:
-            if response.status == 200:
-                return json.loads(response.read().decode("utf-8"))["embedding"]
-    except Exception as e:
-        print(f"Error getting embedding: {e}")
-    return None
 
 async def generate_embeddings(topics: List[str]) -> List[List[float]]:
     """Generates embeddings for a list of topics."""
+    print(f"Generating {len(topics)} embeddings using Google API...")
     embeddings = []
     for topic in topics:
-        embedding = await asyncio.to_thread(get_embedding_sync, topic)
+        # Since get_embedding is synchronous, we run it in a thread pool
+        embedding = await asyncio.to_thread(get_embedding, topic)
         if embedding:
             embeddings.append(embedding)
+    print("Embeddings generated successfully.")
     return embeddings
 
 async def extract_topics(text: str) -> List[str]:
     """Extracts topics from text using the specified model."""
     prompt = f"""
-    Extract the key topics from the following text.
-    Return the topics as a JSON list of strings.
-    For example: ["topic1", "topic2", "topic3"]
+    You are an expert content strategist. Your task is to extract every 'frase de oro' (golden phrase) or 'idea completa' (complete idea) from the provided text.
+
+    These are not single keywords or generic topics. They are insightful, complete sentences or short paragraphs that capture a core, non-obvious idea from the text. Each phrase must be a potential basis for a social media post or a tweet and reflect a strong point of view found in the text.
+
+    Review the entire text and extract every single phrase that meets this criteria. Do not omit any potential candidates.
+
+    Return the results as a JSON list of strings.
+
+    For example:
+    ["The biggest barrier to scaling is often the founder's own inability to let go of control.", "You don't need more hours in the day, you need more leverage in your systems."]
 
     Text:
     {text}
     """
     messages = [{"role": "user", "content": prompt}]
     try:
-        topics = await asyncio.to_thread(llm.chat_json, model=TOPIC_EXTRACTION_MODEL, messages=messages)
-        if isinstance(topics, list) and all(isinstance(t, str) for t in topics):
+        response = await asyncio.to_thread(llm.chat_json, model=TOPIC_EXTRACTION_MODEL, messages=messages)
+        
+        # Handle both direct list and dictionary-wrapped list
+        if isinstance(response, list):
+            topics = response
+        elif isinstance(response, dict) and len(response) == 1:
+            key, value = next(iter(response.items()))
+            if isinstance(value, list):
+                logger.info(f"Extracted topics from dictionary under key '{key}'.")
+                topics = value
+            else:
+                topics = []
+        else:
+            topics = []
+
+        if all(isinstance(t, str) for t in topics):
             return topics
+            
     except Exception as e:
-        print(f"Error extracting topics: {e}")
+        logger.error(f"Error extracting topics: {e}", exc_info=True)
     return []
 
 async def process_pdf(pdf_path: str) -> Optional[Dict]:
@@ -79,6 +92,11 @@ async def process_pdf(pdf_path: str) -> Optional[Dict]:
             print(f"No topics extracted from {pdf_path}")
             return None
 
+        # Deduplicate topics
+        unique_topics = list(set(topics))
+        print(f"Found {len(unique_topics)} unique topics out of {len(topics)} extracted.")
+        topics = unique_topics
+
         embeddings = await generate_embeddings(topics)
         if not embeddings:
             print(f"No embeddings generated for {pdf_path}")
@@ -96,19 +114,41 @@ async def process_pdf(pdf_path: str) -> Optional[Dict]:
         print(f"Error processing {pdf_path}: {e}")
         return None
 
-async def watch_directory(directory: str) -> None:
+async def watch_directory(directory: str, processed_dir: str) -> None:
     """
-    Watches a directory for new PDF files and processes them.
+    Watches a directory for new PDF files, processes them, and moves them.
     """
     print(f"Watching directory: {directory}")
     processed_files = set()
+    failed_attempts = {}
+    MAX_ATTEMPTS = 3
+
     while True:
         for filename in os.listdir(directory):
             if filename.lower().endswith(".pdf") and filename not in processed_files:
                 pdf_path = os.path.join(directory, filename)
+                
+                if failed_attempts.get(filename, 0) >= MAX_ATTEMPTS:
+                    if filename not in processed_files:
+                        print(f"Skipping {filename}, it failed processing {MAX_ATTEMPTS} times.")
+                        processed_files.add(filename) # Mark as processed to avoid retrying
+                    continue
+
                 result = await process_pdf(pdf_path)
                 if result:
-                    # TODO: Save the result to the database
                     print(f"Result for {filename}: {result['status']}")
+                    # Move the successfully processed file
+                    try:
+                        destination_path = os.path.join(processed_dir, filename)
+                        shutil.move(pdf_path, destination_path)
+                        print(f"Moved {filename} to {processed_dir}")
+                    except Exception as e:
+                        print(f"Error moving file {filename}: {e}")
+                    
                     processed_files.add(filename)
+                    if filename in failed_attempts:
+                        del failed_attempts[filename]
+                else:
+                    failed_attempts[filename] = failed_attempts.get(filename, 0) + 1
+                    print(f"Processing failed for {filename}. Attempt {failed_attempts[filename]}/{MAX_ATTEMPTS}.")
         await asyncio.sleep(10)

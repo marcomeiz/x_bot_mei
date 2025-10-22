@@ -3,6 +3,7 @@ import google.generativeai as genai
 import threading
 import chromadb
 from dotenv import load_dotenv
+from typing import List
 
 # --- NUEVO: Importar el logger configurado ---
 from logger_config import logger
@@ -66,3 +67,27 @@ def get_embedding(text: str):
         # --- NUEVO: Registrar el error específico de la API ---
         logger.error(f"Error al llamar a la API de Google para generar embedding: {e}", exc_info=True)
         return None
+
+def find_similar_topics(topic_text: str, n_results: int = 4) -> List[str]:
+    """Finds similar topics in the topics_collection."""
+    logger.info(f"Buscando temas similares a: '{topic_text[:50]}...'")
+    topic_embedding = get_embedding(topic_text)
+    if not topic_embedding:
+        logger.warning("No se pudo generar el embedding para el tema, no se puede buscar similitud.")
+        return []
+
+    try:
+        topics_collection = get_topics_collection()
+        results = topics_collection.query(
+            query_embeddings=[topic_embedding],
+            n_results=n_results
+        )
+        
+        # Exclude the exact match which is likely the topic itself
+        similar_docs = [doc for doc in results['documents'][0] if doc != topic_text]
+        
+        logger.info(f"Se encontraron {len(similar_docs)} temas similares.")
+        return similar_docs
+    except Exception as e:
+        logger.error(f"Error al buscar temas similares en ChromaDB: {e}", exc_info=True)
+        return []

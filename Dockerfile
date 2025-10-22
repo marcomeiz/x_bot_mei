@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Las dependencias de watchers (llama-index, PyMuPDF, watchdog, etc.)
 # permanecen en requirements.txt para uso local, pero no se instalan en la imagen.
 COPY requirements.runtime.txt ./
-RUN pip install --upgrade pip && pip install -r requirements.runtime.txt
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.runtime.txt
 
 COPY . .
 

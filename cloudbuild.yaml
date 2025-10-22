@@ -7,8 +7,9 @@ steps:
 - name: 'gcr.io/cloud-builders/docker'
   args: ['push', 'europe-west1-docker.pkg.dev/${PROJECT_ID}/x-bot-mei/x-bot-mei:latest']
 
-# 3. Deploy to Cloud Run
+# 3. Deploy to Cloud Run, but do not route traffic yet
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: Deploy
   entrypoint: gcloud
   args:
     - 'run'
@@ -17,8 +18,21 @@ steps:
     - '--image=europe-west1-docker.pkg.dev/${PROJECT_ID}/x-bot-mei/x-bot-mei:latest'
     - '--region=europe-west1'
     - '--platform=managed'
+    - '--no-traffic'
     - '--quiet'
-    # Las variables de entorno y secretos se mantienen de la configuración del servicio existente
+
+# 4. Update traffic to point to the latest revision
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+    - 'run'
+    - 'services'
+    - 'update-traffic'
+    - 'x-bot-mei'
+    - '--to-latest'
+    - '--region=europe-west1'
+    - '--platform=managed'
+    - '--quiet'
 
 images:
 - 'europe-west1-docker.pkg.dev/${PROJECT_ID}/x-bot-mei/x-bot-mei:latest'

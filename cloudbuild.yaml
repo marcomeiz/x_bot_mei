@@ -1,16 +1,14 @@
 steps:
-# 1. Build the container image using Google Cloud Buildpacks
-- name: 'gcr.io/k8s-skaffold/pack'
-  entrypoint: 'pack'
-  args: ['build', 'europe-west1-docker.pkg.dev/${PROJECT_ID}/x-bot-mei/x-bot-mei:latest', '--builder=gcr.io/buildpacks/builder', '--path=.']
+# 1. Build and push the container image using the Dockerfile
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'europe-west1-docker.pkg.dev/${PROJECT_ID}/x-bot-mei/x-bot-mei:latest', '.']
 
-# 2. Push the container image to Artifact Registry
+# 2. Push the image to Artifact Registry
 - name: 'gcr.io/cloud-builders/docker'
   args: ['push', 'europe-west1-docker.pkg.dev/${PROJECT_ID}/x-bot-mei/x-bot-mei:latest']
 
-# 3. Deploy to Cloud Run, but do not route traffic yet
+# 3. Deploy to Cloud Run
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-  id: Deploy
   entrypoint: gcloud
   args:
     - 'run'
@@ -19,21 +17,9 @@ steps:
     - '--image=europe-west1-docker.pkg.dev/${PROJECT_ID}/x-bot-mei/x-bot-mei:latest'
     - '--region=europe-west1'
     - '--platform=managed'
-    - '--no-traffic'
-    - '--quiet'
-
-# 4. Update traffic to point to the latest revision
-- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-  entrypoint: gcloud
-  args:
-    - 'run'
-    - 'services'
-    - 'update-traffic'
-    - 'x-bot-mei'
-    - '--to-latest'
-    - '--region=europe-west1'
-    - '--platform=managed'
     - '--quiet'
 
 images:
 - 'europe-west1-docker.pkg.dev/${PROJECT_ID}/x-bot-mei/x-bot-mei:latest'
+
+timeout: 1200s # 20 minutes

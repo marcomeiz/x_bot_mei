@@ -1,18 +1,2 @@
-openai
-python-dotenv
-requests
-PyMuPDF
-watchdog
-tenacity
-Flask
-gunicorn
-desktop-notifier
-google-generativeai
-chromadb
-numpy
-pydantic
-instructor
-llama-index
-llama-index-llms-openai
-llama-index-embeddings-google
-datasets
+-r requirements.runtime.txt
+-r requirements.dev.txt

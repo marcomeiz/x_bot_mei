@@ -1,7 +1,8 @@
 steps:
-# 1. Build the container image
-- name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '--no-cache', '-t', 'europe-west1-docker.pkg.dev/${PROJECT_ID}/x-bot-mei/x-bot-mei:latest', '.']
+# 1. Build the container image using Google Cloud Buildpacks
+- name: 'gcr.io/k8s-skaffold/pack'
+  entrypoint: 'pack'
+  args: ['build', 'europe-west1-docker.pkg.dev/${PROJECT_ID}/x-bot-mei/x-bot-mei:latest', '--builder=gcr.io/buildpacks/builder', '--path=.']
 
 # 2. Push the container image to Artifact Registry
 - name: 'gcr.io/cloud-builders/docker'

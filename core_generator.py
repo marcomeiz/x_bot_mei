@@ -9,6 +9,7 @@ control-flow, logging and data access.
 
 import os
 import random
+import time
 from typing import Dict, Optional
 
 from dotenv import load_dotenv
@@ -238,8 +239,6 @@ def generate_comment_from_text(source_text: str) -> CommentDraft:
 
 
 def find_relevant_topic(sample_size: int = 5):
-    """Devuelve un tema aleatorio priorizando baja similitud con la memoria."""
-    import time
     start_time = time.time()
 
     logger.info("Buscando tema en 'topics_collection' (preferir menos similar a memoria)…")

@@ -1,6 +1,7 @@
 import os
 import random
 import re
+import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
@@ -882,7 +883,6 @@ def generate_variant_ab_pair(
     logger.info("Generando variantes A y B via LLM (JSON preferred).")
     draft_a = ""
     draft_b = ""
-    import time
     start_time_llm_ab = time.time()
     try:
         resp = llm.chat_json(
@@ -1073,9 +1073,7 @@ Remember: the category spirit guides the message; the format and hook guardrails
         + "\n</FINAL_REVIEW_GUIDELINES>"
             )
     
-        import time
-        start_time_llm_c = time.time()
-        raw_c = llm.chat_text(        model=settings.generation_model,
+            start_time_llm_c = time.time()        raw_c = llm.chat_text(        model=settings.generation_model,
         messages=[
             {"role": "system", "content": system_message},
             {

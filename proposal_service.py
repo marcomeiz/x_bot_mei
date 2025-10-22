@@ -1,5 +1,6 @@
 import os
 import threading
+import time
 from typing import Dict, Optional
 from urllib.parse import quote
 
@@ -116,7 +117,6 @@ class ProposalService:
         self.telegram.send_message(chat_id, message, as_html=True)
 
     def propose_tweet(self, chat_id: int, topic: Dict, ignore_similarity: bool = False) -> bool:
-        import time
         total_start_time = time.time()
 
         topic_abstract = topic.get("abstract")

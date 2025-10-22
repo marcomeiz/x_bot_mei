@@ -24,25 +24,36 @@ _chroma_client = None
 _chroma_lock = threading.Lock()
 
 def get_chroma_client():
-    """Devuelve una instancia única del cliente de ChromaDB, creándola si no existe."""
+    """
+    Devuelve una instancia única del cliente de ChromaDB, seleccionando el tipo de cliente
+    basado en el entorno de ejecución (Cloud Run vs. local).
+    """
     global _chroma_client
     if _chroma_client is None:
         with _chroma_lock:
             if _chroma_client is None:
-                try:
-                    db_path = os.getenv("CHROMA_DB_PATH", "db")
-                    logger.info(f"Inicializando nuevo cliente persistente de ChromaDB (path='{db_path}')...")
-                    os.makedirs(db_path, exist_ok=True)
-                    _chroma_client = chromadb.PersistentClient(path=db_path)
-                except Exception as e:
-                    logger.error(f"Error inicializando ChromaDB persistente: {e}", exc_info=True)
-                    # Reintento único tras asegurar el directorio
+                # Si K_SERVICE está presente, estamos en Cloud Run
+                if os.getenv('K_SERVICE'):
+                    chroma_url = os.getenv("CHROMA_DB_URL")
+                    if not chroma_url:
+                        logger.critical("Error: Ejecutando en producción pero CHROMA_DB_URL no está configurada.")
+                        raise ValueError("CHROMA_DB_URL must be set in production environment")
+                    try:
+                        logger.info(f"Inicializando cliente HTTP de ChromaDB para producción (url='{chroma_url}')...")
+                        # El puerto es manejado por Cloud Run, solo necesitamos el host base
+                        _chroma_client = chromadb.HttpClient(host=chroma_url, port=80) 
+                    except Exception as e:
+                        logger.critical(f"Fallo crítico conectando con el servidor ChromaDB de producción: {e}", exc_info=True)
+                        raise
+                else:
+                    # Entorno local
                     try:
                         db_path = os.getenv("CHROMA_DB_PATH", "db")
+                        logger.info(f"Inicializando cliente persistente local de ChromaDB (path='{db_path}')...")
                         os.makedirs(db_path, exist_ok=True)
                         _chroma_client = chromadb.PersistentClient(path=db_path)
-                    except Exception as e2:
-                        logger.critical(f"Fallo crítico creando cliente ChromaDB: {e2}", exc_info=True)
+                    except Exception as e:
+                        logger.critical(f"Fallo crítico creando cliente ChromaDB local: {e}", exc_info=True)
                         raise
     return _chroma_client
 

@@ -25,28 +25,26 @@ _chroma_lock = threading.Lock()
 
 def get_chroma_client():
     """
-    Devuelve una instancia única del cliente de ChromaDB, seleccionando el tipo de cliente
-    basado en el entorno de ejecución (Cloud Run vs. local).
+    Devuelve una instancia única del cliente de ChromaDB.
+    Prioriza la conexión HTTP si CHROMA_DB_URL está definida; de lo contrario,
+    usa un cliente persistente local.
     """
     global _chroma_client
     if _chroma_client is None:
         with _chroma_lock:
             if _chroma_client is None:
-                # Si K_SERVICE está presente, estamos en Cloud Run
-                if os.getenv('K_SERVICE'):
-                    chroma_url = os.getenv("CHROMA_DB_URL")
-                    if not chroma_url:
-                        logger.critical("Error: Ejecutando en producción pero CHROMA_DB_URL no está configurada.")
-                        raise ValueError("CHROMA_DB_URL must be set in production environment")
+                chroma_url = os.getenv("CHROMA_DB_URL")
+                # Si CHROMA_DB_URL está presente, SIEMPRE usamos el cliente HTTP
+                if chroma_url:
                     try:
-                        logger.info(f"Inicializando cliente HTTP de ChromaDB para producción (url='{chroma_url}')...")
-                        # El puerto es manejado por Cloud Run, solo necesitamos el host base
-                        _chroma_client = chromadb.HttpClient(host=chroma_url, port=80) 
+                        logger.info(f"Inicializando cliente HTTP de ChromaDB (url='{chroma_url}')...")
+                        # El cliente infiere el puerto y el protocolo desde la URL
+                        _chroma_client = chromadb.HttpClient(host=chroma_url)
                     except Exception as e:
-                        logger.critical(f"Fallo crítico conectando con el servidor ChromaDB de producción: {e}", exc_info=True)
+                        logger.critical(f"Fallo crítico conectando con el servidor ChromaDB: {e}", exc_info=True)
                         raise
                 else:
-                    # Entorno local
+                    # Entorno local sin URL definida
                     try:
                         db_path = os.getenv("CHROMA_DB_PATH", "db")
                         logger.info(f"Inicializando cliente persistente local de ChromaDB (path='{db_path}')...")

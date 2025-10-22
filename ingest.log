@@ -1,0 +1,45 @@
+2025-10-22 14:01:47 - bot_logger - INFO - Cargadas variables de entorno de '.env.prod' para la ingestión.
+2025-10-22 14:01:47 - bot_logger - INFO - Forzando el uso del cliente HTTP para producción: https://x-bot-db-295511624125.europe-west1.run.app
+Traceback (most recent call last):
+  File "/home/mei/Desktop/MMEI/x_bot_mei/venv/lib/python3.12/site-packages/chromadb/api/base_http_client.py", line 100, in _raise_chroma_error
+    resp.raise_for_status()
+  File "/home/mei/Desktop/MMEI/x_bot_mei/venv/lib/python3.12/site-packages/httpx/_models.py", line 829, in raise_for_status
+    raise HTTPStatusError(message, request=request, response=self)
+httpx.HTTPStatusError: Client error '404 Not Found' for url 'https://x-bot-db-295511624125.europe-west1.run.app/api/v2/auth/identity'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/mei/Desktop/MMEI/x_bot_mei/venv/lib/python3.12/site-packages/chromadb/api/client.py", line 122, in get_user_identity
+    return self._server.get_user_identity()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mei/Desktop/MMEI/x_bot_mei/venv/lib/python3.12/site-packages/chromadb/telemetry/opentelemetry/__init__.py", line 150, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/mei/Desktop/MMEI/x_bot_mei/venv/lib/python3.12/site-packages/chromadb/api/fastapi.py", line 209, in get_user_identity
+    return UserIdentity(**self._make_request("get", "/auth/identity"))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mei/Desktop/MMEI/x_bot_mei/venv/lib/python3.12/site-packages/chromadb/api/fastapi.py", line 115, in _make_request
+    BaseHTTPClient._raise_chroma_error(response)
+  File "/home/mei/Desktop/MMEI/x_bot_mei/venv/lib/python3.12/site-packages/chromadb/api/base_http_client.py", line 105, in _raise_chroma_error
+    raise (Exception(resp.text))
+Exception: {"detail":"Not Found"}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/mei/Desktop/MMEI/x_bot_mei/ingest_prod.py", line 44, in <module>
+    main()
+  File "/home/mei/Desktop/MMEI/x_bot_mei/ingest_prod.py", line 22, in main
+    embeddings_manager._chroma_client = chromadb.HttpClient(host=chroma_url, port=80)
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mei/Desktop/MMEI/x_bot_mei/venv/lib/python3.12/site-packages/chromadb/__init__.py", line 293, in HttpClient
+    return ClientCreator(tenant=tenant, database=database, settings=settings)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mei/Desktop/MMEI/x_bot_mei/venv/lib/python3.12/site-packages/chromadb/api/client.py", line 75, in __init__
+    user_identity = self.get_user_identity()
+                    ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/mei/Desktop/MMEI/x_bot_mei/venv/lib/python3.12/site-packages/chromadb/api/client.py", line 131, in get_user_identity
+    raise ValueError(str(e))
+ValueError: {"detail":"Not Found"}

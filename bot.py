@@ -64,6 +64,27 @@ def telegram_webhook():
         elif text.startswith("/pdfs"):
             logger.info("[CHAT_ID: %s] Comando '/pdfs' recibido.", chat_id)
             _send_pdf_summary(chat_id)
+        elif text == "/ping":
+            logger.info("[CHAT_ID: %s] Comando '/ping' recibido.", chat_id)
+            try:
+                import requests
+                url = os.getenv("CHROMA_DB_URL")
+                if not url:
+                    telegram_client.send_message(chat_id, "❌ CHROMA_DB_URL no está configurada.")
+                    return "ok", 200
+                
+                # Asegurarse de que la URL tiene el endpoint correcto
+                if not url.endswith('/'):
+                    url += '/'
+                heartbeat_url = f"{url}api/v1/heartbeat"
+                
+                logger.info(f"Haciendo ping a la base de datos en: {heartbeat_url}")
+                response = requests.get(heartbeat_url, timeout=10)
+                response.raise_for_status()
+                telegram_client.send_message(chat_id, f"✅ Ping exitoso. Respuesta: {response.json()}")
+            except Exception as e:
+                logger.error(f"[CHAT_ID: {chat_id}] Error en /ping: {e}", exc_info=True)
+                telegram_client.send_message(chat_id, f"❌ Ping fallido: {e}")
         else:
             telegram_client.send_message(chat_id, "Comando no reconocido. Usa /generate para obtener propuestas.")
     elif "callback_query" in update:

@@ -845,7 +845,8 @@ def generate_variant_ab_pair(
     allow_analogy_a = should_allow_analogy(rng)
     allow_analogy_b = should_allow_analogy(rng)
 
-    tail_angles = _verbalized_tail_sampling(topic_abstract, context, settings.generation_model, rag_context=rag_context)
+    # tail_angles = _verbalized_tail_sampling(topic_abstract, context, settings.generation_model, rag_context=rag_context)
+    tail_angles = []
     tail_prompt = ""
     if tail_angles:
         logger.info("Tail sampling generated %s hook angles for A/B.", len(tail_angles))
@@ -956,8 +957,10 @@ def generate_variant_ab_pair(
     else:
         logger.info(f"Auditoría B: sin cambios. Detalle: {audit_b}")
 
-    draft_a, feedback_a = _apply_internal_debate("A", draft_a, topic_abstract, context, tail_angles, settings.validation_model)
-    draft_b, feedback_b = _apply_internal_debate("B", draft_b, topic_abstract, context, tail_angles, settings.validation_model)
+    # draft_a, feedback_a = _apply_internal_debate("A", draft_a, topic_abstract, context, tail_angles, settings.validation_model)
+    # draft_b, feedback_b = _apply_internal_debate("B", draft_b, topic_abstract, context, tail_angles, settings.validation_model)
+    feedback_a = ''
+    feedback_b = ''
 
     draft_a = _refine_single_tweet_style(draft_a, settings.validation_model, context)
     post_improved_a, post_audit_a = improve_style(draft_a, context.contract)
@@ -1046,7 +1049,8 @@ Remember: the category spirit guides the message; the format and hook guardrails
 **Topic:** {topic_abstract}
 """
 
-    tail_angles = _verbalized_tail_sampling(topic_abstract, context, settings.generation_model, rag_context=rag_context, max_angles=2)
+    # tail_angles = _verbalized_tail_sampling(topic_abstract, context, settings.generation_model, rag_context=rag_context, max_angles=2)
+    tail_angles = []
     if tail_angles:
         formatted = []
         for idx, item in enumerate(tail_angles, 1):
@@ -1095,7 +1099,8 @@ Remember: the category spirit guides the message; the format and hook guardrails
     improved_c, _ = improve_style(c1, context.contract)
     c2 = improved_c or c1
 
-    c2, feedback_c = _apply_internal_debate("C", c2, topic_abstract, context, tail_angles, settings.validation_model)
+    # c2, feedback_c = _apply_internal_debate("C", c2, topic_abstract, context, tail_angles, settings.validation_model)
+    feedback_c = ''
 
     # Enforce single sentence and single line for Variant C as per user request
     if _count_sentences(c2) != 1:

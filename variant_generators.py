@@ -836,175 +836,92 @@ def generate_variant_ab_pair(
     settings: GenerationSettings,
     rag_context: Optional[List[str]] = None,
 ) -> ABGenerationResult:
-    rng = random.Random(hash(topic_abstract) & 0xFFFFFFFF)
-    format_a = select_format(rng, "A")
-    format_b = select_format(rng, "B")
-    hook_indices = _pick_hooks_for_variants(rng, 2)
-    hook_a = HOOK_GUIDELINES[hook_indices[0]]
-    hook_b = HOOK_GUIDELINES[hook_indices[1]]
-    allow_analogy_a = should_allow_analogy(rng)
-    allow_analogy_b = should_allow_analogy(rng)
+    """Generates two distinct tweet variants (A/B) using a single, comprehensive LLM call."""
+    import time
+    start_time = time.time()
 
-    tail_angles = _verbalized_tail_sampling(topic_abstract, context, settings.generation_model, rag_context=rag_context)
-    tail_prompt = ""
-    if tail_angles:
-        logger.info("Tail sampling generated %s hook angles for A/B.", len(tail_angles))
-        formatted_lines = []
-        for idx, item in enumerate(tail_angles, 1):
-            line = f"{idx}. [p={item['probability']}] {item['angle']}"
-            if item.get("rationale"):
-                line += f" (Why: {item['rationale']})"
-            formatted_lines.append(line)
-        tail_prompt = (
-            "\n\nTail-sampled contrarian angles (use them as the spine of your outputs):\n"
-            + "\n".join(formatted_lines)
-            + "\n- Variant A must lean into the boldest angle above.\n"
-            + "- Variant B must use a different angle, highlighting contrast or tension."
-        )
+    system_message = (
+        "You are a world-class ghostwriter who follows instructions precisely. "
+        "You will perform a chain of thought process internally, but ONLY return the final JSON output."
+        "\n\n<STYLE_CONTRACT>\n"
+        + context.contract
+        + "\n</STYLE_CONTRACT>\n\n"
+        "Audience ICP:\n<ICP>\n"
+        + context.icp
+        + "\n</ICP>\n\n"
+        "Complementary polish rules:\n<FINAL_REVIEW_GUIDELINES>\n"
+        + context.final_guidelines
+        + "\n</FINAL_REVIEW_GUIDELINES>"
+    )
 
-    contrast = _generate_contrast_analysis(topic_abstract, context, settings.generation_model, rag_context=rag_context)
-    contrast_prompt = ""
-    if contrast:
-        contrast_prompt = (
-            "\n\nContrast analysis (mainstream vs contrarian):\n"
-            f"- Mainstream: {contrast.get('mainstream', '')}\n"
-            f"- Contrarian: {contrast.get('contrarian', '')}\n"
-            f"- Winner: {contrast.get('winner', '')} (reason: {contrast.get('reason', '')})\n"
-            "Anchor both variants in the winning perspective."
-        )
+    user_prompt = f"""
+    Your task is to generate two distinct, high-quality tweet variants (A and B) based on the provided topic. Follow these steps internally:
 
-    shared_rules = _build_shared_rules()
-    variant_blocks = [
-        _format_block("A", format_a.instructions, hook_a.name, allow_analogy_a),
-        _format_block("B", format_b.instructions, hook_b.name, allow_analogy_b),
-    ]
-    prompt = _build_ab_prompt(topic_abstract, context, shared_rules, variant_blocks) + tail_prompt + contrast_prompt
+    1.  **Analyze the Topic:**
+        -   Topic: \"{{topic_abstract}}\"
 
-    logger.info("Generando variantes A y B via LLM (JSON preferred).")
-    draft_a = ""
-    draft_b = ""
-    start_time_llm_ab = time.time()
+    2.  **Tail Sampling (Internal Thought):**
+        -   Generate 3 contrarian or non-obvious angles for this topic. These should challenge mainstream narratives.
+
+    3.  **Drafting (Internal Thought):**
+        -   Select the two strongest angles.
+        -   Write a first draft for Variant A based on the first angle.
+        -   Write a first draft for Variant B based on the second angle.
+        -   Ensure the drafts adhere to the style contract (especially the Hormozi cadence: short, punchy, one-sentence paragraphs).
+
+    4.  **Internal Debate (Self-Critique):**
+        -   For each draft, critique it from two perspectives:
+            -   **Clarity Reviewer:** Is it specific? Is it actionable? Is it crystal clear?
+            -   **Compliance Reviewer:** Does it perfectly match the Hormozi-like tone? Is it ruthless and direct? Does it break any style rules (e.g., hedging, corporate jargon)?
+
+    5.  **Final Revision:**
+        -   Rewrite Variant A and Variant B, incorporating the feedback from your self-critique.
+        -   The final versions must be under 280 characters, contain no hashtags or emojis, and be in English.
+
+    6.  **Final Output:**
+        -   Return ONLY a strict JSON object with the two final, polished drafts. Do not include any of your internal thoughts, analysis, or critiques in the output.
+
+    **Topic:** "{topic_abstract}"
+
+    **CRITICAL OUTPUT FORMAT:**
+    Return ONLY a strict JSON object with the following structure:
+    {{
+      "draft_a": "<Final polished text for Variant A>",
+      "draft_b": "<Final polished text for Variant B>"
+    }}
+    """
+
+    logger.info("Generating A/B variants via single-call Chain of Thought prompt...")
+    
     try:
         resp = llm.chat_json(
             model=settings.generation_model,
             messages=[
-                {"role": "system", "content": _build_system_message(context)},
-                {
-                    "role": "user",
-                    "content": (
-                        prompt
-                        + '\n\nOutput format (strict JSON): {\n  "draft_a": "...",\n  "draft_b": "..." \n}'
-                    ),
-                },
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_prompt},
             ],
-            temperature=0.65,
+            temperature=0.7,
         )
-        if isinstance(resp, dict):
-            draft_a = str(resp.get("draft_a", "")).strip()
-            draft_b = str(resp.get("draft_b", "")).strip()
-    except Exception as e_json:
-        logger.warning(f"JSON generation failed, fallback to text parse: {e_json}")
-    logger.info(f"[PERF] LLM generation for A/B (JSON attempt) took {time.time() - start_time_llm_ab:.2f} seconds.")
+        
+        if not isinstance(resp, dict) or "draft_a" not in resp or "draft_b" not in resp:
+            raise StyleRejection("LLM failed to produce valid A/B drafts in a single call.")
 
-    if not draft_a or not draft_b:
-        logger.info("Falling back to delimiter-based response for variants A/B.")
-        plain = llm.chat_text(
-            model=settings.generation_model,
-            messages=[
-                {"role": "system", "content": "You are a world-class ghostwriter creating two tweet drafts."},
-                {
-                    "role": "user",
-                    "content": (
-                        prompt
-                        + "\n\nReturn two alternatives under 280 chars each."
-                        + " Use the exact delimiter on a single line between them: ---"
-                    ),
-                },
-            ],
-            temperature=0.65,
-        )
-        if isinstance(plain, str) and plain.strip():
-            if "\n---\n" in plain:
-                part_a, part_b = plain.split("\n---\n", 1)
-                draft_a = part_a.strip()
-                draft_b = part_b.strip()
-            else:
-                parts = [p.strip() for p in plain.split("\n\n") if p.strip()]
-                if len(parts) >= 2:
-                    draft_a, draft_b = parts[0], parts[1]
-                else:
-                    draft_a = plain.strip()
-                    draft_b = plain.strip()[: max(0, len(plain.strip()) - 1)]
+        draft_a = str(resp.get("draft_a", "")).strip()
+        draft_b = str(resp.get("draft_b", "")).strip()
 
-    if not draft_a or not draft_b:
-        raise StyleRejection("LLM failed to produce both variants.")
+        # Final length check as a safeguard
+        if len(draft_a) > 280:
+            draft_a = ensure_under_limit_via_llm(draft_a, settings.validation_model, 280)
+        if len(draft_b) > 280:
+            draft_b = ensure_under_limit_via_llm(draft_b, settings.validation_model, 280)
 
-    draft_a = _refine_single_tweet_style(draft_a, settings.validation_model, context)
-    draft_b = _refine_single_tweet_style(draft_b, settings.validation_model, context)
+        logger.info(f"[PERF] Single-call A/B generation took {time.time() - start_time:.2f} seconds.")
+        
+        return ABGenerationResult(draft_a=draft_a, draft_b=draft_b, reasoning_summary="Generated via single-call CoT prompt.")
 
-    improved_a, audit_a = improve_style(draft_a, context.contract)
-    if improved_a and improved_a != draft_a:
-        logger.info(f"Auditoría A: se aplicó revisión de estilo. Detalle: {audit_a}")
-        draft_a = improved_a
-    else:
-        logger.info(f"Auditoría A: sin cambios. Detalle: {audit_a}")
-
-    improved_b, audit_b = improve_style(draft_b, context.contract)
-    if improved_b and improved_b != draft_b:
-        logger.info(f"Auditoría B: se aplicó revisión de estilo. Detalle: {audit_b}")
-        draft_b = improved_b
-    else:
-        logger.info(f"Auditoría B: sin cambios. Detalle: {audit_b}")
-
-    draft_a, feedback_a = _apply_internal_debate("A", draft_a, topic_abstract, context, tail_angles, settings.validation_model)
-    draft_b, feedback_b = _apply_internal_debate("B", draft_b, topic_abstract, context, tail_angles, settings.validation_model)
-
-    draft_a = _refine_single_tweet_style(draft_a, settings.validation_model, context)
-    post_improved_a, post_audit_a = improve_style(draft_a, context.contract)
-    if post_improved_a and post_improved_a != draft_a:
-        logger.info(f"Auditoría post-debate A: se aplicó revisión de estilo. Detalle: {post_audit_a}")
-        draft_a = post_improved_a
-    elif post_audit_a:
-        logger.info(f"Auditoría post-debate A: sin cambios. Detalle: {post_audit_a}")
-
-    draft_b = _refine_single_tweet_style(draft_b, settings.validation_model, context)
-    post_improved_b, post_audit_b = improve_style(draft_b, context.contract)
-    if post_improved_b and post_improved_b != draft_b:
-        logger.info(f"Auditoría post-debate B: se aplicó revisión de estilo. Detalle: {post_audit_b}")
-        draft_b = post_improved_b
-    elif post_audit_b:
-        logger.info(f"Auditoría post-debate B: sin cambios. Detalle: {post_audit_b}")
-
-    if len(draft_a) > 280:
-        draft_a = ensure_under_limit_via_llm(draft_a, settings.validation_model, 280, attempts=4)
-    if len(draft_b) > 280:
-        draft_b = ensure_under_limit_via_llm(draft_b, settings.validation_model, 280, attempts=4)
-
-    if len(draft_a) > 280 or len(draft_b) > 280:
-        raise StyleRejection("Alguna alternativa excede los 280 caracteres tras reescritura.")
-
-
-
-    feedback_map = {"A": feedback_a, "B": feedback_b}
-    reasoning_summary = _build_reasoning_summary(tail_angles, contrast, feedback_map)
-    metadata = {
-        "variant_a": {
-            "format": format_a.name,
-            "hook": hook_a.name,
-            "allow_analogy": allow_analogy_a,
-        },
-        "variant_b": {
-            "format": format_b.name,
-            "hook": hook_b.name,
-            "allow_analogy": allow_analogy_b,
-        },
-        "tail_angles": tail_angles,
-        "contrast": contrast,
-        "feedback": feedback_map,
-        "shared_rules": shared_rules,
-    }
-
-    return ABGenerationResult(draft_a.strip(), draft_b.strip(), reasoning_summary, metadata)
+    except Exception as e:
+        logger.error(f"Error in single-call A/B generation: {e}", exc_info=True)
+        raise StyleRejection(f"Failed to generate A/B variants: {e}")
 
 
 def generate_variant_c(
@@ -1013,126 +930,87 @@ def generate_variant_c(
     settings: GenerationSettings,
     rag_context: Optional[List[str]] = None,
 ) -> VariantCResult:
-    rng = random.Random((hash(topic_abstract) ^ 0x9E3779B1) & 0xFFFFFFFF)
-    format_profile = select_format(rng, "C")
-    hook_idx = _pick_hooks_for_variants(rng, 1)[0]
-    hook = HOOK_GUIDELINES[hook_idx]
-    allow_analogy = should_allow_analogy(rng)
+    """Generates a third tweet variant (C) using a single, comprehensive LLM call."""
+    import time
+    start_time = time.time()
 
-    category = pick_random_post_category()
+    # Load categories and select one randomly
+    categories = load_post_categories()
+    category = random.choice(categories)
     cat_name = category["name"]
     cat_desc = category["pattern"]
-    cat_struct = (category.get("structure") or "").strip()
-    cat_why = (category.get("why") or "").strip()
-
-    prompt = f"""
-**Audience:** Remember you are talking to a friend who fits the Ideal Customer Profile (ICP) below. Your tone should be like giving direct, valuable advice to them.
-
-**Core Task:** Your goal is to follow the *spirit* and *rationale* of the category. The 'why' and 'pattern' are more important than a rigid adherence to the 'structure'. The output should make the reader feel a certain way or see *themselves* differently, as described in the category's rationale.
-
-**Category Details:**
-- Category: {cat_name}
-- Pattern: {cat_desc}
-- Structure: {('Structure template: ' + cat_struct) if cat_struct else ''}
-- Rationale: {('Technique rationale: ' + cat_why) if cat_why else ''}
-
-**Shared guardrails:**
-{_build_shared_rules()}
-
-{_format_block('C', format_profile.instructions, hook.name, allow_analogy)}
-
-Remember: the category spirit guides the message; the format and hook guardrails above outrank any legacy structure notes.
-
-**Topic:** {topic_abstract}
-"""
-
-    tail_angles = _verbalized_tail_sampling(topic_abstract, context, settings.generation_model, rag_context=rag_context, max_angles=2)
-    if tail_angles:
-        formatted = []
-        for idx, item in enumerate(tail_angles, 1):
-            line = f"{idx}. [p={item['probability']}] {item['angle']}"
-            if item.get("rationale"):
-                line += f" (Why: {item['rationale']})"
-            formatted.append(line)
-        prompt += (
-            "\nTail-sampled spikes to infuse (choose one and make it unavoidable):\n"
-            + "\n".join(formatted)
-        )
-
-    contrast = _generate_contrast_analysis(topic_abstract, context, settings.generation_model, rag_context=rag_context)
 
     system_message = (
-        "You are a world-class ghostwriter. Obey the following style contract strictly.\n\n<STYLE_CONTRACT>\n"
+        "You are a world-class ghostwriter who follows instructions precisely. "
+        "You will perform a chain of thought process internally, but ONLY return the final JSON output."
+        "\n\n<STYLE_CONTRACT>\n"
         + context.contract
         + "\n</STYLE_CONTRACT>\n\n"
         "Audience ICP:\n<ICP>\n"
         + context.icp
         + "\n</ICP>\n\n"
-        "Complementary polish rules (do not override the contract/ICP):\n<FINAL_REVIEW_GUIDELINES>\n"
+        "Complementary polish rules:\n<FINAL_REVIEW_GUIDELINES>\n"
         + context.final_guidelines
         + "\n</FINAL_REVIEW_GUIDELINES>"
     )
 
-    start_time_llm_c = time.time()
-    raw_c = llm.chat_text(
-        model=settings.generation_model,
-        messages=[
-            {"role": "system", "content": system_message},
-            {
-                "role": "user",
-                "content": (
-                    prompt
-                    + "\n\nOverride for C: Ignore paragraph-count constraints from the original contract. "
-                    "Follow the assigned format exactly (staircase, staccato, or list strikes) without adding commas or conjunctions."
-                ),
-            },
-        ],
-        temperature=0.75,
-    )
-    logger.info(f"[PERF] LLM generation for C took {time.time() - start_time_llm_c:.2f} seconds.")
+    user_prompt = f"""
+    Your task is to generate one high-quality tweet variant (Variant C) based on the provided topic and a specific creative category. Follow these steps internally:
 
-    c1 = _refine_single_tweet_style_flexible(raw_c, settings.validation_model, context)
-    improved_c, _ = improve_style(c1, context.contract)
-    c2 = improved_c or c1
+    1.  **Analyze the Topic and Category:**
+        -   Topic: "{topic_abstract}"
+        -   Creative Category: \"{cat_name}\" ({cat_desc}) 
 
-    c2, feedback_c = _apply_internal_debate("C", c2, topic_abstract, context, tail_angles, settings.validation_model)
+    2.  **Drafting (Internal Thought):**
+        -   Write a first draft that embodies the spirit of the chosen category and topic.
+        -   Ensure the draft adheres to the style contract (Hormozi cadence: short, punchy, one-sentence paragraphs).
 
-    # Enforce single sentence and single line for Variant C as per user request
-    if _count_sentences(c2) != 1:
-        logger.info("Variant C has more than one sentence. Enforcing single sentence.")
-        c2 = _enforce_sentence_count(c2, 1, context, settings.validation_model)
-    
-    # Ensure it's a single line (no newlines)
-    c2 = _enforce_line_limit(c2, max_lines=1)
+    3.  **Internal Critique (Self-Correction):"
+        -   Critique the draft for clarity, compliance with the Hormozi-like tone, and adherence to the creative category.
 
-    if len(c2) > 280:
-        c2 = ensure_under_limit_via_llm(c2, settings.validation_model, 280, attempts=4)
+    4.  **Final Revision:**
+        -   Rewrite the draft, incorporating the feedback from your self-critique.
+        -   The final version must be under 280 characters, contain no hashtags or emojis, and be in English.
 
-    if len(c2) > 280:
-        raise StyleRejection("Variant C exceeds 280 characters tras reescritura.")
+    5.  **Final Output:**
+        -   Return ONLY a strict JSON object with the final, polished draft and the category name.
 
-    # Remove commas before final compliance check
-    if "," in c2:
-        logger.info("Variant C contains commas. Removing them to comply with mandatory rule.")
-        c2 = c2.replace(",", "")
+    **CRITICAL OUTPUT FORMAT:**
+    Return ONLY a strict JSON object with the following structure:
+    {{
+      "draft_c": "<Final polished text for Variant C>",
+      "category_name": "{cat_name}"
+    }}
+    """
 
-    _enforce_variant_compliance("C", c2, format_profile, allow_analogy)
+    logger.info("Generating C variant via single-call Chain of Thought prompt...")
 
-    feedback_map = {"C": feedback_c}
-    reasoning_summary = _build_reasoning_summary(tail_angles, contrast, feedback_map)
-    metadata = {
-        "variant_c": {
-            "format": format_profile.name,
-            "hook": hook.name,
-            "allow_analogy": allow_analogy,
-            "category": category.get("key"),
-        },
-        "tail_angles": tail_angles,
-        "contrast": contrast,
-        "feedback": feedback_map,
-    }
+    try:
+        resp = llm.chat_json(
+            model=settings.generation_model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.7,
+        )
 
-    return VariantCResult(c2.strip(), cat_name, reasoning_summary, metadata)
+        if not isinstance(resp, dict) or "draft_c" not in resp:
+            raise StyleRejection("LLM failed to produce a valid C draft in a single call.")
+
+        draft_c = str(resp.get("draft_c", "")).strip()
+        returned_cat_name = str(resp.get("category_name", cat_name)).strip()
+
+        if len(draft_c) > 280:
+            draft_c = ensure_under_limit_via_llm(draft_c, settings.validation_model, 280)
+
+        logger.info(f"[PERF] Single-call C generation took {time.time() - start_time:.2f} seconds.")
+
+        return VariantCResult(draft=draft_c, category=returned_cat_name, reasoning_summary="Generated via single-call CoT prompt.")
+
+    except Exception as e:
+        logger.error(f"Error in single-call C generation: {e}", exc_info=True)
+        raise StyleRejection(f"Failed to generate C variant: {e}")
 
 
 def generate_comment_reply(

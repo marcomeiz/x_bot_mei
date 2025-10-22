@@ -239,6 +239,8 @@ def generate_comment_from_text(source_text: str) -> CommentDraft:
 
 def find_relevant_topic(sample_size: int = 5):
     """Devuelve un tema aleatorio priorizando baja similitud con la memoria."""
+    import time
+    start_time = time.time()
 
     logger.info("Buscando tema en 'topics_collection' (preferir menos similar a memoria)…")
     topics_collection = get_topics_collection()
@@ -299,13 +301,16 @@ def find_relevant_topic(sample_size: int = 5):
                 len(candidates),
                 best_distance,
             )
+            logger.info(f"[PERF] find_relevant_topic took {time.time() - start_time:.2f} seconds.")
             return best_topic
 
         # Fallback absoluto: devolver cualquier tema
         fallback_id = random.choice(all_ids)
+        logger.info(f"[PERF] find_relevant_topic (fallback) took {time.time() - start_time:.2f} seconds.")
         return _extract_topic_entry(topics_collection, fallback_id)
     except Exception as exc:
         logger.error("Error al buscar un tema en ChromaDB: %s", exc, exc_info=True)
+    logger.info(f"[PERF] find_relevant_topic (error path) took {time.time() - start_time:.2f} seconds.")
     return None
 
 

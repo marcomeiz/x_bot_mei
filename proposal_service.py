@@ -116,6 +116,9 @@ class ProposalService:
         self.telegram.send_message(chat_id, message, as_html=True)
 
     def propose_tweet(self, chat_id: int, topic: Dict, ignore_similarity: bool = False) -> bool:
+        import time
+        total_start_time = time.time()
+
         topic_abstract = topic.get("abstract")
         topic_id = topic.get("topic_id")
         source_pdf = topic.get("source_pdf")
@@ -136,9 +139,13 @@ class ProposalService:
         self.telegram.send_message(chat_id, "\n".join(pre_lines))
 
         try:
+            start_time_ab = time.time()
             ab_result = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
             draft_a = ab_result.draft_a
             draft_b = ab_result.draft_b
+            logger.info(f"[PERF] generate_tweet_from_topic (A/B) took {time.time() - start_time_ab:.2f} seconds.")
+
+            start_time_c = time.time()
             try:
                 c_result = generate_third_tweet_variant(topic_abstract)
                 draft_c = c_result.draft
@@ -150,11 +157,14 @@ class ProposalService:
                 draft_c = f"[Rejected by final reviewer: {feedback_short}]"
                 category_name = "Rejected"
                 c_result = VariantCResult(draft=draft_c, category=category_name, reasoning_summary=None)
+            logger.info(f"[PERF] generate_third_tweet_variant (C) took {time.time() - start_time_c:.2f} seconds.")
+
         except Exception as e:
             logger.error(f"[CHAT_ID: {chat_id}] Error generating tweet from topic: {e}", exc_info=True)
             self.telegram.send_message(chat_id, "❌ Ocurrió un error inesperado al generar las propuestas. El equipo ha sido notificado.")
             return False
 
+        start_time_eval = time.time()
         context = build_prompt_context()
         evaluations: Dict[str, Dict[str, object]] = {}
         evaluation_a = evaluate_draft(draft_a, context)
@@ -167,6 +177,7 @@ class ProposalService:
             evaluation_c = evaluate_draft(draft_c, context)
             if evaluation_c:
                 evaluations["C"] = evaluation_c
+        logger.info(f"[PERF] Style evaluations took {time.time() - start_time_eval:.2f} seconds.")
 
         if draft_a.startswith("Error: El tema es demasiado similar"):
             return False

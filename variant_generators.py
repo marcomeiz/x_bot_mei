@@ -882,6 +882,8 @@ def generate_variant_ab_pair(
     logger.info("Generando variantes A y B via LLM (JSON preferred).")
     draft_a = ""
     draft_b = ""
+    import time
+    start_time_llm_ab = time.time()
     try:
         resp = llm.chat_json(
             model=settings.generation_model,
@@ -902,6 +904,7 @@ def generate_variant_ab_pair(
             draft_b = str(resp.get("draft_b", "")).strip()
     except Exception as e_json:
         logger.warning(f"JSON generation failed, fallback to text parse: {e_json}")
+    logger.info(f"[PERF] LLM generation for A/B (JSON attempt) took {time.time() - start_time_llm_ab:.2f} seconds.")
 
     if not draft_a or not draft_b:
         logger.info("Falling back to delimiter-based response for variants A/B.")
@@ -1068,10 +1071,11 @@ Remember: the category spirit guides the message; the format and hook guardrails
         "Complementary polish rules (do not override the contract/ICP):\n<FINAL_REVIEW_GUIDELINES>\n"
         + context.final_guidelines
         + "\n</FINAL_REVIEW_GUIDELINES>"
-    )
-
-    raw_c = llm.chat_text(
-        model=settings.generation_model,
+            )
+    
+        import time
+        start_time_llm_c = time.time()
+        raw_c = llm.chat_text(        model=settings.generation_model,
         messages=[
             {"role": "system", "content": system_message},
             {
@@ -1082,9 +1086,10 @@ Remember: the category spirit guides the message; the format and hook guardrails
                     "Follow the assigned format exactly (staircase, staccato, or list strikes) without adding commas or conjunctions."
                 ),
             },
-        ],
-        temperature=0.75,
-    )
+        ],_x000D_
+        temperature=0.75,_x000D_
+    )_x000D_
+    logger.info(f"[PERF] LLM generation for C took {time.time() - start_time_llm_c:.2f} seconds.")
 
     c1 = _refine_single_tweet_style_flexible(raw_c, settings.validation_model, context)
     improved_c, _ = improve_style(c1, context.contract)

@@ -8,8 +8,8 @@ Flask
 gunicorn
 desktop-notifier
 google-generativeai
-chromadb==0.5.0
-numpy==1.26.4
+chromadb
+numpy
 pydantic
 instructor
 llama-index

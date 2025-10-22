@@ -3,8 +3,8 @@ gunicorn
 requests
 google-generativeai
 chromadb
+numpy
 pydantic
 instructor
 openai
 tenacity
-

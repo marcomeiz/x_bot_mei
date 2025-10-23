@@ -49,6 +49,7 @@ class TelegramClient:
         draft_c: Optional[str] = None,
         category_name: Optional[str] = None,
         evaluations: Optional[Dict[str, Dict[str, object]]] = None,
+        labels: Optional[Dict[str, str]] = None,
     ) -> str:
         safe_id = self.escape(topic_id or "-")
         safe_abstract = self.escape(self.clean_abstract(abstract or ""))
@@ -107,11 +108,18 @@ class TelegramClient:
         label: str,
         text: Optional[str],
         evaluations: Optional[Dict[str, Dict[str, object]]],
+        length_label: Optional[str] = None,
     ) -> str:
         text = text or ""
         safe_text = self.escape(text)
         code_block = f"<pre><code>{safe_text}</code></pre>"
-        block = [f"{icon} <b>Opción {label}</b> · {len(text)}/280", code_block]
+        
+        title_parts = [f"{icon} <b>Opción {label}</b>"]
+        if length_label:
+            title_parts.append(f"<i>[{length_label}]</i>")
+        title_parts.append(f"· {len(text)}/280")
+
+        block = [" ".join(title_parts), code_block]
 
         if evaluations and label in evaluations:
             eval_block = self._format_evaluation(evaluations[label])

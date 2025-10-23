@@ -144,57 +144,29 @@ def _log_similarity(topic_abstract: str, ignore_similarity: bool) -> None:
     logger.info("Comprobación de similitud finalizada.")
 
 
-def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = True) -> ABGenerationResult:
+def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = True) -> Dict[str, str]:
     context = build_prompt_context()
     settings = _build_settings()
 
     _log_similarity(topic_abstract, ignore_similarity)
 
-    # RAG: Find similar topics to enrich the context
-    rag_context = find_similar_topics(topic_abstract)
-
-    last_style_feedback = ""
+    last_error = ""
     for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
         logger.info("Intento de generación de IA %s/%s…", attempt, MAX_GENERATION_ATTEMPTS)
         try:
-            result = generate_variant_ab_pair(topic_abstract, context, settings, rag_context)
-            logger.info("Intento %s: borradores A/B generados y validados.", attempt)
-            return result
+            drafts = generate_all_variants(topic_abstract, context, settings)
+            logger.info("Intento %s: todos los borradores generados y validados.", attempt)
+            return drafts
         except StyleRejection as rejection:
-            last_style_feedback = str(rejection).strip()
-            logger.warning("Rechazo del revisor final en intento %s: %s", attempt, last_style_feedback)
+            last_error = str(rejection).strip()
+            logger.warning("Rechazo del revisor final en intento %s: %s", attempt, last_error)
         except Exception as exc:
+            last_error = str(exc)
             logger.error("Error crítico en el intento %s: %s", attempt, exc, exc_info=True)
 
     logger.error("No se pudo generar un borrador válido tras varios intentos.")
-    if last_style_feedback:
-        return ABGenerationResult(
-            draft_a=f"Error: Style rejection tras {MAX_GENERATION_ATTEMPTS} intentos. Feedback: {last_style_feedback}",
-            draft_b="",
-            reasoning_summary=None,
-        )
-    return ABGenerationResult(
-        draft_a="Error: No se pudo generar un borrador válido tras varios intentos.",
-        draft_b="",
-        reasoning_summary=None,
-    )
-
-
-def generate_third_tweet_variant(topic_abstract: str) -> VariantCResult:
-    context = build_prompt_context()
-    settings = _build_settings()
-    
-    # RAG: Find similar topics to enrich the context
-    rag_context = find_similar_topics(topic_abstract)
-    
-    try:
-        return generate_variant_c(topic_abstract, context, settings, rag_context)
-    except StyleRejection:
-        # Se deja propagar para que el llamador maneje el feedback.
-        raise
-    except Exception as exc:
-        logger.error("Error generating third variant: %s", exc, exc_info=True)
-    return VariantCResult(draft="", category="", reasoning_summary=None)
+    error_message = f"Error: {last_error}" if last_error else "Error: No se pudo generar un borrador válido."
+    return {"error": error_message}
 
 
 def generate_comment_from_text(source_text: str) -> CommentDraft:

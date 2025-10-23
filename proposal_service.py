@@ -117,8 +117,6 @@ class ProposalService:
         self.telegram.send_message(chat_id, message, as_html=True)
 
     def propose_tweet(self, chat_id: int, topic: Dict, ignore_similarity: bool = False) -> bool:
-        total_start_time = time.time()
-
         topic_abstract = topic.get("abstract")
         topic_id = topic.get("topic_id")
         source_pdf = topic.get("source_pdf")
@@ -135,100 +133,69 @@ class ProposalService:
         ]
         if source_pdf:
             pre_lines.append(f"📄 Origen: {source_pdf}")
-        pre_lines.append("Generando 3 alternativas…")
+        pre_lines.append("Generando 3 alternativas de longitud variable…")
         self.telegram.send_message(chat_id, "\n".join(pre_lines))
 
         try:
-            start_time_ab = time.time()
-            ab_result = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
-            draft_a = ab_result.draft_a
-            draft_b = ab_result.draft_b
-            logger.info(f"[PERF] generate_tweet_from_topic (A/B) took {time.time() - start_time_ab:.2f} seconds.")
+            drafts = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
+            if "error" in drafts:
+                raise Exception(drafts["error"])
 
-            start_time_c = time.time()
-            try:
-                c_result = generate_third_tweet_variant(topic_abstract)
-                draft_c = c_result.draft
-                category_name = c_result.category
-            except StyleRejection as rejection:
-                feedback = str(rejection).strip()
-                logger.warning("[CHAT_ID: %s] Variante C rechazada: %s", chat_id, feedback)
-                feedback_short = (feedback[:200] + "…") if len(feedback) > 200 else feedback
-                draft_c = f"[Rejected by final reviewer: {feedback_short}]"
-                category_name = "Rejected"
-                c_result = VariantCResult(draft=draft_c, category=category_name, reasoning_summary=None)
-            logger.info(f"[PERF] generate_third_tweet_variant (C) took {time.time() - start_time_c:.2f} seconds.")
+            draft_short = drafts.get("short", "")
+            draft_mid = drafts.get("mid", "")
+            draft_long = drafts.get("long", "")
 
         except Exception as e:
             logger.error(f"[CHAT_ID: {chat_id}] Error generating tweet from topic: {e}", exc_info=True)
-            self.telegram.send_message(chat_id, "❌ Ocurrió un error inesperado al generar las propuestas. El equipo ha sido notificado.")
+            self.telegram.send_message(chat_id, f"❌ Ocurrió un error inesperado: {e}")
             return False
 
-        start_time_eval = time.time()
-        context = build_prompt_context()
-        evaluations: Dict[str, Dict[str, object]] = {}
-        evaluation_a = evaluate_draft(draft_a, context)
-        if evaluation_a:
-            evaluations["A"] = evaluation_a
-        evaluation_b = evaluate_draft(draft_b, context)
-        if evaluation_b:
-            evaluations["B"] = evaluation_b
-        if draft_c and category_name != "Rejected":
-            evaluation_c = evaluate_draft(draft_c, context)
-            if evaluation_c:
-                evaluations["C"] = evaluation_c
-        logger.info(f"[PERF] Style evaluations took {time.time() - start_time_eval:.2f} seconds.")
+        # Labeling logic as per user suggestion
+        def get_label(text: str) -> str:
+            length = len(text)
+            if length < 170: return "short"
+            if 170 <= length <= 230: return "mid"
+            return "long"
 
-        if draft_a.startswith("Error: El tema es demasiado similar"):
-            return False
-        if draft_a.startswith("Error:"):
-            logger.error("[CHAT_ID: %s] Error desde generador: %s", chat_id, draft_a)
-            self.telegram.send_message(
-                chat_id,
-                f"Hubo un problema: {self.telegram.escape(draft_a)}",
-                reply_markup=self.telegram.get_new_tweet_keyboard(),
-                as_html=True,
-            )
-            return False
+        labeled_drafts = {
+            get_label(draft_short): draft_short,
+            get_label(draft_mid): draft_mid,
+            get_label(draft_long): draft_long,
+        }
 
+        # This part would need adjustment based on how you want to present/approve 3+ variants
+        # For now, let's present them all clearly.
         payload = DraftPayload(
-            draft_a=draft_a,
-            draft_b=draft_b,
-            draft_c=draft_c,
-            category=category_name,
+            draft_a=draft_short, 
+            draft_b=draft_mid, 
+            draft_c=draft_long, 
+            category="Multi-length"
         )
         self.drafts.save(chat_id, topic_id, payload)
 
-        keyboard = self.telegram.build_proposal_keyboard(
-            topic_id,
-            has_variant_c=bool(draft_c),
-            allow_variant_c=bool(draft_c) and category_name != "Rejected",
-        )
+        keyboard = self.telegram.build_proposal_keyboard(topic_id, has_variant_c=True, allow_variant_c=True)
+
+        # Simplified evaluation for the presentation layer
+        evaluations = {}
+        context = build_prompt_context()
+        for i, draft in enumerate([draft_short, draft_mid, draft_long]):
+            if draft:
+                evaluations[chr(65+i)] = evaluate_draft(draft, context)
 
         message_text = self.telegram.format_proposal_message(
             topic_id,
             topic_abstract or "",
             source_pdf,
-            draft_a,
-            draft_b,
-            draft_c,
-            category_name,
+            draft_short,
+            draft_mid,
+            draft_long,
+            "Multi-length",
             evaluations=evaluations,
+            labels=labeled_drafts
         )
 
         logger.info("[CHAT_ID: %s] Intentando enviar propuesta a Telegram.", chat_id)
         if self.telegram.send_message(chat_id, message_text, reply_markup=keyboard, as_html=True):
-            if self.show_internal_summary:
-                summary_blocks = []
-                if ab_result.reasoning_summary:
-                    summary_blocks.append(ab_result.reasoning_summary)
-                if c_result.reasoning_summary:
-                    c_summary = c_result.reasoning_summary
-                    if c_summary.startswith("🧠"):
-                        c_summary = c_summary.replace("🧠", "🧠 (C)", 1)
-                    summary_blocks.append(c_summary)
-                if summary_blocks:
-                    self.telegram.send_message(chat_id, "\n\n".join(summary_blocks))
             logger.info("[CHAT_ID: %s] Propuesta enviada correctamente a Telegram.", chat_id)
             return True
         logger.error("[CHAT_ID: %s] Falló el envío de propuestas para topic %s.", chat_id, topic_id)

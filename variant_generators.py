@@ -1031,117 +1031,37 @@ def generate_all_variants(
 
 
         resp = llm.chat_json(
-
-
             model=settings.generation_model,
-
-
             messages=[
-
-
                 {"role": "system", "content": system_message},
-
-
                 {"role": "user", "content": user_prompt},
-
-
             ],
-
-
-            temperature=0.75, # Higher temp for more creative variety
-
-
+            temperature=0.75,  # Higher temp for more creative variety
         )
 
+        if not isinstance(resp, dict) or not all(
+            k in resp for k in ["draft_short", "draft_mid", "draft_long"]
+        ):
+            raise StyleRejection(
+                "LLM failed to produce all three drafts in a single call."
+            )
 
-        
+        drafts = {
+            "short": str(resp.get("draft_short", "")).strip(),
+            "mid": str(resp.get("draft_mid", "")).strip(),
+            "long": str(resp.get("draft_long", "")).strip(),
+        }
 
+        if not all(drafts.values()):
+            raise StyleRejection(
+                f"LLM produced one or more empty drafts. Got keys: {list(drafts.keys())}"
+            )
 
-                if not isinstance(resp, dict) or not all(k in resp for k in ["draft_short", "draft_mid", "draft_long"]):
+        logger.info(
+            f"[PERF] Single-call for all variants took {time.time() - start_time:.2f} seconds."
+        )
 
-
-        
-
-
-                    raise StyleRejection("LLM failed to produce all three drafts in a single call.")
-
-
-        
-
-
-        
-
-
-        
-
-
-                drafts = {
-
-
-        
-
-
-                    "short": str(resp.get("draft_short", "")).strip(),
-
-
-        
-
-
-                    "mid": str(resp.get("draft_mid", "")).strip(),
-
-
-        
-
-
-                    "long": str(resp.get("draft_long", "")).strip(),
-
-
-        
-
-
-                }
-
-
-        
-
-
-        
-
-
-        
-
-
-                if not all(drafts.values()):
-
-
-        
-
-
-                    raise StyleRejection(f"LLM produced one or more empty drafts. Got keys: {list(drafts.keys())}")
-
-
-        
-
-
-        
-
-
-        
-
-
-                logger.info(f"[PERF] Single-call for all variants took {time.time() - start_time:.2f} seconds.")
-
-
-        
-
-
-                
-
-
-        
-
-
-                return drafts
+        return drafts
 
 
 

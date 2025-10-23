@@ -21,12 +21,9 @@ from prompt_context import build_prompt_context
 from style_guard import StyleRejection
 from variant_generators import (
     GenerationSettings,
-    ABGenerationResult,
-    VariantCResult,
     CommentResult,
     CommentAssessment,
-    generate_variant_ab_pair,
-    generate_variant_c,
+    generate_all_variants,
     assess_comment_opportunity,
     generate_comment_reply,
 )

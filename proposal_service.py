@@ -7,13 +7,11 @@ from urllib.parse import quote
 from callback_parser import CallbackAction, CallbackType, parse_callback
 from core_generator import (
     find_relevant_topic,
-    generate_third_tweet_variant,
     generate_tweet_from_topic,
     find_topic_by_id,
     generate_comment_from_text,
     CommentSkip,
 )
-from variant_generators import VariantCResult
 from draft_repository import DraftPayload, DraftRepository
 from embeddings_manager import get_embedding, get_memory_collection
 from evaluation import evaluate_draft
@@ -141,9 +139,9 @@ class ProposalService:
             if "error" in drafts:
                 raise Exception(drafts["error"])
 
-            draft_short = drafts.get("short", "")
-            draft_mid = drafts.get("mid", "")
-            draft_long = drafts.get("long", "")
+            draft_a = drafts.get("short", "")
+            draft_b = drafts.get("mid", "")
+            draft_c = drafts.get("long", "")
 
         except Exception as e:
             logger.error(f"[CHAT_ID: {chat_id}] Error generating tweet from topic: {e}", exc_info=True)
@@ -158,27 +156,24 @@ class ProposalService:
             return "long"
 
         labeled_drafts = {
-            get_label(draft_short): draft_short,
-            get_label(draft_mid): draft_mid,
-            get_label(draft_long): draft_long,
+            get_label(draft_a): draft_a,
+            get_label(draft_b): draft_b,
+            get_label(draft_c): draft_c,
         }
 
-        # This part would need adjustment based on how you want to present/approve 3+ variants
-        # For now, let's present them all clearly.
         payload = DraftPayload(
-            draft_a=draft_short, 
-            draft_b=draft_mid, 
-            draft_c=draft_long, 
+            draft_a=draft_a, 
+            draft_b=draft_b, 
+            draft_c=draft_c, 
             category="Multi-length"
         )
         self.drafts.save(chat_id, topic_id, payload)
 
         keyboard = self.telegram.build_proposal_keyboard(topic_id, has_variant_c=True, allow_variant_c=True)
 
-        # Simplified evaluation for the presentation layer
         evaluations = {}
         context = build_prompt_context()
-        for i, draft in enumerate([draft_short, draft_mid, draft_long]):
+        for i, draft in enumerate([draft_a, draft_b, draft_c]):
             if draft:
                 evaluations[chr(65+i)] = evaluate_draft(draft, context)
 
@@ -186,9 +181,9 @@ class ProposalService:
             topic_id,
             topic_abstract or "",
             source_pdf,
-            draft_short,
-            draft_mid,
-            draft_long,
+            draft_a,
+            draft_b,
+            draft_c,
             "Multi-length",
             evaluations=evaluations,
             labels=labeled_drafts

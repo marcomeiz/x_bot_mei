@@ -1351,9 +1351,9 @@ Topic: {topic_abstract}
         user_prompt += "\nInspirational Context:\n" + "\n".join(f"- {doc}" for doc in rag_context) + "\n"
         
     user_prompt += """
-1. Describe the mainstream narrative most creators repeat about este tópico (≤160 chars).
-2. Describe a contrarian/orthogonal narrative that un COO fractional sí debería empujar (≤160 chars).
-3. Decide cuál narrativa golpea más duro al ICP y explica por qué en ≤160 chars.
+1. Describe the mainstream narrative most creators repeat about this topic (≤160 chars).
+2. Describe a contrarian/orthogonal narrative that a fractional COO should push (≤160 chars).
+3. Decide which narrative hits the ICP harder and explain why in ≤160 chars.
 
 Return strict JSON:
 {{

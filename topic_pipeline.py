@@ -112,7 +112,7 @@ def _extract_topics_with_llama(text: str) -> List[str]:
     query = (
         "Extract 8-12 high-quality, tweet-worthy topics from the document. "
         "Focus on counter-intuitive insights, practical advice, or strong opinions relevant to a COO. "
-        "Each topic should be a concise, self-contained statement."
+        "Each topic should be a concise, self-contained statement. ENGLISH ONLY."
     )
     response = query_engine.query(query)
     topics = [topic.abstract.strip() for topic in (response.topics if response else []) if topic.abstract]
@@ -125,7 +125,7 @@ def _extract_topics_with_llm(text: str, context: PromptContext) -> List[str]:
         "You are an operations strategist extracting tweet-worthy topics for a COO persona. "
         "Read the following transcript and return 8-12 concise topic statements (max 200 characters each). "
         "Focus on counter-intuitive insights, sharp advice or punchy observations relevant to operations, leadership, systems, execution, and growth. "
-        "Avoid duplications or vague platitudes."
+        "Avoid duplications or vague platitudes. ALL TOPICS MUST BE IN ENGLISH."
     )
     try:
         payload = llm.chat_json(

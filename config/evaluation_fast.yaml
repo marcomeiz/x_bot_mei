@@ -1,0 +1,20 @@
+name: Fast Evaluation
+model: gemini-1.5-flash
+rubric:
+  - dimension: style_sharpness
+    description: "Voz directa, ritmo ágil, cero hedging/corporativismo. One sentence per line. No commas."
+    output_type: int
+    scale: [1, 5]
+  - dimension: clarity
+    description: "Usa ejemplos, métricas o imágenes concretas. Evita abstracciones."
+    output_type: int
+    scale: [1, 5]
+  - dimension: length
+    description: "Is the text under 280 characters?"
+    output_type: bool
+
+output_format:
+  style_score: int
+  clarity_score: int
+  is_under_limit: bool
+  summary: "Short comment (<= 60 chars) on quantifiable aspects."

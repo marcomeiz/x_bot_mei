@@ -1,0 +1,21 @@
+name: Slow Evaluation
+model: gemini-1.5-pro
+rubric:
+  - dimension: contrarian_signal
+    description: "¿Abre con un ángulo incómodo, no obvio, que desafía la narrativa mainstream?"
+    output_type: int
+    scale: [1, 5]
+  - dimension: factual_soundness
+    description: "¿Hay datos dudosos o afirmaciones peligrosas?"
+    output_type: string
+    scale: ["ok", "unclear", "risky"]
+  - dimension: brand_fit
+    description: "¿Suena como la marca personal? ¿Tiene la autoridad y el tono correcto?"
+    output_type: int
+    scale: [1, 10]
+
+output_format:
+  contrarian_score: int
+  factuality: string
+  brand_fit_score: int
+  summary: "Short comment (<= 60 chars) on subjective quality."

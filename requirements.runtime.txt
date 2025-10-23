@@ -8,3 +8,4 @@ instructor
 openai
 tenacity
 python-dotenv
+PyYAML

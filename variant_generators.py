@@ -1111,23 +1111,22 @@ We are replying to the following post. Draft ONE short comment (<=280 characters
 POST (raw):
 \"\"\"{excerpt}\"\"\"
 
-Rules:
-- Voice: NYC bar sharp, constructive, no fluff, no emojis/hashtags, English only.
-- Goal: Audience Acquisition. Your job is to be the 'smartest guest' in the comments.
+- Voice: "Perceptive & Constructive" (NOT "NYC bar sharp"). Your tone is insightful, direct, and conversational, but NEVER aggressive or diagnostic towards the author.
+- Goal: Audience Acquisition ("The Smartest Guest"). Your job is NOT to diagnose the author. Your job is to provide a sharp, operational insight that makes the author's AUDIENCE curious about who you are.
 - Execution:
-  1. Validate the author's core point (NEVER be dismissive or 'dunk on' them).
-  2. Add a sharp, concrete, 'drawable' reframe that showcases our operational expertise.
-  3. This reframe is NOT a diagnosis of the author. It's an insightful statement that makes the author's AUDIENCE curious about who you are.
-- AVOID: Direct confrontation, diagnosing the author, or generic 'collaborative' questions. The comment should stand on its own as a piece of high-value insight.
-- Opening hook to deploy: {hook.name.upper()} — {hook.description} Example: {hook.sample}
-- Two sentences maximum. Keep it human and direct.
-- Format: output either ONE single line OR TWO lines separated by exactly one newline. Never produce more than one newline.
-- No commas. If you feel a pause, split into another sentence.
-- Avoid conjunctions 'and'/'or' ('y'/'o'). Stack short sentences instead.
+  1. Validate the author's core point in a human, conversational way (e.g., "That's a key insight," "This is a great point").
+  2. Reframe the problem through an operational/systems lens.
+  3. Use impersonal, non-deterministic language ("Often...", "Many times...").
+  4. CRITICAL: AVOID using direct, diagnostic 'You...' language (e.g., "You are paralyzed," "Your plan is...").
+  5. CRITICAL: The entire comment MUST be a single, dense paragraph. It must override any 'staccato' or line-break rules. It must look and feel like a human-typed comment.
+
+Example of Output (This is the 90%+ target):
+That's a key insight. Often, what we call 'procrastination' is just a symptom of a bad system. Many times it's not laziness, it's paralysis: people are trying to do 50 things at once instead of focusing on the single next step.
+
+**Technical Guardrails (Non-negotiable):**
+- English only. No emojis or hashtags.
 - Ban these words: {", ".join(sorted(BANNED_WORDS))}.
-- No adverbs ending in 'mente' or filler '-ly' words.
-- Make it drawable: describe physical scenes, objects, or reactions tied to the post.
-- Finish with an inspirational jab, not cheese, in the final question or challenge.
+- Stay under 280 characters.
 """
     if key_terms:
         prompt += (
@@ -1189,49 +1188,36 @@ Rules:
     if not comment:
         raise StyleRejection("LLM did not generate a valid comment.")
 
-    comment = _refine_single_tweet_style_flexible(comment, settings.validation_model, context)
-    improved, audit = improve_style(comment, context.contract)
-    if improved and improved != comment:
-        logger.info("Comment audit: style reinforced. %s", audit)
-        comment = improved
-    elif audit:
-        logger.info("Comment audit: no changes. %s", audit)
+    # --- NEW POST-PROCESSING FOR COMMENTS ---
+    # Goal: Preserve human-like paragraph format.
+    comment = comment.strip()
 
-    comment = _limit_sentences(comment, max_sentences=2)
-    comment = _enforce_line_limit(comment, max_lines=2)
-    sentence_count = _count_sentences(comment)
-    if sentence_count == 0:
-        comment = _enforce_sentence_count(comment, 1, context, settings.validation_model)
-        comment = _limit_sentences(comment, max_sentences=1)
-    elif sentence_count > 2:
-        comment = _enforce_sentence_count(comment, 2, context, settings.validation_model)
-        comment = _limit_sentences(comment, max_sentences=2)
-    comment = _enforce_line_limit(comment, max_lines=2)
-    comment = _ensure_question_at_end(comment)
+    # 1. Enforce length limit
     if len(comment) > 280:
-        comment = ensure_under_limit_via_llm(comment, settings.validation_model, 280, attempts=4)
-
+        comment = ensure_under_limit_via_llm(
+            comment, settings.validation_model, 280, attempts=4
+        )
     if len(comment) > 280:
         raise StyleRejection("Comment exceeds 280 characters after adjustments.")
 
-    normalized_comment_tokens = _normalized_token_set(comment)
-    if normalized_key_terms and not normalized_comment_tokens.intersection(normalized_key_terms):
-        anchor_term = None
-        for original in key_terms:
-            norm = _normalize_token(original)
-            if norm and norm in normalized_key_terms:
-                anchor_term = original
-                break
-        if not anchor_term and key_terms:
-            anchor_term = key_terms[0]
-        if anchor_term:
-            comment = f"{anchor_term.capitalize()}: {comment.lstrip()}"
-            comment = _limit_sentences(comment, max_sentences=2)
-            comment = _enforce_line_limit(comment, max_lines=2)
-            comment = _ensure_question_at_end(comment)
-            normalized_comment_tokens = _normalized_token_set(comment)
-        if normalized_key_terms and not normalized_comment_tokens.intersection(normalized_key_terms):
-            raise StyleRejection("Comment discarded: does not reference post core.")
+    # 2. Custom compliance check (bypassing staccato rules like no commas/conjunctions)
+    issues = []
+    lower_comment = comment.lower()
+    tokens = _WORD_REGEX.findall(lower_comment)
+    for banned in BANNED_WORDS:
+        if banned in tokens:
+            issues.append(f"contains banned word '{banned}'")
+    suffix_hits = [
+        token
+        for token in tokens
+        if any(token.endswith(suffix) for suffix in BANNED_SUFFIXES) and len(token) > 2
+    ]
+    if suffix_hits:
+        issues.append(
+            "contains forbidden suffix words: " + ", ".join(sorted(set(suffix_hits)))
+        )
+    if issues:
+        raise StyleRejection(f"Comment rejected: {', '.join(issues)}.")
 
     relevance = _validate_comment_relevance(
         excerpt,
@@ -1243,7 +1229,8 @@ Rules:
     if not relevance.is_relevant:
         raise StyleRejection(f"Comment discarded as irrelevant: {relevance.reason}")
 
-    _enforce_variant_compliance("Comment", comment, None, False)
+    # _enforce_variant_compliance is intentionally skipped here to allow paragraph format.
+    audit = "Custom comment validation applied."
 
     metadata: Dict[str, object] = {"audit": audit, "source_excerpt": excerpt}
     if insight:

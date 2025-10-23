@@ -99,17 +99,13 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 2) Generación: `core_generator.generate_tweet_from_topic(abstract)` produce `[EN - A]` y `[EN - B]` ≤ 280 (iterativo LLM), revisa similitud previa.
 3) Bot: `/generate` → elige tema aprobado o fallback general, muestra A/B con tema+PDF+conteo, callbacks para aprobar y persistir en `memory_collection`.
 
-## Políticas de LLM
+## Políticas de LLM (Actualizado Octubre 2025)
 
-- Orden de proveedores: `FALLBACK_PROVIDER_ORDER` (por defecto `gemini,openrouter`).
-- Detección de fallo para fallback: mensajes que contengan `insufficient`, `quota`, `credit`, `billing`, o códigos `402/401/403/429`.
-- JSON estricto:
-  - OpenRouter: `response_format={"type":"json_object"}`.
-  - Gemini: instrucción “ONLY strict JSON” + extracción robusta del primer bloque `{}`/`[]` si hubiese ruido.
-- Modelos sugeridos:
-  - OpenRouter: `anthropic/claude-3.5-sonnet` (generación) y `anthropic/claude-3-haiku` (refinado/validación).
-  - Gemini: `gemini-2.5-pro` o `gemini-2.5-flash`.
-- Límite 280 sin truncado local: usar helper de acortado iterativo vía LLM. Si no logra ≤ 280, reintentar la generación completa (no cortar).
+- **Principio de Inferencia Única:** Se debe priorizar la consolidación de múltiples pasos de razonamiento (ej. `tail-sampling`, `debate interno`, refinado) en una única llamada al LLM con un prompt de "Chain of Thought" bien estructurado. El objetivo es mover la complejidad del *proceso* (múltiples llamadas secuenciales) a la *instrucción* (un prompt más inteligente).
+- **Evaluación Adaptativa:** Para tareas de auditoría, se debe usar un sistema de dos jueces. Un modelo rápido y barato (`flash`) para criterios objetivos y cuantificables, y un modelo potente (`pro`) solo si es necesario para el juicio subjetivo, basándose en un umbral de confianza.
+- **Configuración Externalizada:** Las rúbricas y prompts complejos deben vivir en ficheros de configuración (`.yaml`) para facilitar su modificación sin tocar el código de la aplicación.
+- **Orden de proveedores:** `FALLBACK_PROVIDER_ORDER` (por defecto `gemini,openrouter`).
+- **JSON estricto:** Forzar siempre la salida en formato JSON para facilitar el parseo y la fiabilidad.
 
 ## Telegram: Mensajería y Callbacks
 

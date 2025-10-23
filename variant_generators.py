@@ -946,28 +946,55 @@ def generate_all_variants(
 
 
 
-    4.  **Final Output:**
+                4.  **Final Output:**
 
 
-                -   Return ONLY a strict JSON object with the three final, polished drafts.
 
 
-                -   All drafts MUST be in English.
+
+                    -   Return ONLY a strict JSON object with the three final, polished drafts.
 
 
-        
 
 
-        
+
+                    -   All drafts MUST be in English. Adhere to this rule strictly.
 
 
-        
 
 
-        
+
+            
 
 
-            **CRITICAL OUTPUT FORMAT:**
+
+
+
+            
+
+
+
+
+
+            
+
+
+
+
+
+            
+
+
+
+
+
+            
+
+
+
+
+
+                **CRITICAL OUTPUT FORMAT:**
 
 
     Return ONLY a strict JSON object with the following structure:
@@ -1030,40 +1057,91 @@ def generate_all_variants(
         
 
 
-        if not isinstance(resp, dict) or not all(k in resp for k in ["draft_short", "draft_mid", "draft_long"]):
-
-
-            raise StyleRejection("LLM failed to produce all three drafts in a single call.")
-
-
-
-
-
-        drafts = {
-
-
-            "short": str(resp.get("draft_short", "")).strip(),
-
-
-            "mid": str(resp.get("draft_mid", "")).strip(),
-
-
-            "long": str(resp.get("draft_long", "")).strip(),
-
-
-        }
-
-
-
-
-
-        logger.info(f"[PERF] Single-call for all variants took {time.time() - start_time:.2f} seconds.")
+                if not isinstance(resp, dict) or not all(k in resp for k in ["draft_short", "draft_mid", "draft_long"]):
 
 
         
 
 
-        return drafts
+                    raise StyleRejection("LLM failed to produce all three drafts in a single call.")
+
+
+        
+
+
+        
+
+
+        
+
+
+                drafts = {
+
+
+        
+
+
+                    "short": str(resp.get("draft_short", "")).strip(),
+
+
+        
+
+
+                    "mid": str(resp.get("draft_mid", "")).strip(),
+
+
+        
+
+
+                    "long": str(resp.get("draft_long", "")).strip(),
+
+
+        
+
+
+                }
+
+
+        
+
+
+        
+
+
+        
+
+
+                if not all(drafts.values()):
+
+
+        
+
+
+                    raise StyleRejection(f"LLM produced one or more empty drafts. Got keys: {list(drafts.keys())}")
+
+
+        
+
+
+        
+
+
+        
+
+
+                logger.info(f"[PERF] Single-call for all variants took {time.time() - start_time:.2f} seconds.")
+
+
+        
+
+
+                
+
+
+        
+
+
+                return drafts
 
 
 

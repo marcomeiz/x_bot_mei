@@ -24,6 +24,7 @@ from writing_rules import (
     visual_anchor_prompt,
     validate_format,
     words_blocklist_prompt,
+    _WORD_REGEX,
 )
 
 

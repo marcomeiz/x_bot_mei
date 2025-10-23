@@ -51,6 +51,7 @@ def _chat_has_token(token: Optional[str]) -> bool:
 @app.route(f"/{TELEGRAM_BOT_TOKEN}", methods=["POST"])
 def telegram_webhook():
     update: Dict = request.get_json()
+    logger.info("Update recibido: %s", update)
     if "message" in update:
         message = update["message"]
         text = (message.get("text") or "").strip()

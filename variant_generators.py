@@ -603,9 +603,9 @@ If the comment is vague, generic, or ignores the post's content, return false an
             relevant = bool(data.get("is_relevant", False))
             reason = str(data.get("reason", "")).strip()[:160]
             return CommentRelevance(is_relevant=relevant, reason=reason)
-            except Exception as exc:
-                logger.warning("Could not validate comment relevance: %s", exc)
-        return CommentRelevance(is_relevant=True, reason="Relevance not verified (fallback).")
+    except Exception as exc:
+        logger.warning("Could not validate comment relevance: %s", exc)
+    return CommentRelevance(is_relevant=True, reason="Relevance not verified (fallback).")
 
 def assess_comment_opportunity(
     source_text: str,

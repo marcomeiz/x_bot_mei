@@ -25,6 +25,7 @@ from writing_rules import (
     validate_format,
     words_blocklist_prompt,
     _WORD_REGEX,
+    BANNED_SUFFIXES,
 )
 
 

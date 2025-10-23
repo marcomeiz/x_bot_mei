@@ -1112,11 +1112,13 @@ POST (raw):
 \"\"\"{excerpt}\"\"\"
 
 Rules:
-- Ground the opening in a concrete detail from the post (quote/paraphrase) and show quick alignment before pushing your take.
-- Add one tactic or lens tied to operator/COO pains (ICP).
-- Keep it constructive: build on the author's point, avoid dunking, ridicule, or dismissive language.
-- End with a pointed, collaborative question or next-step challenge to spark conversation.
-- Voice: NYC bar sharp, no fluff, no emojis/hashtags, English only.
+- Voice: NYC bar sharp, constructive, no fluff, no emojis/hashtags, English only.
+- Goal: Audience Acquisition. Your job is to be the 'smartest guest' in the comments.
+- Execution:
+  1. Validate the author's core point (NEVER be dismissive or 'dunk on' them).
+  2. Add a sharp, concrete, 'drawable' reframe that showcases our operational expertise.
+  3. This reframe is NOT a diagnosis of the author. It's an insightful statement that makes the author's AUDIENCE curious about who you are.
+- AVOID: Direct confrontation, diagnosing the author, or generic 'collaborative' questions. The comment should stand on its own as a piece of high-value insight.
 - Opening hook to deploy: {hook.name.upper()} — {hook.description} Example: {hook.sample}
 - Two sentences maximum. Keep it human and direct.
 - Format: output either ONE single line OR TWO lines separated by exactly one newline. Never produce more than one newline.

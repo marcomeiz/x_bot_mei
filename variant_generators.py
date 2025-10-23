@@ -939,10 +939,12 @@ def generate_all_variants(
     3.  **Drafting (Internal Thought):**
 
 
-        -   **Version A (Short & Punchy):** Write a brief, aggressive draft (≤150 characters). Think of it as a micro-punch.
+                -   **Version A (The Surgical Diagnosis):** Write a 1-2 line knockout blow (≤150 characters). It must NOT be a vague positive statement. It MUST be a brutal, specific operational or financial diagnosis that attacks the ICP's failed math, false identity, or broken system. (Example: 'Stop being the highest-paid 
+
+        0/hr employee in your own business.')
 
 
-        -   **Version B (Standard):** Write a standard-length draft (180–220 characters) with a solid rhythm.
+                -   **Version B (Standard):** Write a standard-length draft (180–220 characters) with a solid rhythm.
 
 
         -   **Version C (Extended):** Write a longer draft (240–280 characters) that tells a mini-story or ends with a strong, imperative call to action.

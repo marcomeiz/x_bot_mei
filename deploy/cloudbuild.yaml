@@ -19,27 +19,9 @@ substitutions:
   _BRANCH: main
 
 steps:
-  # Clone repository to ensure we are using the correct commit
-  - name: gcr.io/cloud-builders/git
-    id: git-clone
-    args:
-      - clone
-      - --branch=${_BRANCH}
-      - --single-branch
-      - https://github.com/marcomeiz/x_bot_mei.git
-      - x_bot_mei
-  
-  - name: gcr.io/cloud-builders/git
-    id: git-checkout
-    dir: x_bot_mei
-    args:
-      - checkout
-      - ${_SHORT_SHA}
-
   # Commit metadata for notifications
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     id: commit-meta
-    dir: x_bot_mei
     entrypoint: bash
     secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
     env: ["BRANCH_NAME=${_BRANCH}", "SHORT_SHA=${_SHORT_SHA}", "COMMIT_SHA=${_SHORT_SHA}"]
@@ -53,7 +35,6 @@ steps:
   # Notify start
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     id: notify-start
-    dir: x_bot_mei
     entrypoint: bash
     secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
     env: ["BRANCH_NAME=${_BRANCH}", "SHORT_SHA=${_SHORT_SHA}", "COMMIT_SHA=${_SHORT_SHA}"]
@@ -62,7 +43,6 @@ steps:
   # Build image
   - name: gcr.io/cloud-builders/docker
     id: docker-build
-    dir: x_bot_mei
     entrypoint: bash
     env: ["SHORT_SHA=${_SHORT_SHA}", "COMMIT_SHA=${_SHORT_SHA}"]
     args:
@@ -75,7 +55,6 @@ steps:
   # Push image
   - name: gcr.io/cloud-builders/docker
     id: docker-push
-    dir: x_bot_mei
     entrypoint: bash
     env: ["SHORT_SHA=${_SHORT_SHA}", "COMMIT_SHA=${_SHORT_SHA}"]
     args:
@@ -87,7 +66,6 @@ steps:
 
   # Deploy to Cloud Run (CLI, no per-container resources)
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
-    dir: x_bot_mei
     entrypoint: bash
     secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
     env: ["BRANCH_NAME=${_BRANCH}", "SHORT_SHA=${_SHORT_SHA}", "COMMIT_SHA=${_SHORT_SHA}"]

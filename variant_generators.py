@@ -1117,6 +1117,7 @@ POST (raw):
 - Goal: Audience Acquisition ("The Smartest Guest"). Your job is NOT to diagnose the author. Your job is to provide a sharp, operational insight that makes the author's AUDIENCE curious about who you are.
 - Execution:
   1. Validate the author's core point in a human, conversational way (e.g., "That's a key insight," "This is a great point").
+     - CRITICAL (Long-Tail Variability): The validation (Step 1) MUST be genuinely unique and generated each time. DO NOT just rotate a short list of 3-4 opening phrases. The LLM must generate natural, human-sounding acknowledgments that feel specific to the context of the post, not like a template. It must be forced to sample from its full creative 'nucleus' (Top-P) for the opener.
   2. Reframe the problem through an operational/systems lens.
   3. Use impersonal, non-deterministic language ("Often...", "Many times...").
   4. CRITICAL: AVOID using direct, diagnostic 'You...' language (e.g., "You are paralyzed," "Your plan is...").

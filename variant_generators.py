@@ -746,6 +746,7 @@ def _refine_single_tweet_style(raw_text: str, model: str, context: PromptContext
         "Amplifiers (must do):\n"
         "- First sentence must stay a hard hook (no soft lead-ins).\n"
         "- Every sentence must describe something drawable; add micro-visual detail if missing.\n"
+        "- **Metaphor Audit:** If any analogy is abstract or philosophical, replace it with a direct, literal statement.\n"
         "- If you see commas or conjunctions 'and'/'or' (or 'y'/'o'), split the idea into separate sentences instead.\n"
         "- Cut adverbs ending in 'mente' or dull '-ly' fillers. Remove words: bueno, bien, solo, entonces, ya.\n"
         "- Prefer verbs and nouns over adjectives. If an adjective is vague, swap it for a concrete action/object.\n"
@@ -791,6 +792,7 @@ def _refine_single_tweet_style_flexible(raw_text: str, model: str, context: Prom
         "Amplifiers:\n"
         "- Keep the opening punch stronger than before — hook in ≤8 words if format allows.\n"
         "- Each sentence must be drawable and rooted in physical detail.\n"
+        "- **Metaphor Audit:** If any analogy is abstract or philosophical, replace it with a direct, literal statement.\n"
         "- Remove commas and conjunctions 'and'/'or' ('y'/'o'). Split thoughts into separate sentences instead.\n"
         "- Delete adverbs ending in 'mente' or filler '-ly' words. Ban: bueno, bien, solo, entonces, ya.\n"
         "- Use actions/items instead of adjectives. If an adjective is vague, replace it.\n"
@@ -899,7 +901,13 @@ def generate_all_variants(
 
 
     user_prompt = f"""
+    **Prime Directive: Clarity of Diagnosis > Poetic Creativity.**
+    Your absolute priority is to be understood in 3 seconds. The goal is to provide a sharp, operational diagnosis, not a philosophical musing.
 
+    **Metaphor & Analogy Rule: Concrete & Drawable ONLY.**
+    - Any metaphor MUST be 100% concrete and visual (physical objects, tangible actions).
+    - Any abstract or philosophical metaphor (e.g., "the grief of a fantasy," "sacrificing control") is a failure.
+    - If you are in doubt, ALWAYS default to a literal, direct statement.
 
     Your task is to generate three distinct, high-quality tweet variants based on the provided topic, each with a different length and structural feel. Follow these steps internally:
 

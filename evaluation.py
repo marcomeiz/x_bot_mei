@@ -33,7 +33,7 @@ def _run_evaluation(text: str, context: PromptContext, rubric: Dict[str, Any]) -
         return None
 
     model = rubric.get("model", "gemini-1.5-flash")
-    rubric_text = yaml.dump(rubric.get("rubric", {{}}))
+    rubric_text = yaml.dump(rubric.get("rubric", {}))
     output_format_text = yaml.dump(rubric.get("output_format", {{}}))
 
     prompt = f"""

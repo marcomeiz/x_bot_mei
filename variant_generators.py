@@ -369,16 +369,16 @@ REVIEWER_PROFILES: List[Dict[str, str]] = [
             "You enforce the COOlogy style contract. No hedging, no bloated sentences, voice must stay NYC bar sharp."
         ),
         "focus": (
-            "Point the exact spots where tone drifts, verbs weaken, o el contrato/ICP se violan. Ofrece una corrección directa."
+            "Point the exact spots where tone drifts, verbs weaken, or the contract/ICP are violated. Offer a direct correction."
         ),
     },
     {
         "name": "Clarity Reviewer",
         "role": (
-            "You are ruthless about clarity and specificity. If algo suena abstracto, exiges un ejemplo concreto o métrica."
+            "You are ruthless about clarity and specificity. If something sounds abstract, you demand a concrete example or metric."
         ),
         "focus": (
-            "Resalta afirmaciones vagas, métricas faltantes o stakes difusos. Sugiere qué detalle tangible lo haría innegable."
+            "Highlight vague claims, missing metrics, or fuzzy stakes. Suggest what tangible detail would make it undeniable."
         ),
     },
 ]

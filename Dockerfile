@@ -19,5 +19,5 @@ COPY . .
 
 EXPOSE 8080
 
-CMD ["gunicorn", "-b", ":8080", "bot:app"]
+CMD ["gunicorn", "-b", ":8080", "--timeout", "120", "bot:app"]
 

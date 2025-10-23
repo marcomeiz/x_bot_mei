@@ -200,16 +200,16 @@ def _enforce_variant_compliance(
     analogy_hits = count_analogy_markers(draft)
     if allow_analogy:
         if analogy_hits > 1:
-            raise StyleRejection(f"Variant {label} usa demasiadas analogías ({analogy_hits}).")
+            raise StyleRejection(f"Variant {label} uses too many analogies ({analogy_hits}).")
     else:
         if analogy_hits:
-            raise StyleRejection(f"Variant {label} no debe usar analogías.")
+            raise StyleRejection(f"Variant {label} must not use analogies.")
 
 
 DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
     {
         "key": "contrast_statement",
-        "name": "Declaración de Contraste",
+        "name": "Contrast Statement",
         "pattern": (
             "Present two opposing ideas to create an instant reveal. Invalidate a common approach (Don't do X), then "
             "present a stronger alternative (Do Y) — position Y as the obvious solution."
@@ -217,7 +217,7 @@ DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
     },
     {
         "key": "perspective_reframe",
-        "name": "Reencuadre de Perspectiva",
+        "name": "Perspective Reframe",
         "pattern": (
             "Start with a universal truth the reader recognizes. Introduce a twist that reframes it — turn a negative "
             "(struggle) into a necessary element for a positive outcome (victory)."
@@ -225,7 +225,7 @@ DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
     },
     {
         "key": "friction_reduction",
-        "name": "Argumento de Reducción de Fricción",
+        "name": "Friction Reduction Argument",
         "pattern": (
             "Directly address analysis paralysis or fear to start. Break an intimidating goal into an absurdly small, "
             "manageable first step that motivates immediate action."
@@ -233,7 +233,7 @@ DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
     },
     {
         "key": "identity_redefinition",
-        "name": "Redefinición de Identidad",
+        "name": "Identity Redefinition",
         "pattern": (
             "Dismantle a limiting label (e.g., 'I'm not a salesperson'). Replace it with a simpler, authentic requirement "
             "that feels attainable and aligned with the reader's identity."
@@ -241,7 +241,7 @@ DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
     },
     {
         "key": "parallel_contrast_aphorism",
-        "name": "Aforismo de Contraste Paralelo",
+        "name": "Parallel Contrast Aphorism",
         "pattern": (
             "Use parallel, aphoristic contrast to juxtapose two ideas. Start from a familiar saying (If A is B), then "
             "present a surprising counterpart (then C is D). Keep symmetry and punch."
@@ -249,7 +249,7 @@ DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
     },
     {
         "key": "demonstrative_principle",
-        "name": "Principio Demostrativo",
+        "name": "Demonstrative Principle",
         "pattern": (
             "Teach a copywriting rule by showing. Contrast a 'bad' version (feature) with a 'good' version (benefit), "
             "then conclude with the principle demonstrated."
@@ -257,7 +257,7 @@ DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
     },
     {
         "key": "counterintuitive_principle",
-        "name": "Principio Contraintuitivo",
+        "name": "Counterintuitive Principle",
         "pattern": (
             "State a counterintuitive rule as a near-universal law that challenges a popular belief. Push the reader to "
             "adopt a more effective method by reframing the goal."
@@ -265,7 +265,7 @@ DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
     },
     {
         "key": "process_promise",
-        "name": "Promesa de Proceso",
+        "name": "Process Promise",
         "pattern": (
             "Validate the reader's frustration: change isn't instant. Offer a future promise — tiny, consistent effort adds up "
             "to a total transformation. Encourage patience and trust in the process."
@@ -273,7 +273,7 @@ DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
     },
     {
         "key": "common_villain_exposure",
-        "name": "Exposición del Villano Común",
+        "name": "Common Villain Exposure",
         "pattern": (
             "Recreate a recognizable negative scenario the reader detests. Expose and criticize the shared villain to build "
             "instant trust, positioning the writer as an ally."
@@ -281,7 +281,7 @@ DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
     },
     {
         "key": "hidden_benefits_reveal",
-        "name": "Revelación de Beneficios Ocultos",
+        "name": "Hidden Benefits Reveal",
         "pattern": (
             "Start with a promise to reveal the non-obvious value of an action. Use a short list to enumerate specific, "
             "unexpected benefits — make the abstract tangible."
@@ -289,7 +289,7 @@ DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
     },
     {
         "key": "values_manifesto",
-        "name": "Manifiesto de Valores",
+        "name": "Values Manifesto",
         "pattern": (
             "Redefine a popular idea with a value hierarchy in a compact list. Use A > B comparisons to prioritize deep "
             "principles over superficial alternatives."
@@ -297,7 +297,7 @@ DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
     },
     {
         "key": "delayed_gratification_formula",
-        "name": "Fórmula de Gratificación Aplazada",
+        "name": "Delayed Gratification Formula",
         "pattern": (
             "State a direct cause-effect between present sacrifice and future reward. Structure like: Do the hard thing today, "
             "get the desired outcome tomorrow. Motivate disciplined action."
@@ -305,7 +305,7 @@ DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
     },
     {
         "key": "excuse_invalidation",
-        "name": "Invalidación de Excusa",
+        "name": "Excuse Invalidation",
         "pattern": (
             "Identify a common external excuse (the blamed villain). Then absolve it and redirect responsibility to an internal "
             "action or inaction, empowering the reader."
@@ -313,21 +313,21 @@ DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
     },
     {
         "key": "revealing_definition",
-        "name": "Definición Reveladora",
+        "name": "Revealing Definition",
         "pattern": (
             "Redefine a known concept with a sharp metaphor that reveals its overlooked essence, raising its perceived value."
         ),
     },
     {
         "key": "fundamental_maxim",
-        "name": "Máxima Fundamental",
+        "name": "Fundamental Maxim",
         "pattern": (
             "Present a core principle as a non-negotiable rule of the domain. Reset priorities by exposing the true hierarchy."
         ),
     },
     {
         "key": "paradox_statement",
-        "name": "Declaración Paradójica",
+        "name": "Paradoxical Statement",
         "pattern": (
             "Drop a claim that sounds self-contradictory to break the reader's pattern. Hook curiosity, then resolve the paradox "
             "with a practical reason that proves the rule."
@@ -603,10 +603,9 @@ If the comment is vague, generic, or ignores the post's content, return false an
             relevant = bool(data.get("is_relevant", False))
             reason = str(data.get("reason", "")).strip()[:160]
             return CommentRelevance(is_relevant=relevant, reason=reason)
-    except Exception as exc:
-        logger.warning("No se pudo validar relevancia del comentario: %s", exc)
-    return CommentRelevance(is_relevant=True, reason="Relevancia no verificada (fallback).")
-
+            except Exception as exc:
+                logger.warning("Could not validate comment relevance: %s", exc)
+        return CommentRelevance(is_relevant=True, reason="Relevance not verified (fallback).")
 
 def assess_comment_opportunity(
     source_text: str,
@@ -668,11 +667,11 @@ Guidelines:
             )
             return CommentAssessment(should_comment=should, reason=reason, hook=hook, risk=risk)
     except Exception as exc:
-        logger.warning("No se pudo evaluar la oportunidad de comentar: %s", exc)
+        logger.warning("Could not assess comment opportunity: %s", exc)
 
     return CommentAssessment(
         should_comment=True,
-        reason="Sin evaluación LLM (fallback).",
+        reason="No LLM evaluation (fallback).",
     )
 
 
@@ -950,13 +949,25 @@ def generate_all_variants(
     4.  **Final Output:**
 
 
-        -   Return ONLY a strict JSON object with the three final, polished drafts.
+                -   Return ONLY a strict JSON object with the three final, polished drafts.
 
 
+                -   All drafts MUST be in English.
 
 
+        
 
-    **CRITICAL OUTPUT FORMAT:**
+
+        
+
+
+        
+
+
+        
+
+
+            **CRITICAL OUTPUT FORMAT:**
 
 
     Return ONLY a strict JSON object with the following structure:
@@ -1166,15 +1177,15 @@ Rules:
             comment = raw.strip()
 
     if not comment:
-        raise StyleRejection("LLM no generó un comentario válido.")
+        raise StyleRejection("LLM did not generate a valid comment.")
 
     comment = _refine_single_tweet_style_flexible(comment, settings.validation_model, context)
     improved, audit = improve_style(comment, context.contract)
     if improved and improved != comment:
-        logger.info("Auditoría comentario: se reforzó el estilo. %s", audit)
+        logger.info("Comment audit: style reinforced. %s", audit)
         comment = improved
     elif audit:
-        logger.info("Auditoría comentario: sin cambios. %s", audit)
+        logger.info("Comment audit: no changes. %s", audit)
 
     comment = _limit_sentences(comment, max_sentences=2)
     comment = _enforce_line_limit(comment, max_lines=2)
@@ -1191,7 +1202,7 @@ Rules:
         comment = ensure_under_limit_via_llm(comment, settings.validation_model, 280, attempts=4)
 
     if len(comment) > 280:
-        raise StyleRejection("Comentario excede los 280 caracteres tras ajustes.")
+        raise StyleRejection("Comment exceeds 280 characters after adjustments.")
 
     normalized_comment_tokens = _normalized_token_set(comment)
     if normalized_key_terms and not normalized_comment_tokens.intersection(normalized_key_terms):
@@ -1210,7 +1221,7 @@ Rules:
             comment = _ensure_question_at_end(comment)
             normalized_comment_tokens = _normalized_token_set(comment)
         if normalized_key_terms and not normalized_comment_tokens.intersection(normalized_key_terms):
-            raise StyleRejection("Comentario descartado: no referencia el núcleo del post.")
+            raise StyleRejection("Comment discarded: does not reference post core.")
 
     relevance = _validate_comment_relevance(
         excerpt,
@@ -1220,7 +1231,7 @@ Rules:
         key_terms=key_terms,
     )
     if not relevance.is_relevant:
-        raise StyleRejection(f"Comentario descartado por irrelevante: {relevance.reason}")
+        raise StyleRejection(f"Comment discarded as irrelevant: {relevance.reason}")
 
     _enforce_variant_compliance("Comment", comment, None, False)
 
@@ -1511,9 +1522,9 @@ Feedback received:
 
 Rewrite constraints:
 - {variant_instruction}
-- Maintain COOlogy style contract, ICP, y pautas complementarias.
-- Cero hedging, sin tono corporativo, manténlo humano y directo.
-- Devuelve SOLO el texto revisado (sin comillas ni comentarios).
+- Maintain COOlogy style contract, ICP, and complementary guidelines.
+- Zero hedging, no corporate tone, keep it human and direct.
+- Return ONLY the revised text (no quotes or comments).
 """.format(
         variant_label=variant_label,
         topic=topic_abstract,
@@ -1547,7 +1558,7 @@ Rewrite constraints:
         if isinstance(revised, str):
             return revised.strip()
     except Exception as exc:
-        logger.warning("No se pudo aplicar revisión interna (%s): %s", variant_label, exc)
+        logger.warning("Could not apply internal review (%s): %s", variant_label, exc)
     return None
 
 
@@ -1635,5 +1646,5 @@ def _enforce_sentence_count(
         )
         return rewritten.strip() if isinstance(rewritten, str) and rewritten.strip() else text
     except Exception as exc:
-        logger.warning("No se pudo ajustar el conteo de oraciones: %s", exc)
+        logger.warning("Could not adjust sentence count: %s", exc)
         return text

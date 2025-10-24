@@ -1107,29 +1107,41 @@ def generate_comment_reply(
     key_terms = _extract_key_terms(excerpt)
     normalized_key_terms = [_normalize_token(term) for term in key_terms]
     normalized_key_terms = [term for term in normalized_key_terms if term and len(term) >= 3]
+    # --- NEW PROMPT ARCHITECTURE (50/50 SPLIT) ---
+    # Path A: End with a high-impact question (50% of the time)
+    # Path B: End with a high-value statement (50% of the time)
+    use_question = rng.random() < 0.5
+
+    if use_question:
+        closing_instruction = "5. CRITICAL: End with an ultra-intelligent, non-obvious question that 90% of people wouldn't think to ask. This question should spark genuine conversation, not be a generic 'What do you think?'."
+    else:
+        closing_instruction = "5. CRITICAL: The comment MUST stand on its own as a complete piece of high-value insight. It should not ask a question."
+
     prompt = f"""
-We are replying to the following post. Draft ONE short comment (<=280 characters) that proves we actually read it and invites a response.
+We are replying to the following post. Draft ONE short, insightful comment.
 
 POST (raw):
 \"\"\"{excerpt}\"\"\"
 
+**Core Directives:**
 - Voice: "Perceptive & Constructive" (NOT "NYC bar sharp"). Your tone is insightful, direct, and conversational, but NEVER aggressive or diagnostic towards the author.
 - Goal: Audience Acquisition ("The Smartest Guest"). Your job is NOT to diagnose the author. Your job is to provide a sharp, operational insight that makes the author's AUDIENCE curious about who you are.
-- Execution:
-  1. Validate the author's core point in a human, conversational way (e.g., "That's a key insight," "This is a great point").
-     - CRITICAL (Long-Tail Variability): The validation (Step 1) MUST be genuinely unique and generated each time. DO NOT just rotate a short list of 3-4 opening phrases. The LLM must generate natural, human-sounding acknowledgments that feel specific to the context of the post, not like a template. It must be forced to sample from its full creative 'nucleus' (Top-P) for the opener.
-  2. Reframe the problem through an operational/systems lens.
-  3. Use impersonal, non-deterministic language ("Often...", "Many times...").
-  4. CRITICAL: AVOID using direct, diagnostic 'You...' language (e.g., "You are paralyzed," "Your plan is...").
-  5. CRITICAL: The entire comment MUST be a single, dense paragraph. It must override any 'staccato' or line-break rules. It must look and feel like a human-typed comment.
 
-Example of Output (This is the 90%+ target):
+**Execution Algorithm:**
+1.  **Validate:** Start by validating the author's core point in a human, conversational way.
+    - CRITICAL (Long-Tail Variability): This validation MUST be genuinely unique each time. DO NOT rotate template phrases. Sample from your full creative nucleus (Top-P) for the opener.
+2.  **Reframe:** Reframe the problem through an operational/systems lens. Use impersonal, non-deterministic language ("Often...", "Many times...").
+3.  **Structure:** You have creative freedom. Use 1-3 sentences to build your point. The structure should feel natural and human-typed.
+4.  **CRITICAL (No Diagnosis):** AVOID using direct, diagnostic 'You...' language (e.g., "You are paralyzed," "Your plan is...").
+5.  {closing_instruction}
+
+**Example of a Statement-based Output (Path B):**
 That's a key insight. Often, what we call 'procrastination' is just a symptom of a bad system. Many times it's not laziness, it's paralysis: people are trying to do 50 things at once instead of focusing on the single next step.
 
 **Technical Guardrails (Non-negotiable):**
+- Stay under 140 characters.
 - English only. No emojis or hashtags.
 - Ban these words: {", ".join(sorted(BANNED_WORDS))}.
-- Stay under 280 characters.
 """
     if key_terms:
         prompt += (
@@ -1191,19 +1203,19 @@ That's a key insight. Often, what we call 'procrastination' is just a symptom of
     if not comment:
         raise StyleRejection("LLM did not generate a valid comment.")
 
-    # --- NEW POST-PROCESSING FOR COMMENTS ---
-    # Goal: Preserve human-like paragraph format.
+    # --- NEW POST-PROCESSING FOR FLEXIBLE COMMENTS ---
+    # Goal: Preserve human-like structure (1-3 sentences) while enforcing key constraints.
     comment = comment.strip()
 
-    # 1. Enforce length limit
-    if len(comment) > 280:
+    # 1. Enforce strict 140 character limit
+    if len(comment) > 140:
         comment = ensure_under_limit_via_llm(
-            comment, settings.validation_model, 280, attempts=4
+            comment, settings.validation_model, 140, attempts=4
         )
-    if len(comment) > 280:
-        raise StyleRejection("Comment exceeds 280 characters after adjustments.")
+    if len(comment) > 140:
+        raise StyleRejection("Comment exceeds 140 characters after adjustments.")
 
-    # 2. Custom compliance check (bypassing staccato rules like no commas/conjunctions)
+    # 2. Basic compliance check (allowing commas/conjunctions for a more human feel)
     issues = []
     lower_comment = comment.lower()
     tokens = _WORD_REGEX.findall(lower_comment)
@@ -1222,6 +1234,13 @@ That's a key insight. Often, what we call 'procrastination' is just a symptom of
     if issues:
         raise StyleRejection(f"Comment rejected: {', '.join(issues)}.")
 
+    # 3. Sentence count validation (1-3 sentences allowed)
+    sentence_count = _count_sentences(comment)
+    if not (1 <= sentence_count <= 3):
+        raise StyleRejection(
+            f"Comment must have 1-3 sentences, but found {sentence_count}."
+        )
+
     relevance = _validate_comment_relevance(
         excerpt,
         comment,
@@ -1232,8 +1251,7 @@ That's a key insight. Often, what we call 'procrastination' is just a symptom of
     if not relevance.is_relevant:
         raise StyleRejection(f"Comment discarded as irrelevant: {relevance.reason}")
 
-    # _enforce_variant_compliance is intentionally skipped here to allow paragraph format.
-    audit = "Custom comment validation applied."
+    audit = "Custom comment validation applied (human format)."
 
     metadata: Dict[str, object] = {"audit": audit, "source_excerpt": excerpt}
     if insight:

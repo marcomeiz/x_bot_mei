@@ -1127,26 +1127,34 @@ POST (raw):
 - Voice: "Perceptive & Constructive" (NOT "NYC bar sharp"). Your tone is insightful, direct, and conversational, but NEVER aggressive or diagnostic towards the author.
 - Goal: Audience Acquisition ("The Smartest Guest"). Your job is NOT to diagnose the author. Your job is to provide a sharp, operational insight that makes the author's AUDIENCE curious about who you are.
 
-**New Prompt Architecture: The "Synthesis Protocol" (v3.0)**
+**New Prompt Architecture: The "Connection Principle" (v4.0)**
 
-**Core Directive: ZERO-RISK AUGMENTATION through Synthesis.**
-Your new persona is a "Master Synthesizer." Your job is to fuse the author's idea with our operational principles to create a new, more valuable insight. You must follow a silent, internal "Chain of Thought" before generating the final comment.
+**Core Directive: ZERO-RISK AUGMENTATION.**
+Your primary function is to act as a strategic filter. A "NO_COMMENT" output is a successful execution of this filter. Your default state is silence unless a high-quality, non-conflicting connection is identified.
 
-**Internal Monologue (Chain of Thought Steps):**
+**Internal Monologue (Chain of Thought):**
+You must follow this exact logic before generating any output.
+
 1.  **Internal Step 1: Identify the Author's Core Assertion.** State, internally, the fundamental premise of the original post.
-2.  **Internal Step 2: Unconditionally Accept the Assertion.** Internally state your unconditional agreement. This is the primary guardrail against contradiction.
-3.  **Internal Step 3: Identify the Connecting Operational Principle.** Search our core lexicon to find the concept that acts as the underlying "physics" for the author's assertion.
-4.  **Internal Step 4: Formulate the Synthesized Idea.** Based on the previous steps, formulate a new, unified idea that honors the author's point and elevates it with our principle.
+2.  **Internal Step 2: Assess Relevance.** Does the assertion directly relate to our ICP and core doctrines (systems, operations, productivity for solopreneurs)? If not, abort.
+3.  **Internal Step 3: Assess Doctrinal Alignment.** Does the assertion contradict our core principles (e.g., promoting "hustle" over systems)? If yes, abort.
+4.  **Internal Step 4: Find the Connection.** If the assertion is both relevant and non-contradictory, find the connecting principle from our doctrine that the author's idea perfectly illustrates.
+5.  **Internal Step 5: Synthesize and Generate.** Synthesize the connection into a comment that starts with unambiguous validation.
 
-**Generation Mandate:**
-Only after completing this internal monologue are you permitted to generate the final comment. The comment must be a natural, conversational expression of the "Synthesized Idea" from Internal Step 4.
+**Generation Mandate & Output Format:**
+Return ONLY a strict JSON object based on the outcome of your internal monologue.
 
-**Gold Standard Example (The result of the Synthesis Protocol):**
+- If you aborted in Step 2 or 3, return:
+  `{{"status": "NO_COMMENT", "reason": "NOT_RELEVANT_TO_ICP" | "DIRECT_DOCTRINAL_CONFLICT"}}`
+
+- If you successfully reached Step 5, return:
+  `{{"status": "COMMENT", "comment": "<Your synthesized comment here>"}}`
+
+**Gold Standard Example (The result of a successful Synthesis):**
 - **Author's Point (Implicit):** "Consistency is a habit."
-- **System's Output:** "100% this. That habit is the foundation of a powerful system. Habits provide the discipline; systems provide the leverage. What's the first bottleneck most people face when trying to turn that daily habit into a scalable system?"
-- **Analysis for the model:** This output correctly synthesizes the author's idea of 'habit' with our principle of 'system' without contradicting it, creating a more powerful combined idea.
+- **System's Output:** `{"status": "COMMENT", "comment": "100% this. That habit is the foundation of a powerful system. Habits provide the discipline; systems provide the leverage. What's the first bottleneck most people face when trying to turn that daily habit into a scalable system?"}`
 
-**Final Output Constraints:**
+**Final Output Constraints (for "COMMENT" status):**
 - The entire comment MUST be a single, dense paragraph.
 - The tone must be "Perceptive & Constructive."
 - {closing_instruction}
@@ -1197,27 +1205,29 @@ That's a key insight. Often, what we call 'procrastination' is just a symptom of
         comment = ""
         insight = None
         if isinstance(data, dict):
-            comment = str(data.get("comment") or data.get("reply") or "").strip()
-            insight_raw = data.get("insight") or data.get("focus")
-            if isinstance(insight_raw, str):
-                insight = insight_raw.strip()[:160]
-        else:
-            comment = ""
+            status = data.get("status")
+            if status == "NO_COMMENT":
+                reason = data.get("reason", "No specific reason provided.")
+                logger.info("Comment skipped by strategic filter: %s", reason)
+                raise CommentSkip(reason)
+            if status == "COMMENT":
+                comment = str(data.get("comment", "")).strip()
+
+        if not comment:
+            # Fallback for cases where the model might fail to produce the structured JSON
+            raw = llm.chat_text(
+                model=settings.generation_model,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.65,
+            )
+            if isinstance(raw, str):
+                comment = raw.strip()
     except Exception:
         comment = ""
         insight = None
-
-    if not comment:
-        raw = llm.chat_text(
-            model=settings.generation_model,
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.65,
-        )
-        if isinstance(raw, str):
-            comment = raw.strip()
 
     if not comment:
         raise StyleRejection("LLM did not generate a valid comment.")

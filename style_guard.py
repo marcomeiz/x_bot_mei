@@ -262,3 +262,70 @@ def improve_style(text: str, contract_text: str, rounds: int = STYLE_REVISION_RO
         raise StyleRejection(feedback or "Draft rejected by final style audit")
 
     return revised, final_audit
+
+
+def audit_and_improve_comment(comment: str, source_text: str, contract_text: str) -> Tuple[str, bool]:
+    """
+    Audits a comment against the "Accept and Connect" v4.0 protocol.
+    If non-compliant, it attempts to rewrite it.
+
+    Returns a tuple of (final_comment, was_rewritten).
+    Raises StyleRejection if the comment is unsalvageable or fails post-rewrite.
+    """
+    prompt = f"""
+You are a ruthless Style Compliance Officer. Your only job is to audit and, if necessary, correct a generated comment based on the "Accept and Connect" v4.0 protocol.
+
+**Original Post (for context):**
+---
+{source_text}
+---
+
+**Generated Comment to Audit:**
+---
+{comment}
+---
+
+**The "Accept and Connect" v4.0 Checklist (Your Rules):**
+1.  **Unambiguous Validation:** Does the comment start with a clear, enthusiastic agreement with the author's core idea?
+2.  **No Contradiction:** Does the comment avoid replacing the author's terminology (e.g., saying "it's not X, it's Y")? It MUST connect to the author's term, not invalidate it.
+3.  **Non-Confrontational Tone:** Is the tone 100% constructive and non-diagnostic towards the author? It must not sound like a correction.
+4.  **"Trojan Horse" Integration:** Does it successfully integrate a core operational term (system, asset, bottleneck, etc.) naturally?
+
+**Your Task:**
+Return a strict JSON object with your findings.
+
+- If the comment passes ALL checks, return:
+  `{{"is_compliant": true, "reason": "Comment adheres to all v4.0 principles."}}`
+
+- If the comment fails ANY check, return:
+  `{{"is_compliant": false, "reason": "<Briefly explain the specific rule it broke>", "corrected_text": "<Rewrite the comment to be 100% compliant, preserving the core insight.>"}}`
+"""
+    try:
+        data = llm.chat_json(
+            model="anthropic/claude-3.5-sonnet",
+            messages=[
+                {"role": "system", "content": "You are a strict style auditor for comments. Respond with strict JSON only."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.1,
+        )
+
+        if not isinstance(data, dict):
+            raise StyleRejection("Auditor returned invalid data.")
+
+        if data.get("is_compliant"):
+            logger.info("Comment passed v4.0 audit.")
+            return comment, False
+
+        reason = data.get("reason", "No reason provided.")
+        corrected_text = data.get("corrected_text", "").strip()
+
+        if not corrected_text:
+            raise StyleRejection(f"Comment failed audit and could not be corrected. Reason: {reason}")
+
+        logger.warning("Comment failed v4.0 audit, but was corrected. Reason: %s", reason)
+        return corrected_text, True
+
+    except Exception as e:
+        logger.error(f"Error during comment audit: {e}", exc_info=True)
+        raise StyleRejection(f"Exception during comment audit: {e}")

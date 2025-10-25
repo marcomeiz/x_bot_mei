@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from embeddings_manager import get_embedding, get_memory_collection, get_topics_collection, find_similar_topics
 from logger_config import logger
 from prompt_context import build_prompt_context
-from style_guard import StyleRejection
+from style_guard import StyleRejection, audit_and_improve_comment
 from variant_generators import (
     GenerationSettings,
     CommentResult,
@@ -185,6 +185,16 @@ def generate_comment_from_text(source_text: str) -> CommentDraft:
             result: CommentResult = generate_comment_reply(
                 source_text, context, settings, assessment=assessment
             )
+
+            # --- v4.0 Guardian Layer ---
+            audited_comment, was_rewritten = audit_and_improve_comment(
+                result.comment, source_text, context.contract
+            )
+            result.comment = audited_comment
+            if was_rewritten:
+                result.metadata["rewritten_by_guardian"] = True
+            # --- End Guardian Layer ---
+
             metadata = dict(result.metadata)
             metadata.setdefault("assessment_reason", assessment.reason)
             if assessment.hook and "assessment_hook" not in metadata:

@@ -1152,7 +1152,7 @@ Return ONLY a strict JSON object based on the outcome of your internal monologue
 
 **Gold Standard Example (The result of a successful Synthesis):**
 - **Author's Point (Implicit):** "Consistency is a habit."
-- **System's Output:** `{"status": "COMMENT", "comment": "100% this. That habit is the foundation of a powerful system. Habits provide the discipline; systems provide the leverage. What's the first bottleneck most people face when trying to turn that daily habit into a scalable system?"}`
+- **System's Output:** `{{"status": "COMMENT", "comment": "100% this. That habit is the foundation of a powerful system. Habits provide the discipline; systems provide the leverage. What's the first bottleneck most people face when trying to turn that daily habit into a scalable system?"}}`
 
 **Final Output Constraints (for "COMMENT" status):**
 - The entire comment MUST be a single, dense paragraph.

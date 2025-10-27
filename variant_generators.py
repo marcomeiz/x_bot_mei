@@ -1088,6 +1088,58 @@ def generate_all_variants(
         raise StyleRejection(f"Failed to generate variants: {e}")
 
 
+def _build_synthesis_monologue_prompt_v5_1() -> str:
+    """Builds the v5.1 Synthesis Protocol monologue for the comment prompt."""
+    return """
+**Internal Monologue (Chain of Thought Steps):**
+You must follow this exact logic before generating any output.
+
+1.  **Internal Step 1: Deconstruct the Assertion.**
+    - Identify the author's core term and premise.
+2.  **Internal Step 2: Strategic Filter.**
+    - Assess ICP relevance and doctrinal alignment. If it fails, abort.
+3.  **Internal Step 3: Step-Back Principle Identification.**
+    - Identify the high-level operational principle from our doctrine that governs the author's assertion.
+4.  **Internal Step 4: Generate & Critique Connection Pathways.**
+    - Generate 2-3 potential "bridge" sentences and internally critique them to select the most insightful connection.
+5.  **Internal Step 5: Formulate the Core Synthesized Idea.**
+    - Formulate a complete, polished comment based on the strongest pathway.
+6.  **Internal Step 6: Imperfection Injection (v5.1 Addendum).**
+    - Before final output, rewrite one phrase from the synthesized comment to inject an informal, emotional, or asymmetric rhythm typical of the NYC COO voice (e.g., fragment sentences, omit subject, use conversational compression).
+"""
+
+
+def _build_comment_generation_mandate_v5_1(closing_instruction: str) -> str:
+    """Builds the v5.1 generation mandate and output format instructions."""
+    # Escape braces for the f-string formatting in the main prompt
+    json_no_comment = '{{"status": "NO_COMMENT", "reason": "NOT_RELEVANT_TO_ICP" | "DIRECT_DOCTRINAL_CONFLICT"}}'
+    json_comment = '{{"status": "COMMENT", "comment": "<Your synthesized comment here>"}}'
+    gold_standard_output = '{{"status": "COMMENT", "comment": "100% this. That habit is the foundation of a powerful system. Habits provide the discipline; systems provide the leverage. What\'s the first bottleneck most people face when trying to turn that daily habit into a scalable system?"}}'
+
+    return f"""
+**Generation Mandate & Output Format:**
+Return ONLY a strict JSON object based on the outcome of your internal monologue.
+
+- If you aborted in Step 2 or 3, return:
+  `{json_no_comment}`
+
+- If you successfully reached Step 5, return:
+  `{json_comment}`
+
+**Gold Standard Example (The result of a successful Synthesis):**
+- **Author's Point (Implicit):** "Consistency is a habit."
+- **System's Output:** `{gold_standard_output}`
+
+**Final Output Constraints (for "COMMENT" status):**
+- The entire comment MUST be a single, dense paragraph.
+- The tone must be "Perceptive & Constructive."
+- {closing_instruction}
+- Stay under 140 characters.
+- English only. No emojis or hashtags.
+- Ban these words: {", ".join(sorted(BANNED_WORDS))}.
+"""
+
+
 def generate_comment_reply(
     source_text: str,
     context: PromptContext,
@@ -1098,77 +1150,27 @@ def generate_comment_reply(
     Generate a single conversational reply/comment anchored on the provided source text.
     The output keeps the ICP voice and ends with an invitation to continue the conversation.
     """
-
     rng = random.Random(hash(source_text) & 0xFFFFFFFF)
-    hook_idx = _pick_hooks_for_variants(rng, 1)[0]
-    hook = HOOK_GUIDELINES[hook_idx]
-
     excerpt = _compact_text(source_text, limit=1200)
     key_terms = _extract_key_terms(excerpt)
-    normalized_key_terms = [_normalize_token(term) for term in key_terms]
-    normalized_key_terms = [term for term in normalized_key_terms if term and len(term) >= 3]
-    # --- NEW PROMPT ARCHITECTURE (50/50 SPLIT) ---
-    # Path A: End with a high-impact question (50% of the time)
-    # Path B: End with a high-value statement (50% of the time)
-    use_question = rng.random() < 0.5
 
+    use_question = rng.random() < 0.5
     if use_question:
-        closing_instruction = "5. CRITICAL: End with an ultra-intelligent, non-obvious question that 90% of people wouldn't think to ask. This question should spark genuine conversation, not be a generic 'What do you think?'."
+        closing_instruction = "CRITICAL: End with an ultra-intelligent, non-obvious question that 90% of people wouldn't think to ask. This question should spark genuine conversation, not be a generic 'What do you think?'."
     else:
-        closing_instruction = "5. CRITICAL: The comment MUST stand on its own as a complete piece of high-value insight. It should not ask a question."
+        closing_instruction = "CRITICAL: The comment MUST stand on its own as a complete piece of high-value insight. It should not ask a question."
+
+    monologue_prompt = _build_synthesis_monologue_prompt_v5_1()
+    mandate_prompt = _build_comment_generation_mandate_v5_1(closing_instruction)
 
     prompt = f"""
-We are replying to the following post. Draft ONE short, insightful comment.
+We are replying to the following post. Follow the internal monologue protocol to decide if and what to comment.
 
 POST (raw):
 \"\"\"{excerpt}\"\"\"
 
-**Core Directives:**
-- Voice: "Perceptive & Constructive" (NOT "NYC bar sharp"). Your tone is insightful, direct, and conversational, but NEVER aggressive or diagnostic towards the author.
-- Goal: Audience Acquisition ("The Smartest Guest"). Your job is NOT to diagnose the author. Your job is to provide a sharp, operational insight that makes the author's AUDIENCE curious about who you are.
-
-**New Prompt Architecture: The "Connection Principle" (v4.0)**
-
-**Core Directive: ZERO-RISK AUGMENTATION.**
-Your primary function is to act as a strategic filter. A "NO_COMMENT" output is a successful execution of this filter. Your default state is silence unless a high-quality, non-conflicting connection is identified.
-
-**Internal Monologue (Chain of Thought):**
-You must follow this exact logic before generating any output.
-
-1.  **Internal Step 1: Identify the Author's Core Assertion.** State, internally, the fundamental premise of the original post.
-2.  **Internal Step 2: Assess Relevance.** Does the assertion directly relate to our ICP and core doctrines (systems, operations, productivity for solopreneurs)? If not, abort.
-3.  **Internal Step 3: Assess Doctrinal Alignment.** Does the assertion contradict our core principles (e.g., promoting "hustle" over systems)? If yes, abort.
-4.  **Internal Step 4: Find the Connection.** If the assertion is both relevant and non-contradictory, find the connecting principle from our doctrine that the author's idea perfectly illustrates.
-5.  **Internal Step 5: Synthesize and Generate.** Synthesize the connection into a comment that starts with unambiguous validation.
-
-**Generation Mandate & Output Format:**
-Return ONLY a strict JSON object based on the outcome of your internal monologue.
-
-- If you aborted in Step 2 or 3, return:
-  `{{"status": "NO_COMMENT", "reason": "NOT_RELEVANT_TO_ICP" | "DIRECT_DOCTRINAL_CONFLICT"}}`
-
-- If you successfully reached Step 5, return:
-  `{{"status": "COMMENT", "comment": "<Your synthesized comment here>"}}`
-
-**Gold Standard Example (The result of a successful Synthesis):**
-- **Author's Point (Implicit):** "Consistency is a habit."
-- **System's Output:** `{{"status": "COMMENT", "comment": "100% this. That habit is the foundation of a powerful system. Habits provide the discipline; systems provide the leverage. What's the first bottleneck most people face when trying to turn that daily habit into a scalable system?"}}`
-
-**Final Output Constraints (for "COMMENT" status):**
-- The entire comment MUST be a single, dense paragraph.
-- The tone must be "Perceptive & Constructive."
-- {closing_instruction}
-- Stay under 140 characters.
-- English only. No emojis or hashtags.
-- Ban these words: {", ".join(sorted(BANNED_WORDS))}.
-
-**Example of a Statement-based Output (Path B):**
-That's a key insight. Often, what we call 'procrastination' is just a symptom of a bad system. Many times it's not laziness, it's paralysis: people are trying to do 50 things at once instead of focusing on the single next step.
-
-**Technical Guardrails (Non-negotiable):**
-- Stay under 140 characters.
-- English only. No emojis or hashtags.
-- Ban these words: {", ".join(sorted(BANNED_WORDS))}.
+{monologue_prompt}
+{mandate_prompt}
 """
     if key_terms:
         prompt += (
@@ -1193,6 +1195,8 @@ That's a key insight. Often, what we call 'procrastination' is just a symptom of
         + "\n</FINAL_REVIEW_GUIDELINES>"
     )
 
+    comment = ""
+    insight = None
     try:
         data = llm.chat_json(
             model=settings.generation_model,
@@ -1202,8 +1206,7 @@ That's a key insight. Often, what we call 'procrastination' is just a symptom of
             ],
             temperature=0.55,
         )
-        comment = ""
-        insight = None
+        
         if isinstance(data, dict):
             status = data.get("status")
             if status == "NO_COMMENT":
@@ -1225,7 +1228,10 @@ That's a key insight. Often, what we call 'procrastination' is just a symptom of
             )
             if isinstance(raw, str):
                 comment = raw.strip()
-    except Exception:
+    except CommentSkip:
+        raise  # Re-raise to be caught by the calling function
+    except Exception as e:
+        logger.error(f"Error during comment generation: {e}", exc_info=True)
         comment = ""
         insight = None
 
@@ -1294,7 +1300,9 @@ That's a key insight. Often, what we call 'procrastination' is just a symptom of
     if key_terms:
         metadata["key_terms"] = key_terms
     metadata["relevance_reason"] = relevance.reason
-    metadata["hook"] = hook.name
+    
+    # Since the hook is no longer part of the prompt, we remove it from metadata.
+    # metadata["hook"] = hook.name
 
     return CommentResult(comment=comment.strip(), insight=insight, metadata=metadata)
 

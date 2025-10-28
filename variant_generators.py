@@ -563,6 +563,39 @@ def _ensure_question_at_end(text: str) -> str:
     return stripped.rstrip(".!") + "."
 
 
+def ensure_char_range_via_llm(text: str, model: str, lo: int, hi: int) -> str:
+    """Attempt to rewrite text to fit within [lo, hi] characters while preserving punch and V3.1 tone.
+
+    Returns the best candidate (may still be out of range if provider fails).
+    """
+    text = (text or "").strip()
+    if not text:
+        return text
+    best = text
+    try:
+        prompt = (
+            f"Rewrite the text to keep brutal, street-smart tone and fit between {lo} and {hi} characters.\n"
+            "- One sentence per line. Keep short, punchy lines.\n"
+            "- No commas. No hashtags. English only.\n"
+            "Return ONLY the rewritten text.\n\n"
+            f"TEXT:\n{text}"
+        )
+        data = llm.chat_text(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a ruthless editor returning plain text only."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+        )
+        candidate = (data or "").strip()
+        if candidate:
+            best = candidate
+    except Exception:
+        return best
+    return best
+
+
 def _limit_lines(text: str, max_lines: int = 2) -> str:
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     if not lines:
@@ -1217,7 +1250,12 @@ def generate_all_variants(
                 if not _english_only(draft):
                     raise StyleRejection(f"Minimal Warden: non-English characters in '{label}'.")
                 if not _range_ok(label, draft):
-                    raise StyleRejection(f"Minimal Warden: wrong char range for '{label}' (len={len(draft)}).")
+                    # Try a single targeted length adjustment for just this variant
+                    lo, hi = (0, 160) if label == "short" else ((180, 230) if label == "mid" else (240, 280))
+                    fixed = ensure_char_range_via_llm(draft, settings.generation_model, lo, hi).strip()
+                    if not _range_ok(label, fixed):
+                        raise StyleRejection(f"Minimal Warden: wrong char range for '{label}' (len={len(draft)}).")
+                    draft = fixed
                 if _re.search(r"#[A-Za-z0-9_]+", draft):
                     raise StyleRejection(f"Minimal Warden: hashtag detected in '{label}'.")
                 if "," in draft:

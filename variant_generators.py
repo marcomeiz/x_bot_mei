@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 from llm_fallback import llm
+from src.prompt_loader import load_prompt
+from src.settings import AppSettings
 from logger_config import logger
 from prompt_context import PromptContext
 from style_guard import StyleRejection, improve_style
@@ -1032,6 +1034,16 @@ def generate_all_variants(
 
 
 
+
+    # Override inline prompt with externalized template
+    try:
+        prompts_dir = AppSettings.load().prompts_dir
+        user_prompt = load_prompt(prompts_dir, "generation/all_variants").render(
+            topic_abstract=topic_abstract
+        )
+    except Exception:
+        # Fallback to the inline prompt above if loading fails
+        pass
 
     logger.info("Generating all variants via single-call multi-length prompt...")
 

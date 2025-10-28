@@ -41,7 +41,8 @@ class PromptSpec(BaseModel):
         # Escape braces in values to avoid f-string like formatting issues downstream.
         safe_kwargs = {k: str(v).replace("{", "{{").replace("}", "}}") for k, v in kwargs.items()}
         try:
-            return self.template.format(**safe_kwargs)
+            processed = _protect_template_braces(self.template, self.inputs)
+            return processed.format(**safe_kwargs)
         except KeyError as e:
             raise ValueError(f"Template placeholders not provided: {e}")
 
@@ -60,6 +61,32 @@ def _split_front_matter(text: str) -> Tuple[Dict[str, object], str]:
     except Exception:
         meta = {}
     return meta, body
+
+
+def _protect_template_braces(template: str, inputs: List[str]) -> str:
+    """Escape all braces except known placeholders.
+
+    Strategy:
+    - Temporarily replace each placeholder {name} with a sentinel token.
+    - Escape all remaining { and } by doubling them.
+    - Restore placeholders back to single-brace form.
+    """
+    if not inputs:
+        return template.replace("{", "{{").replace("}", "}}")
+    pattern = re.compile(r"\{(" + "|".join(map(re.escape, inputs)) + r")\}")
+    marks: Dict[str, str] = {}
+
+    def repl(m: re.Match) -> str:  # type: ignore[name-defined]
+        name = m.group(1)
+        token = f"__PROMPTVAR_{name}__"
+        marks[token] = "{" + name + "}"
+        return token
+
+    tmp = pattern.sub(repl, template)
+    tmp = tmp.replace("{", "{{").replace("}", "}}")
+    for token, orig in marks.items():
+        tmp = tmp.replace(token, orig)
+    return tmp
 
 
 def load_prompt_file(path: str, *, prompt_id: Optional[str] = None) -> PromptSpec:
@@ -129,4 +156,3 @@ def load_prompt(base_dir: str, rel_id: str) -> PromptSpec:
     """Load PromptSpec by logical id relative to a prompts directory."""
     path = find_prompt(base_dir, rel_id)
     return load_prompt_file(path, prompt_id=rel_id)
-

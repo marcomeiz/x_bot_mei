@@ -7,6 +7,8 @@ from logger_config import logger
 from llm_fallback import llm
 from embeddings_manager import get_embedding, get_memory_collection
 from persona import get_style_contract_text, get_final_guidelines_text
+from src.prompt_loader import load_prompt
+from src.settings import AppSettings
 
 
 load_dotenv()
@@ -272,7 +274,12 @@ def audit_and_improve_comment(comment: str, source_text: str, contract_text: str
     Returns a tuple of (final_comment, was_rewritten).
     Raises StyleRejection if the comment is unsalvageable or fails post-rewrite.
     """
-    prompt = f"""
+    try:
+        prompts_dir = AppSettings.load().prompts_dir
+        spec = load_prompt(prompts_dir, "comments/audit")
+        prompt = spec.render(comment=comment, source_text=source_text)
+    except Exception:
+        prompt = f"""
 You are a ruthless Style Compliance Officer. Your only job is to audit and, if necessary, correct a generated comment based on the "Accept and Connect" v4.0 protocol.
 
 **Original Post (for context):**

@@ -144,21 +144,46 @@ BANNED_WORDS = {
 
 BANNED_SUFFIXES = (
     "mente",
-    "ly",
 )
+
+# Focused list of washed adverbs that weaken punch. We do NOT ban all *-ly words.
+WASHED_ADVERBS = {
+    "really",
+    "actually",
+    "literally",
+    "basically",
+    "totally",
+    "simply",
+    "clearly",
+    "obviously",
+    "honestly",
+    "quickly",
+    "easily",
+    "probably",
+    "hopefully",
+    "seriously",
+    "highly",
+    "extremely",
+    "definitely",
+    "absolutely",
+}
+
+# Common *-ly words we explicitly allow (to avoid false positives)
+WHITELIST_LY = {"only", "daily", "early", "family", "reply", "supply", "apply", "friendly", "timely"}
 
 
 def words_blocklist_prompt() -> str:
     return (
         "- Forbidden words: "
         + ", ".join(sorted(BANNED_WORDS))
-        + ".\n- Never use adverbs ending in 'mente' or filler '-ly' words.\n"
+        + ".\n- Avoid washed adverbs (really, actually, literally, basically, totally, simply, clearly, obviously, honestly, quickly, easily, probably, hopefully).\n"
+        "- Never use adverbs ending in 'mente'.\n"
         "- Avoid generic adjectives; use concrete details instead.\n"
     )
 
 
 def conjunction_guard_prompt() -> str:
-    return "- Do not use conjunctions 'y'/'o' (or their English equivalents). Prefer separate sentences.\n"
+    return "- Do not use the phrase 'and/or' (or 'y/o'). Prefer separate sentences.\n"
 
 
 def comma_guard_prompt() -> str:
@@ -186,7 +211,7 @@ def closing_rule_prompt() -> str:
 
 _WORD_REGEX = re.compile(r"[A-Za-z0-9']+")
 _SENTENCE_SPLIT_REGEX = re.compile(r"(?<=[.!?])\s+")
-_CONJUNCTION_PATTERN = re.compile(r"\b(and|or|y|o)\b", re.IGNORECASE)
+_AND_OR_PHRASE_RE = re.compile(r"\b(?:and\s*/\s*or|y\s*/\s*o)\b", re.IGNORECASE)
 _ANALOGY_PATTERNS = (
     re.compile(r"\slike\s", re.IGNORECASE),
     re.compile(r"\sas if\s", re.IGNORECASE),
@@ -252,11 +277,16 @@ def detect_banned_elements(text: str) -> List[str]:
     if suffix_hits:
         issues.append("contains forbidden suffix words: " + ", ".join(sorted(set(suffix_hits))))
 
+    # Focused adverb screen (skip whitelisted *-ly words)
+    adverb_hits = [t for t in tokens if t in WASHED_ADVERBS and t not in WHITELIST_LY]
+    if adverb_hits:
+        issues.append("contains washed adverbs: " + ", ".join(sorted(set(adverb_hits))))
+
     if "," in text:
         issues.append("uses commas")
 
-    if _CONJUNCTION_PATTERN.search(lower):
-        issues.append("uses conjunction 'and/or' (or 'y/o')")
+    if _AND_OR_PHRASE_RE.search(lower):
+        issues.append("uses 'and/or' (or 'y/o') phrase")
 
     if _HASHTAG_RE.search(text):
         issues.append("contains hashtag")

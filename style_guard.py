@@ -136,14 +136,21 @@ Return ONLY strict JSON with fields:
         return {}
 
 
-def revise_for_style(text: str, contract_text: str, hint: str = "") -> str:
+def revise_for_style(text: str, contract_text: str, hint: str = "", mode: str | None = None) -> str:
     """Rewrite the text to satisfy contract with subtle local flavor in natural English, without clichés or Spanish, and add punch."""
+    tweet_rules = (
+        "- Output as tweet lines: one sentence per line; each line ends with . ! or ?.\n"
+        "- 5–12 words per line (strict).\n"
+        "- No commas; if you need a pause, split into a new line.\n"
+        "- Do NOT use the phrase 'and/or' (or 'y/o').\n"
+        "- Keep total under 280 characters. Close with a single hammer line.\n"
+    )
+    extra = ("\n" + tweet_rules) if (mode == "tweet") else ""
     user = f"""
-Rewrite the text to satisfy the style contract with a subtle, human local flavor in natural English — and sharper punch.
+Rewrite the text to satisfy the style contract with a subtle, human local flavor in natural English — and sharper punch.{extra}
 - Preserve the same core insight.
 - Open with a punchy line (no hedging, no "Most people…").
 - Add one concrete image or tactical detail (micro‑visual) to ground it.
-- 2–4 short paragraphs (separated by a blank line).
 - No hashtags, emojis, or quotes. English only.
 - Avoid corporate tone and clichés. Sound like a person at a bar, not a boardroom.
 - Short sentences. Strong verbs. Cut qualifiers (seems, maybe, might).
@@ -173,7 +180,7 @@ TEXT:
         return text
 
 
-def improve_style(text: str, contract_text: str, rounds: int = STYLE_REVISION_ROUNDS) -> Tuple[str, Dict[str, Any]]:
+def improve_style(text: str, contract_text: str, rounds: int = STYLE_REVISION_ROUNDS, *, mode: str | None = None) -> Tuple[str, Dict[str, Any]]:
     """Audit and optionally revise for style.
 
     Returns the improved text and the last audit payload when the draft clears the bar.
@@ -214,7 +221,7 @@ def improve_style(text: str, contract_text: str, rounds: int = STYLE_REVISION_RO
     while needs and rounds > 0:
         rounds -= 1
         hint = audit.get("reason", "") if isinstance(audit, dict) else ""
-        revised = revise_for_style(revised, contract_text, hint=hint)
+        revised = revise_for_style(revised, contract_text, hint=hint, mode=mode)
         audit = audit_style(revised, contract_text)
         needs = bool(audit.get("needs_revision", False)) if isinstance(audit, dict) else False
 

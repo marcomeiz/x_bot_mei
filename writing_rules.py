@@ -194,6 +194,31 @@ _ANALOGY_PATTERNS = (
     re.compile(r"\sas the\s", re.IGNORECASE),
 )
 
+_HASHTAG_RE = re.compile(r"#[A-Za-z0-9_]+")
+
+# Common AI-ish/corporate patterns to block at the gate (heuristics)
+_AI_PATTERN_STRINGS = (
+    "most people",
+    "in today's",
+    "in todays",
+    "let's dive",
+    "ultimate guide",
+    "game chang",
+    "unlock",
+    "synergy",
+    "paradigm",
+    "north star",
+    "framework",
+    "roadmap",
+    "value proposition",
+    "best practices",
+    "leverage",
+    "as an ai",
+    "conclusion:",
+    "tl;dr",
+)
+_AI_PATTERN_RES = tuple(re.compile(pat, re.IGNORECASE) for pat in _AI_PATTERN_STRINGS)
+
 
 def split_sentences(text: str) -> List[str]:
     stripped = text.strip()
@@ -226,6 +251,14 @@ def detect_banned_elements(text: str) -> List[str]:
 
     if _CONJUNCTION_PATTERN.search(lower):
         issues.append("uses conjunction 'and/or' (or 'y/o')")
+
+    if _HASHTAG_RE.search(text):
+        issues.append("contains hashtag")
+
+    for rex in _AI_PATTERN_RES:
+        if rex.search(lower):
+            issues.append("contains ai-like pattern")
+            break
 
     return issues
 

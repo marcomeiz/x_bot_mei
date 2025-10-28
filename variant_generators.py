@@ -1106,7 +1106,38 @@ def generate_all_variants(
             f"[PERF] Single-call for all variants took {time.time() - start_time:.2f} seconds."
         )
 
-        return drafts
+        # Hard gate: clean, audit and enforce mechanical rules before returning
+        def _strip_hashtags_and_fix(text: str) -> str:
+            import re as _re
+            t = _re.sub(r"#[A-Za-z0-9_]+", "", text)
+            t = t.replace(",", ".")
+            t = _re.sub(r"\s+", " ", t).strip()
+            return t
+
+        cleaned: Dict[str, str] = {}
+        for label in ("short", "mid", "long"):
+            draft = drafts.get(label, "").strip()
+            draft = _strip_hashtags_and_fix(draft)
+            # Warden audit+rewrite using the style contract
+            try:
+                improved, _audit = improve_style(draft, context.contract)
+                draft = _strip_hashtags_and_fix(improved)
+            except StyleRejection as e:
+                raise StyleRejection(f"Variant {label} rejected by style audit: {e}")
+
+            # Mechanical compliance (no commas/and-or/hashtags/AI-patterns)
+            try:
+                _enforce_variant_compliance(label.upper(), draft, format_profile=None, allow_analogy=False)
+            except StyleRejection:
+                # One compacting attempt if fixable
+                draft2 = ensure_under_limit_via_llm(draft, settings.generation_model, limit=280)
+                draft2 = _strip_hashtags_and_fix(draft2)
+                _enforce_variant_compliance(label.upper(), draft2, format_profile=None, allow_analogy=False)
+                draft = draft2
+
+            cleaned[label] = draft
+
+        return cleaned
 
 
 

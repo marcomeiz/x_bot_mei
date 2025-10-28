@@ -11,7 +11,8 @@ class AppSettings(BaseModel):
     openrouter_base_url: str = Field(default=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"))
 
     # Per-purpose model choices (cheap by default)
-    post_model: str = Field(default=os.getenv("POST_MODEL", "qwen/qwen-2.5-7b-instruct"))
+    # Default generation model (can be overridden via POST_MODEL)
+    post_model: str = Field(default=os.getenv("POST_MODEL", "xAI/grok-3"))
     # Temperature for generation (allow override via POST_TEMPERATURE or POST_PRESET)
     post_temperature: float = Field(default=float(os.getenv("POST_TEMPERATURE", "0.6") or 0.6))
     # Optional preset to coordinate model + temperature: speed | balanced | quality

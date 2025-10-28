@@ -1,0 +1,1056 @@
+[
+  {
+    "insertId": "690082050008d4597791591e",
+    "httpRequest": {
+      "requestMethod": "POST",
+      "requestUrl": "https://x-bot-mei-fi5yfc7dia-ew.a.run.app/8435570214:AAEZeWYFIkB5zroZoMDLRlz09Nst63dr_ds",
+      "requestSize": "690",
+      "status": 200,
+      "responseSize": "125",
+      "remoteIp": "91.108.5.35",
+      "serverIp": "34.143.77.2",
+      "latency": "0.671719475s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00214-5z7",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-10-28T08:42:44.898013Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/a0278de71b2dc757f88c5f1b11da5ecf",
+    "receiveTimestamp": "2025-10-28T08:42:45.582270620Z",
+    "spanId": "3875be5013f9e934",
+    "traceSampled": true
+  },
+  {
+    "textPayload": "2025-10-28 08:42:45 - bot_logger - INFO - Contrato de copywriter cargado correctamente desde '/app/copywriter_contract_hormozi.md'.",
+    "insertId": "690082050007d55d4716c0e1",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "project_id": "xbot-473616",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-10-28T08:42:45.513373Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:42:45.518023566Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:42:45 - bot_logger - INFO - Pautas de revisión final cargadas desde '/app/config/final_review_guidelines.md'.",
+    "insertId": "690082050007e34dab60095e",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00214-5z7",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-10-28T08:42:45.516941Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:42:45.851983821Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:42:45 - bot_logger - INFO - Update recibido: {'update_id': 960471320, 'message': {'message_id': 3305, 'from': {'id': 1119810722, 'is_bot': False, 'first_name': 'Marco', 'last_name': 'Mei', 'username': 'marco_mei', 'language_code': 'es'}, 'chat': {'id': 1119810722, 'first_name': 'Marco', 'last_name': 'Mei', 'username': 'marco_mei', 'type': 'private'}, 'date': 1761640964, 'text': '/g', 'entities': [{'offset': 0, 'length': 2, 'type': 'bot_command'}]}}",
+    "insertId": "690082050008cc8cbfbe0cc8",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00214-5z7"
+      }
+    },
+    "timestamp": "2025-10-28T08:42:45.576652Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:42:45.851983821Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:42:45 - bot_logger - INFO - [CHAT_ID: 1119810722] Comando '/g' recibido.",
+    "insertId": "690082050008cce8a7ebd5bb",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-10-28T08:42:45.576744Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:42:45.851983821Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:42:45 - bot_logger - INFO - [CHAT_ID: 1119810722] Iniciando nuevo ciclo de generación.",
+    "insertId": "690082050008cea5a3c654ae",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7"
+      }
+    },
+    "timestamp": "2025-10-28T08:42:45.577189Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:42:45.851983821Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:42:45 - bot_logger - INFO - [CHAT_ID: 1119810722] Intento 1/5 de encontrar tema.",
+    "insertId": "690082050008ceacda9e29d4",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "project_id": "xbot-473616",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-10-28T08:42:45.577196Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:42:45.851983821Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:42:45 - bot_logger - INFO - Buscando tema en 'topics_collection' (preferir menos similar a memoria)…",
+    "insertId": "690082050008cff4b601d16a",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7"
+      }
+    },
+    "timestamp": "2025-10-28T08:42:45.577524Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:42:45.851983821Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:42:45 - bot_logger - INFO - Inicializando cliente persistente local de ChromaDB (path='/mnt/db')...",
+    "insertId": "690082050008cffb2843615f",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-10-28T08:42:45.577531Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:42:45.851983821Z"
+  },
+  {
+    "textPayload": "time=\"28/10/2025 08:42:55.699000\" severity=ERROR message=\"BufferedWriteHandler.OutOfOrderError for object: chroma.sqlite3-journal, expectedOffset: 8720, actualOffset: 0\"",
+    "insertId": "6900820f000aae614e7d496b",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00214-5z7"
+      }
+    },
+    "timestamp": "2025-10-28T08:42:55.700001Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2F%2Fvar%2Flog%2Fsystem",
+    "receiveTimestamp": "2025-10-28T08:42:55.704523665Z"
+  },
+  {
+    "textPayload": "time=\"28/10/2025 08:42:55.699118\" severity=INFO message=\"Falling back to staged writes on disk for file chroma.sqlite3-journal (inode 3) due to err: outOfOrder write detected.\"",
+    "insertId": "6900820f000ab02090aec9d1",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-10-28T08:42:55.700448Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2F%2Fvar%2Flog%2Fsystem",
+    "receiveTimestamp": "2025-10-28T08:42:56.035884716Z"
+  },
+  {
+    "textPayload": "time=\"28/10/2025 08:42:55.816580\" severity=INFO message=\"Falling back to staged write for 'chroma.sqlite3-journal'. Streaming write is limited to sequential writes on new/empty files.\"",
+    "insertId": "6900820f000c7a2b1f6e7bb4",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-10-28T08:42:55.817707Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2F%2Fvar%2Flog%2Fsystem",
+    "receiveTimestamp": "2025-10-28T08:42:56.035884716Z"
+  },
+  {
+    "textPayload": "time=\"28/10/2025 08:42:56.034030\" severity=INFO message=\"Falling back to staged write for 'chroma.sqlite3'. Streaming write is limited to sequential writes on new/empty files.\"",
+    "insertId": "69008210000087eaa53da980",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7"
+      }
+    },
+    "timestamp": "2025-10-28T08:42:56.034794Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2F%2Fvar%2Flog%2Fsystem",
+    "receiveTimestamp": "2025-10-28T08:42:56.370085610Z"
+  },
+  {
+    "textPayload": "time=\"28/10/2025 08:43:03.592520\" severity=INFO message=\"Falling back to staged write for 'ac40e28d-6c3d-4493-861d-16ccd6abc618/header.bin'. Streaming write is limited to sequential writes on new/empty files.\"",
+    "insertId": "6900821700090d178f6278f4",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00214-5z7",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:03.593175Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2F%2Fvar%2Flog%2Fsystem",
+    "receiveTimestamp": "2025-10-28T08:43:03.700223670Z"
+  },
+  {
+    "textPayload": "time=\"28/10/2025 08:43:03.727380\" severity=INFO message=\"Falling back to staged write for 'ac40e28d-6c3d-4493-861d-16ccd6abc618/data_level0.bin'. Streaming write is limited to sequential writes on new/empty files.\"",
+    "insertId": "69008217000b1c18ec1f1779",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:03.728088Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2F%2Fvar%2Flog%2Fsystem",
+    "receiveTimestamp": "2025-10-28T08:43:04.031096329Z"
+  },
+  {
+    "textPayload": "time=\"28/10/2025 08:43:03.857888\" severity=INFO message=\"Falling back to staged write for 'ac40e28d-6c3d-4493-861d-16ccd6abc618/length.bin'. Streaming write is limited to sequential writes on new/empty files.\"",
+    "insertId": "69008217000d1a4dc90a4c75",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:03.858701Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2F%2Fvar%2Flog%2Fsystem",
+    "receiveTimestamp": "2025-10-28T08:43:04.031096329Z"
+  },
+  {
+    "textPayload": "time=\"28/10/2025 08:43:08.187672\" severity=INFO message=\"Falling back to staged write for '93bfe0c9-761f-4cb7-8cac-eaac0e0d6019/header.bin'. Streaming write is limited to sequential writes on new/empty files.\"",
+    "insertId": "6900821c0002e032c2d90271",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00214-5z7",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:08.188466Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2F%2Fvar%2Flog%2Fsystem",
+    "receiveTimestamp": "2025-10-28T08:43:08.356986598Z"
+  },
+  {
+    "textPayload": "time=\"28/10/2025 08:43:08.434046\" severity=INFO message=\"Falling back to staged write for '93bfe0c9-761f-4cb7-8cac-eaac0e0d6019/data_level0.bin'. Streaming write is limited to sequential writes on new/empty files.\"",
+    "insertId": "6900821c0006a1e307e955fb",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:08.434659Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2F%2Fvar%2Flog%2Fsystem",
+    "receiveTimestamp": "2025-10-28T08:43:08.702189407Z"
+  },
+  {
+    "textPayload": "time=\"28/10/2025 08:43:08.560495\" severity=INFO message=\"Falling back to staged write for '93bfe0c9-761f-4cb7-8cac-eaac0e0d6019/length.bin'. Streaming write is limited to sequential writes on new/empty files.\"",
+    "insertId": "6900821c00088f962e833a1b",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:08.561046Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2F%2Fvar%2Flog%2Fsystem",
+    "receiveTimestamp": "2025-10-28T08:43:08.702189407Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:43:10 - bot_logger - INFO - Generando embedding (model=openai/text-embedding-3-small) para: 'El Cuadrante 2 (Importante, No Urgente) es donde r...'",
+    "insertId": "6900821e00028676a280a1fb",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00214-5z7",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:10.165494Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:43:10.168100511Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:43:12 - bot_logger - ERROR - Embedding HTTP response missing data array",
+    "insertId": "69008220000ae52316e9bcd5",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:12.714019Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:43:12.833512825Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:43:13 - bot_logger - WARNING - Embedding circuit open (recent failures); skipping embedding generation.",
+    "insertId": "690082210004f6ab4167e6ee",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:13.325291Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:43:13.498784697Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:43:13 - bot_logger - WARNING - Embedding circuit open (recent failures); skipping embedding generation.",
+    "insertId": "690082210007f11133b26510",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00214-5z7"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:13.520465Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:43:13.831916885Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:43:13 - bot_logger - WARNING - Embedding circuit open (recent failures); skipping embedding generation.",
+    "insertId": "69008221000c767a1bf5c4c5",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:13.816762Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:43:13.831916885Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:43:13 - bot_logger - WARNING - Embedding circuit open (recent failures); skipping embedding generation.",
+    "insertId": "69008221000f2e1bcc3df9b5",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:13.994843Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:43:14.163834956Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:43:13 - bot_logger - INFO - Tema seleccionado (menos similar en muestra 5), distancia≈1.0000",
+    "insertId": "69008221000f2e24529e2b0a",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:13.994852Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:43:14.163834956Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:43:13 - bot_logger - INFO - [PERF] find_relevant_topic took 28.42 seconds.",
+    "insertId": "69008221000f2e276d18e925",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00214-5z7",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:13.994855Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:43:14.163834956Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:43:13 - bot_logger - INFO - [CHAT_ID: 1119810722] Tema seleccionado (ID: 35b0ea2f-fc46-4c2d-8b24-1d6dec622e4a). Abstract: 'El Cuadrante 2 (Importante, No Urgente) es donde reside el valor a largo plazo y...'",
+    "insertId": "69008221000f2e2ba9e2b4e4",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:13.994859Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:43:14.163834956Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:43:15 - bot_logger - INFO - [CHAT_ID: 1119810722] Telegram API call successful: sendMessage",
+    "insertId": "69008223000a2fd5f9b0ccdf",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:15.667605Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:43:15.830112838Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:43:16 - bot_logger - INFO - ICP cargado correctamente desde '/app/config/icp.md'.",
+    "insertId": "690082240002852d4d78b8d7",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:16.165165Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:43:16.495255919Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:43:16 - bot_logger - INFO - Iniciando comprobación de similitud en memoria.",
+    "insertId": "6900822400028534e57664c7",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00214-5z7",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:16.165172Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:43:16.495255919Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:43:17 - bot_logger - WARNING - Embedding circuit open (recent failures); skipping embedding generation.",
+    "insertId": "6900822500089fad14b6002a",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00214-5z7",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:17.565165Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:43:17.827601430Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:43:17 - bot_logger - INFO - Embedding del tema no disponible; se omite comprobación de similitud.",
+    "insertId": "690082250008a2357640884b",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:17.565813Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:43:17.827601430Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:43:17 - bot_logger - INFO - Intento de generación de IA 1/3…",
+    "insertId": "690082250008a239398300f8",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00214-5z7",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:17.565817Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:43:17.827601430Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:43:17 - bot_logger - INFO - Generating all variants via single-call multi-length prompt...",
+    "insertId": "69008225000baf594b69a279",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-10-28T08:43:17.765785Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:43:17.827601430Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:46:22 - bot_logger - INFO - [PERF] Single-call for all variants took 184.90 seconds.",
+    "insertId": "690082de000bac5ca02b7f54",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "location": "europe-west1",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-10-28T08:46:22.765020Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:46:22.770691957Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:46:22 - bot_logger - INFO - Intento 1: todos los borradores generados y validados.",
+    "insertId": "690082de000bae2501871d94",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7"
+      }
+    },
+    "timestamp": "2025-10-28T08:46:22.765477Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:46:23.103674508Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:46:22 - bot_logger - INFO - Running Fast Evaluation...",
+    "insertId": "690082de000baf565d18009d",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00214-5z7"
+      }
+    },
+    "timestamp": "2025-10-28T08:46:22.765782Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:46:23.103674508Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:46:27 - bot_logger - INFO - Running Slow Evaluation...",
+    "insertId": "690082e3000a3ee5b831bf53",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00214-5z7"
+      }
+    },
+    "timestamp": "2025-10-28T08:46:27.671461Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:46:27.763851312Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:46:29 - bot_logger - INFO - Comparative Log: Fast(3.50) vs Slow({'brand_fit_score': 7, 'contrarian_score': 3, 'factuality': 'ok', 'summary': 'Good angle, but lacks data & brand voice'})",
+    "insertId": "690082e50003f91b516def9c",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-10-28T08:46:29.260379Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:46:29.432261368Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:46:29 - bot_logger - INFO - Running Fast Evaluation...",
+    "insertId": "690082e50003f927d97ba19d",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00214-5z7",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-10-28T08:46:29.260391Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:46:29.432261368Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:46:44 - bot_logger - INFO - Running Slow Evaluation...",
+    "insertId": "690082f40008f22b807fb037",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00214-5z7",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-10-28T08:46:44.586283Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:46:44.591787680Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:46:48 - bot_logger - INFO - Comparative Log: Fast(2.50) vs Slow({'brand_fit_score': 7, 'contrarian_score': 3, 'factuality': 'ok', 'summary': 'Needs more punch, less cliche'})",
+    "insertId": "690082f800032beac8adf426",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00214-5z7"
+      }
+    },
+    "timestamp": "2025-10-28T08:46:48.207850Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:46:48.254507401Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:46:48 - bot_logger - INFO - Running Fast Evaluation...",
+    "insertId": "690082f800032bf514255f7c",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-10-28T08:46:48.207861Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:46:48.254507401Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:46:52 - bot_logger - INFO - Running Slow Evaluation...",
+    "insertId": "690082fc00071df0f9dc77fd",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00214-5z7",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-10-28T08:46:52.466416Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:46:52.583977027Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:46:55 - bot_logger - INFO - Comparative Log: Fast(3.50) vs Slow({'brand_fit_score': 6, 'contrarian_score': 3, 'factuality': 'ok', 'summary': 'Needs more edge, lacks personal brand'})",
+    "insertId": "690082ff0004a4608a201d8b",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00214-5z7",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-10-28T08:46:55.304224Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:46:55.579408306Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:46:55 - bot_logger - INFO - [CHAT_ID: 1119810722] Intentando enviar propuesta a Telegram.",
+    "insertId": "690082ff0004a474d38d881a",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00214-5z7",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-10-28T08:46:55.304244Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:46:55.579408306Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:46:57 - bot_logger - INFO - [CHAT_ID: 1119810722] Telegram API call successful: sendMessage",
+    "insertId": "690083010005957114050021",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-10-28T08:46:57.365937Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:46:57.577808633Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:46:57 - bot_logger - INFO - [CHAT_ID: 1119810722] Propuesta enviada correctamente a Telegram.",
+    "insertId": "69008301000bb08e95062e4f",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-10-28T08:46:57.766094Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:46:57.910889432Z"
+  },
+  {
+    "textPayload": "2025-10-28 08:46:57 - bot_logger - INFO - [CHAT_ID: 1119810722] Propuesta enviada correctamente.",
+    "insertId": "69008301000bb09bfc04cc31",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-10-28T08:46:57.766107Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-10-28T08:46:57.910889432Z"
+  },
+  {
+    "textPayload": "time=\"28/10/2025 08:48:43.933724\" severity=INFO message=\"Starting a garbage collection run.\"",
+    "insertId": "6900836b000e42104a2e1447",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00214-5z7",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-10-28T08:48:43.934416Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2F%2Fvar%2Flog%2Fsystem",
+    "receiveTimestamp": "2025-10-28T08:48:43.936837684Z"
+  },
+  {
+    "textPayload": "time=\"28/10/2025 08:48:43.982587\" severity=INFO message=\"Garbage collection succeeded after deleted 0 objects in 48.728921ms.\"",
+    "insertId": "6900836b000eff885b3065b2",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00214-5z7"
+      }
+    },
+    "timestamp": "2025-10-28T08:48:43.982920Z",
+    "labels": {
+      "instanceId": "0014778296090aa08107a4155f419f60ab3b9c5661db81c9d60e6f1d84868b240a9325f353f8fa32657f18efdb740af7ecb684b5a3cd10e84d2e21bbfbab76bd0115eb77ff0805c80f43fddd69"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2F%2Fvar%2Flog%2Fsystem",
+    "receiveTimestamp": "2025-10-28T08:48:44.274557347Z"
+  }
+]

@@ -144,6 +144,73 @@ STOPWORDS = {
     "every",
 }
 
+# --- Warden toggles and ranges (env-configurable)
+ENFORCE_NO_COMMAS = os.getenv("ENFORCE_NO_COMMAS", "1").lower() in {"1", "true", "yes", "y"}
+ENFORCE_NO_AND_OR = os.getenv("ENFORCE_NO_AND_OR", "1").lower() in {"1", "true", "yes", "y"}
+WARDEN_WPL_LO = int(os.getenv("WARDEN_WORDS_PER_LINE_LO", "5") or 5)
+WARDEN_WPL_HI = int(os.getenv("WARDEN_WORDS_PER_LINE_HI", "12") or 12)
+MID_MIN = int(os.getenv("MID_MIN", "180") or 180)
+MID_MAX = int(os.getenv("MID_MAX", "230") or 230)
+LONG_MIN = int(os.getenv("LONG_MIN", "240") or 240)
+LONG_MAX = int(os.getenv("LONG_MAX", "280") or 280)
+
+HEDGING_REGEX = re.compile(
+    r"\b(i think|maybe|probably|seems|appears|kind of|sort of|in my opinion|i feel|could|might)\b",
+    re.I,
+)
+CLICHE_REGEX = re.compile(
+    r"\b(let'?s dive in|game[- ]?changing|unlock(ing)? potential|revolutionary|cutting[- ]edge|synergy|disruption|leverage|empower|unleash|10x|next[- ]level|paradigm|world[- ]class|best[- ]in[- ]class)\b",
+    re.I,
+)
+HYPE_REGEX = re.compile(
+    r"\b(guarantee|instant|effortless|secret sauce|never fail|zero risk|magic|overnight)\b",
+    re.I,
+)
+NON_ENGLISH_CHARS = re.compile(r"[áéíóúñüÁÉÍÓÚÑÜ]")
+END_PUNCT = re.compile(r"[.!?]$")
+
+def _one_sentence_per_line(text: str) -> bool:
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    if not lines:
+        return False
+    for l in lines:
+        if not END_PUNCT.search(l):
+            return False
+        if re.search(r"[.!?].+?[.!?]", l):
+            return False
+    return True
+
+def _avg_words_per_line_between(text: str, lo: int = WARDEN_WPL_LO, hi: int = WARDEN_WPL_HI) -> bool:
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    if not lines:
+        return False
+    for l in lines:
+        words = re.findall(r"\b[\w']+\b", l)
+        if not (lo <= len(words) <= hi):
+            return False
+    return True
+
+def _english_only(text: str) -> bool:
+    return NON_ENGLISH_CHARS.search(text) is None
+
+def _no_banned_language(text: str) -> Optional[str]:
+    if HEDGING_REGEX.search(text):
+        return "hedging"
+    if CLICHE_REGEX.search(text):
+        return "cliche"
+    if HYPE_REGEX.search(text):
+        return "hype"
+    return None
+
+def _range_ok(label: str, s: str) -> bool:
+    n = len(s)
+    if label == "short":
+        return n <= 160
+    if label == "mid":
+        return MID_MIN <= n <= MID_MAX
+    if label == "long":
+        return LONG_MIN <= n <= LONG_MAX
+    return n < 280
 
 def _pick_hooks_for_variants(rng: random.Random, count: int) -> List[int]:
     """Return indices into HOOK_GUIDELINES ensuring variety."""
@@ -1123,7 +1190,9 @@ def generate_all_variants(
                 improved, _audit = improve_style(draft, context.contract)
                 draft = _strip_hashtags_and_fix(improved)
             except StyleRejection as e:
-                raise StyleRejection(f"Variant {label} rejected by style audit: {e}")
+                reason = f"Variant {label} rejected by style audit: {e}"
+                logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                raise StyleRejection(reason)
 
             # Mechanical compliance (no commas/and-or/hashtags/AI-patterns)
             try:
@@ -1134,6 +1203,46 @@ def generate_all_variants(
                 draft2 = _strip_hashtags_and_fix(draft2)
                 _enforce_variant_compliance(label.upper(), draft2, format_profile=None, allow_analogy=False)
                 draft = draft2
+
+            # Additional Warden checks
+            if not _english_only(draft):
+                reason = f"Variant {label} rejected: non-English characters."
+                logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                raise StyleRejection(reason)
+            banned_hit = _no_banned_language(draft)
+            if banned_hit:
+                reason = f"Variant {label} rejected: {banned_hit} language."
+                logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                raise StyleRejection(reason)
+            if not _one_sentence_per_line(draft):
+                reason = f"Variant {label} rejected: one sentence per line required."
+                logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                raise StyleRejection(reason)
+            if not _avg_words_per_line_between(draft, WARDEN_WPL_LO, WARDEN_WPL_HI):
+                reason = f"Variant {label} rejected: sentence length {WARDEN_WPL_LO}–{WARDEN_WPL_HI} words per line."
+                logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                raise StyleRejection(reason)
+            if not _range_ok(label, draft):
+                if len(draft) > 280:
+                    draft2 = ensure_under_limit_via_llm(draft, settings.validation_model, limit=280)
+                    draft2 = _strip_hashtags_and_fix(draft2)
+                    if not _range_ok(label, draft2):
+                        reason = f"Variant {label} rejected: char range after compaction."
+                        logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                        raise StyleRejection(reason)
+                    draft = draft2
+                else:
+                    reason = f"Variant {label} rejected: wrong char range."
+                    logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                    raise StyleRejection(reason)
+            if ENFORCE_NO_COMMAS and "," in draft:
+                reason = f"Variant {label} rejected: commas not allowed."
+                logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                raise StyleRejection(reason)
+            if ENFORCE_NO_AND_OR and re.search(r"\b(and|or)\b", draft, re.I):
+                reason = f"Variant {label} rejected: 'and/or' not allowed."
+                logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                raise StyleRejection(reason)
 
             cleaned[label] = draft
 

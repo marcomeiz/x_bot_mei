@@ -32,9 +32,15 @@ La arquitectura actual se basa en los siguientes principios:
 
 ## Instalación y Ejecución
 
-La instalación y ejecución no han cambiado.
+La instalación y ejecución no han cambiado, pero se documentan las variables relevantes del motor de fallback.
 
 1.  **Instalar:** `python -m venv venv && source venv/bin/activate && pip install -r requirements.txt`.
-2.  **Configurar `.env`:** Definir `GOOGLE_API_KEY` y otras variables necesarias.
+2.  **Variables (.env):**
+    - `GOOGLE_API_KEY` (obligatoria para embeddings y Gemini)
+    - `OPENROUTER_API_KEY` (opcional; fallback)
+    - `FALLBACK_PROVIDER_ORDER` (por defecto `gemini,openrouter`)
+    - `GEMINI_MODEL` (por defecto `gemini-2.5-pro`)
+    - `OPENROUTER_DEFAULT_MODEL` (opcional; p. ej. `anthropic/claude-3.5-sonnet`)
 3.  **Ingesta local:** `python run_watcher.py` y copiar PDFs a `uploads/`.
-4.  **Generación manual:** `python -i core_generator.py` y ejecutar `generate_tweet_from_topic("<abstract>")`.
+4.  **Bot:** `/g` para propuestas (A/B/C) y `/c <texto>` para comentar.
+5.  **Generación manual (debug):** `python -i core_generator.py` y ejecutar `generate_tweet_from_topic("<abstract>")`.

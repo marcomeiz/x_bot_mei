@@ -11,13 +11,13 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 - Respeta las invariantes de negocio:
   - Tweets deben ser ≤ 280 caracteres sin recorte local: solo mediante LLM.
   - Mensajes de Telegram incluyen: tema (abstract), nombre del PDF origen si existe, y contadores `(N/280)` por opción.
-- Los temas en ChromaDB incluyen metadatos `{"pdf": <nombre>}` cuando provienen del pipeline de ingestión (`watcher_app.py` + módulos auxiliares).
-- Fallback LLM: intentar OpenRouter y, si falla (402/401/403/429/insufficient), pasar a Gemini sin interrumpir el flujo.
+- Los temas en ChromaDB incluyen metadatos `{"pdf": <nombre>}` cuando provienen del pipeline de ingestión (`watcher_v2.py`/`run_watcher.py` + módulos auxiliares).
+- Fallback LLM: intentar Gemini y, si falla (401/403/404/429/insufficient), pasar a OpenRouter sin interrumpir el flujo.
 - Preferir seguridad y claridad sobre “optimización prematura”.
 
 ## Arquitectura (vista de 10.000 ft)
 
-- `watcher_app.py`
+- `watcher_v2.py` / `run_watcher.py`
   - Observa `uploads/` para nuevos PDFs y delega en módulos especializados.
 - `ingestion_config.py`
   - Carga configuración desde `.env` y garantiza directorios de trabajo.
@@ -55,9 +55,9 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 - `callback_parser.py`
   - Tipifica y parsea los datos de los botones inline de Telegram.
 - `llm_fallback.py`
-  - Capa común de LLM: intenta OpenRouter → Gemini, con manejo de JSON robusto y detección de errores para fallback.
+  - Capa común de LLM: intenta Gemini → OpenRouter (por defecto), con manejo de JSON robusto y detección de errores para fallback.
 - `bot.py`
-  - Webhook de Telegram: `/generate` para proponer A/B y callbacks para aprobar/rechazar.
+  - Webhook de Telegram: `/g` para proponer A/B/C y callbacks para aprobar/rechazar; `/c <texto>` para comentar.
   - Envía mensajes con comprobación de errores Telegram (Markdown → plano si falla).
   - Gestiona archivos temporales en `/tmp` para conservar borradores entre callbacks.
 - `copywriter_contract_hormozi.md`
@@ -117,10 +117,10 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
   - Se usa `parse_mode=MarkdownV2` con escape seguro; fallback a `Markdown` y luego a texto plano si fuese necesario.
   - Validar respuesta `ok` y `status_code`; loggear `description` en caso de error.
 - Callbacks:
-  - Formato: `approve_A_<topic_id>`, `approve_B_<topic_id>`, `reject_<topic_id>`, `generate_new`.
+  - Formato: `approve_A_<topic_id>`, `approve_B_<topic_id>`, `approve_C_<topic_id>`, `reject_<topic_id>`, `generate_new`.
   - Parsear con `split('_', 2)` para no corromper el `topic_id`.
 - Archivos temporales en `/tmp`:
-  - Nombre: `/{chat_id}_{topic_id}.tmp` (JSON con `draft_a` y `draft_b`).
+  - Nombre: `/{chat_id}_{topic_id}.json` (JSON con `draft_a`, `draft_b` y opcional `draft_c`).
   - Comprobar existencia antes de leer; si falta, avisar al usuario y ofrecer botón para regenerar.
 
 ## ChromaDB: Persistencia y Colecciones
@@ -136,7 +136,7 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 
 - `generate_tweet_from_topic(abstract)`:
   - Entrada: `abstract: str`.
-  - Salida: `(draft_a: str, draft_b: str)` ambos ≤ 280; si algo falla, `("Error: ...", "")`.
+  - Salida: `{\"short\": str, \"mid\": str, \"long\": str}` todos ≤ 280; si algo falla, `{ \"error\": \"...\" }`.
 - `find_relevant_topic()` devuelve `{"topic_id", "abstract", "source_pdf"?}` o `None`.
 - Watchers escriben JSON de salida en `json/<pdf>.json` y añaden a Chroma.
 
@@ -149,8 +149,8 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 
 ## Patrones de Error y Diagnóstico
 
-- OpenRouter 402/ratelimits → verás logs “Falló OpenRouter… fallback a Gemini: …”. No fuerces reintentos inmediatos; deja al fallback trabajar.
-- Gemini 404 model not found → usa `genai.list_models()` y ajusta `GEMINI_MODEL`.
+- Gemini 4xx/model errors → verás logs “Falló Gemini… fallback a OpenRouter: …”. No fuerces reintentos inmediatos; deja al fallback trabajar.
+- OpenRouter 4xx/ratelimits → valida `OPENROUTER_API_KEY` y `OPENROUTER_DEFAULT_MODEL`. Evita pasar nombres `gemini-*` a OpenRouter.
 - Telegram 400 “can’t parse entities” → ocurre por Markdown; ya hay fallback a texto plano. Considera escape MarkdownV2 si se requiere formato estable.
 - Chroma “Could not connect to tenant …” → carrera en init; ya mitigado con lock. Si persiste, verifica permisos y la existencia de `db/`.
 
@@ -161,9 +161,9 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 - Listing de modelos Gemini (real):
   - `import google.generativeai as genai; genai.configure(api_key=...); list(genai.list_models())`.
 - Watcher local:
-  - Ejecuta `python watcher_app.py`, copia un PDF pequeño a `uploads/` y verifica `json/` + `db/` + notificación.
+  - Ejecuta `python run_watcher.py`, copia un PDF pequeño a `uploads/` y verifica `json/` + `db/` + notificación.
 - Bot:
-  - Con `/generate` debe llegar propuesta con tema+PDF y conteos. Aprobación A/B genera un enlace listo para publicar en Threads y guarda en memoria.
+  - Con `/g` debe llegar propuesta con tema+PDF y conteos. Aprobación A/B/C genera un enlace listo para publicar en Threads y guarda en memoria.
 
 ## Operación y Runbook
 

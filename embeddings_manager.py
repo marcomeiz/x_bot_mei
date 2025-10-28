@@ -21,9 +21,10 @@ _last_embed_error_ts: float = 0.0
 # Modelo de embeddings efectivo (override dinámico si el default falla)
 _embed_model_override: Optional[str] = None
 _embed_fallback_candidates = (
+    # Prefer stable providers first
+    "jinaai/jina-embeddings-v2-base-en",
     "openai/text-embedding-3-small",
     "thenlper/gte-small",
-    "jinaai/jina-embeddings-v2-base-en",
 )
 
 _embed_client: Optional[OpenAI] = None
@@ -89,7 +90,7 @@ def get_chroma_client():
                             logger.info("Cliente Chroma legacy (v1) inicializado correctamente.")
                         except Exception as e_v1:
                             logger.critical(
-                                f"Fallo crítico conectando con Chroma (v2 y v1): v2='{e_v2}' v1='{e_v1}'",
+                                f"Fallo conectando con Chroma HTTP (v2) y legacy (v1). v2='{e_v2}' v1='{e_v1}'",
                                 exc_info=True,
                             )
                             raise
@@ -133,7 +134,7 @@ def get_embedding(text: str):
             resp = client.embeddings.create(model=model, input=[text], timeout=15)
             data = getattr(resp, "data", None) or []
             if not data:
-                logger.error("Embedding SDK response missing data array")
+                logger.error("Embedding SDK response missing vector payload")
                 return None
             vec = getattr(data[0], "embedding", None)
             if not isinstance(vec, list) or not all(isinstance(x, (int, float)) for x in vec):
@@ -188,8 +189,8 @@ def get_embedding(text: str):
             logger.error(f"Embedding HTTP exception: {ee}")
             return None
 
-    # Intento con el modelo actual via SDK, luego HTTP
-    vec = _sdk_call(model_name) or _http_call(model_name)
+    # Intento HTTP-first para mayor compatibilidad; luego SDK
+    vec = _http_call(model_name) or _sdk_call(model_name)
     if vec is not None:
         return vec
 
@@ -198,7 +199,7 @@ def get_embedding(text: str):
         if candidate == model_name:
             continue
         logger.warning(f"Embedding fallback: probando modelo alternativo '{candidate}'")
-        vec2 = _sdk_call(candidate) or _http_call(candidate)
+        vec2 = _http_call(candidate) or _sdk_call(candidate)
         if vec2 is not None:
             _embed_model_override = candidate
             logger.info(f"Embedding model conmutado dinámicamente a '{candidate}'")

@@ -94,22 +94,22 @@ def _style_similarity_to_memory(text: str) -> float:
 
 
 def audit_style(text: str, contract_text: str) -> Dict[str, Any]:
-    """LLM-based style audit returning a rubric. Conservative JSON parsing via llm.chat_json."""
+    """LLM-based style audit that derives its rubric from the contract itself.
+
+    Returns strict JSON with dynamic violations tied to the contract, so changes
+    in the contract are reflected automatically without code updates.
+    """
     prompt = f"""
-Evaluate the following text against the style contract. Do not rewrite.
-Return ONLY strict JSON with fields:
+You are a strict Style Auditor. Read the style contract and derive a checklist of atomic, testable rules directly from it (no external assumptions). Then evaluate the text against that checklist.
+
+Return ONLY strict JSON:
 {{
-  "english_only": boolean,
-  "paras": integer,               // number of paragraphs (separated by blank lines)
-  "voice": "bar"|"boardroom",    // bar = conversational, personal, witty; boardroom = corporate, generic
-  "local_flavor_present": boolean, // subtle, grounded, human flavor (no clichés), in natural English
-  "cliche_score": integer,        // 0 (none) .. 5 (heavy clichés)
-  "corporate_jargon_score": integer, // 0..5 based on jargon tone (not exact words)
-  "addresses_icp": boolean,       // speaks directly to the ICP with clear relevance
-  "micro_win_present": boolean,   // contains a clear tactical next step (micro-win)
-  "cliche_context": "allowed"|"blocked", // allow sharp phrasing if it amplifies authority without sounding like a poster
-  "needs_revision": boolean,      // true if the text feels generic/boardroom, lacks flavor, or violates contract
-  "reason": string
+  "is_compliant": boolean,         // true only if the text satisfies the contract as-is
+  "needs_revision": boolean,       // true if specific rules are violated
+  "reason": string,                // concise summary of the key gaps
+  "violations": [                  // zero or more entries, each mapping to the contract language
+    {{ "rule": string, "severity": "low"|"medium"|"high", "evidence": string }}
+  ]
 }}
 
 <STYLE_CONTRACT>
@@ -354,17 +354,9 @@ def improve_style(text: str, contract_text: str, rounds: int = STYLE_REVISION_RO
             final_reasons.append(message.strip())
 
     _append_reason(needs, "Reached max revision rounds without satisfying audit")
-    _append_reason(bool(final_audit.get("needs_revision")), final_audit.get("reason", "LLM audit flagged unresolved issues"))
-    _append_reason(str(final_audit.get("voice", "")).lower() == "boardroom", "Voice drifted to boardroom")
-    _append_reason(not bool(final_audit.get("english_only", True)), "Non-English fragment detected")
-    # Voice-first gating signals
     if isinstance(final_audit, dict):
-        if not bool(final_audit.get("addresses_icp", True)):
-            _append_reason(True, "Does not address ICP directly")
-        if not bool(final_audit.get("micro_win_present", True)):
-            _append_reason(True, "Missing clear micro-win")
-        if str(final_audit.get("cliche_context", "")).lower() == "blocked":
-            _append_reason(True, "Cliché blocked by context")
+        if bool(final_audit.get("needs_revision")):
+            _append_reason(True, final_audit.get("reason", "LLM audit flagged unresolved issues"))
 
     final_jargon = _detect_corporate_jargon(revised)
     final_hedge = _detect_hedging(revised)

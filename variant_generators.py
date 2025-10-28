@@ -10,7 +10,7 @@ from src.prompt_loader import load_prompt
 from src.settings import AppSettings
 from logger_config import logger
 from prompt_context import PromptContext
-from style_guard import StyleRejection, improve_style, label_sections
+from style_guard import StyleRejection, improve_style, label_sections, revise_for_style
 from writing_rules import (
     BANNED_WORDS,
     FormatProfile,
@@ -1211,12 +1211,8 @@ def generate_all_variants(
                 draft = (drafts.get(label) or "").strip()
                 if not draft:
                     raise StyleRejection(f"Minimal Warden: missing '{label}' content.")
-                # Apply style rewrite (tweet mode), do NOT soften tone
-                try:
-                    improved, _audit = improve_style(draft, context.contract, mode="tweet")
-                    draft = improved.strip()
-                except StyleRejection as e:
-                    raise StyleRejection(f"Style rewrite failed for {label}: {e}")
+                # Apply V3.1 rewrite (tweet mode) with zero politeness; no gating here
+                draft = revise_for_style(draft, context.contract, mode="tweet").strip()
 
                 if not _english_only(draft):
                     raise StyleRejection(f"Minimal Warden: non-English characters in '{label}'.")

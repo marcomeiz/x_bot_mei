@@ -18,6 +18,7 @@ load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 SHOW_TOPIC_ID = os.getenv("SHOW_TOPIC_ID", "0").lower() in ("1", "true", "yes", "y")
 ADMIN_API_TOKEN = os.getenv("ADMIN_API_TOKEN", "")
+TELEGRAM_SECRET_TOKEN = os.getenv("TELEGRAM_SECRET_TOKEN", "")
 SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.20") or 0.20)
 TEMP_DIR = os.getenv("BOT_TEMP_DIR", "/tmp")
 
@@ -33,24 +34,7 @@ admin_service = AdminService()
 
 
 # ---------------------------------------------------------------------- helpers
-def _send_pdf_summary(chat_id: int) -> None:
-    try:
-        stats = admin_service.collect_pdf_stats()
-        message = admin_service.build_pdf_summary_message(stats)
-        telegram_client.send_message(chat_id, message, as_html=True)
-    except Exception as exc:
-        logger.error("[CHAT_ID: %s] Error en /pdfs: %s", chat_id, exc, exc_info=True)
-        telegram_client.send_message(chat_id, "❌ No pude consultar la base de datos.")
-
-
-def _chat_has_token(token: Optional[str]) -> bool:
-    return not ADMIN_API_TOKEN or token == ADMIN_API_TOKEN
-
-
-# ---------------------------------------------------------------------- routes
-@app.route(f"/{TELEGRAM_BOT_TOKEN}", methods=["POST"])
-def telegram_webhook():
-    update: Dict = request.get_json()
+def _process_update(update: Dict) -> None:
     logger.info("Update recibido: %s", update)
     if "message" in update:
         message = update["message"]
@@ -74,7 +58,7 @@ def telegram_webhook():
                 url = os.getenv("CHROMA_DB_URL")
                 if not url:
                     telegram_client.send_message(chat_id, "❌ CHROMA_DB_URL no está configurada.")
-                    return "ok", 200
+                    return
                 
                 # Asegurarse de que la URL tiene el endpoint correcto
                 if not url.endswith('/'):
@@ -92,6 +76,40 @@ def telegram_webhook():
             telegram_client.send_message(chat_id, "Comando no reconocido. Usa /generate para obtener propuestas.")
     elif "callback_query" in update:
         proposal_service.handle_callback_query(update)
+
+
+def _send_pdf_summary(chat_id: int) -> None:
+    try:
+        stats = admin_service.collect_pdf_stats()
+        message = admin_service.build_pdf_summary_message(stats)
+        telegram_client.send_message(chat_id, message, as_html=True)
+    except Exception as exc:
+        logger.error("[CHAT_ID: %s] Error en /pdfs: %s", chat_id, exc, exc_info=True)
+        telegram_client.send_message(chat_id, "❌ No pude consultar la base de datos.")
+
+
+def _chat_has_token(token: Optional[str]) -> bool:
+    return not ADMIN_API_TOKEN or token == ADMIN_API_TOKEN
+
+
+# ---------------------------------------------------------------------- routes
+@app.route(f"/{TELEGRAM_BOT_TOKEN}", methods=["POST"])
+def telegram_webhook():
+    update: Dict = request.get_json()
+    _process_update(update)
+    return "ok", 200
+
+
+@app.route("/webhook", methods=["POST"])
+def telegram_webhook_alt():
+    # Opción alternativa sin exponer el token en la ruta.
+    # Si TELEGRAM_SECRET_TOKEN está configurado, exigimos el header estándar de Telegram.
+    if TELEGRAM_SECRET_TOKEN:
+        header_token = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+        if header_token != TELEGRAM_SECRET_TOKEN:
+            return {"ok": False, "error": "forbidden"}, 403
+    update: Dict = request.get_json()
+    _process_update(update)
     return "ok", 200
 
 

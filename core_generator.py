@@ -289,7 +289,11 @@ def find_relevant_topic(sample_size: int = 3):
             return best_topic
 
         # Fallback absoluto: devolver cualquier tema
-        fallback_id = random.choice(all_ids)
+        try:
+            fallback_id = random.choice(pool)
+        except Exception:
+            logger.warning("Fallback pool vacío o no disponible; no se puede elegir tema aleatorio.")
+            return None
         logger.info(f"[PERF] find_relevant_topic (fallback) took {time.time() - start_time:.2f} seconds.")
         return _extract_topic_entry(topics_collection, fallback_id)
     except Exception as exc:

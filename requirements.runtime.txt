@@ -1,7 +1,7 @@
 Flask
 gunicorn
 requests
-chromadb
+chromadb==0.4.24
 pydantic
 openai
 tenacity

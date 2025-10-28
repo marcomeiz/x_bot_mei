@@ -258,6 +258,11 @@ def _enforce_variant_compliance(
     allow_analogy: bool,
 ) -> None:
     issues = detect_banned_elements(draft)
+    # Honor ENV toggles for commas and conjunctions at enforcement time
+    if not ENFORCE_NO_COMMAS:
+        issues = [i for i in issues if "uses commas" not in i]
+    if not ENFORCE_NO_AND_OR:
+        issues = [i for i in issues if "uses conjunction" not in i]
     if issues:
         raise StyleRejection(f"Variant {label} rejected: {', '.join(issues)}.")
 
@@ -1176,10 +1181,16 @@ def generate_all_variants(
         # Hard gate: clean, audit and enforce mechanical rules before returning
         def _strip_hashtags_and_fix(text: str) -> str:
             import re as _re
-            t = _re.sub(r"#[A-Za-z0-9_]+", "", text)
+            # Remove hashtags and replace commas with dots, but preserve line breaks
+            t = _re.sub(r"#[A-Za-z0-9_]+", "", text or "")
             t = t.replace(",", ".")
-            t = _re.sub(r"\s+", " ", t).strip()
-            return t
+            lines = []
+            for ln in t.splitlines():
+                # Collapse internal whitespace per line and strip ends
+                norm = _re.sub(r"\s+", " ", ln).strip()
+                if norm:
+                    lines.append(norm)
+            return "\n".join(lines)
 
         cleaned: Dict[str, str] = {}
         for label in ("short", "mid", "long"):

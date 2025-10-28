@@ -1192,13 +1192,53 @@ def generate_all_variants(
                     lines.append(norm)
             return "\n".join(lines)
 
+        def _mechanical_repair(text: str, *, enforce_no_commas: bool = ENFORCE_NO_COMMAS) -> str:
+            import re as _re
+            if not text:
+                return ""
+            t = text
+            # Strip URLs, emojis, hashtags
+            t = _re.sub(r"(https?://\S+|\bwww\.[^\s]+)", "", t)
+            t = _re.sub(r"#[A-Za-z0-9_]+", "", t)
+            t = _re.sub(r"[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\u2600-\u26FF\u2700-\u27BF]", "", t)
+            if enforce_no_commas:
+                t = t.replace(",", ".")
+            # Normalize whitespace per sentence
+            # Break on sentence boundaries first
+            sentences = []
+            parts = _re.split(r"(?<=[.!?])\s+", t.strip())
+            for part in parts:
+                s = _re.sub(r"\s+", " ", part.strip())
+                if not s:
+                    continue
+                if s[-1] not in ".!?":
+                    s += "."
+                sentences.append(s)
+            # Rewrap to keep <= WARDEN_WPL_HI words per line; preserve lines that are short
+            lines: list[str] = []
+            for s in sentences:
+                words = _re.findall(r"\b[\w']+\b", s)
+                if not words:
+                    continue
+                # Chunk by HI to avoid long lines; keep punctuation on each line
+                for i in range(0, len(words), WARDEN_WPL_HI):
+                    chunk = words[i : i + WARDEN_WPL_HI]
+                    if not chunk:
+                        continue
+                    line = " ".join(chunk).strip()
+                    if line and line[-1] not in ".!?":
+                        line += "."
+                    lines.append(line)
+            # Final cleanup
+            return "\n".join(ln.strip() for ln in lines if ln.strip())
+
         cleaned: Dict[str, str] = {}
         for label in ("short", "mid", "long"):
             draft = drafts.get(label, "").strip()
             draft = _strip_hashtags_and_fix(draft)
             # Warden audit+rewrite using the style contract
             try:
-                improved, _audit = improve_style(draft, context.contract)
+                improved, _audit = improve_style(draft, context.contract, mode="tweet")
                 draft = _strip_hashtags_and_fix(improved)
             except StyleRejection as e:
                 reason = f"Variant {label} rejected by style audit: {e}"
@@ -1209,11 +1249,17 @@ def generate_all_variants(
             try:
                 _enforce_variant_compliance(label.upper(), draft, format_profile=None, allow_analogy=False)
             except StyleRejection:
-                # One compacting attempt if fixable
-                draft2 = ensure_under_limit_via_llm(draft, settings.generation_model, limit=280)
-                draft2 = _strip_hashtags_and_fix(draft2)
-                _enforce_variant_compliance(label.upper(), draft2, format_profile=None, allow_analogy=False)
-                draft = draft2
+                # Deterministic mechanical repair pass
+                draft2 = _mechanical_repair(draft)
+                try:
+                    _enforce_variant_compliance(label.upper(), draft2, format_profile=None, allow_analogy=False)
+                    draft = draft2
+                except StyleRejection:
+                    # One compacting attempt if still failing (length only)
+                    draft3 = ensure_under_limit_via_llm(draft2, settings.generation_model, limit=280)
+                    draft3 = _strip_hashtags_and_fix(draft3)
+                    _enforce_variant_compliance(label.upper(), draft3, format_profile=None, allow_analogy=False)
+                    draft = draft3
 
             # Additional Warden checks
             if not _english_only(draft):
@@ -1250,7 +1296,7 @@ def generate_all_variants(
                 reason = f"Variant {label} rejected: commas not allowed."
                 logger.warning(f"WARDEN_FAIL_REASON={reason}")
                 raise StyleRejection(reason)
-            if ENFORCE_NO_AND_OR and re.search(r"\b(and|or)\b", draft, re.I):
+            if ENFORCE_NO_AND_OR and re.search(r"\band\s*/\s*or\b", draft, re.I):
                 reason = f"Variant {label} rejected: 'and/or' not allowed."
                 logger.warning(f"WARDEN_FAIL_REASON={reason}")
                 raise StyleRejection(reason)

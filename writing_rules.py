@@ -195,6 +195,12 @@ _ANALOGY_PATTERNS = (
 )
 
 _HASHTAG_RE = re.compile(r"#[A-Za-z0-9_]+")
+_URL_RE = re.compile(r"(https?://\S+|\bwww\.[^\s]+)", re.IGNORECASE)
+# Emoji and pictographs (basic ranges). Intentionally broad to catch most emojis.
+_EMOJI_RE = re.compile(
+    r"[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\u2600-\u26FF\u2700-\u27BF]",
+    re.UNICODE,
+)
 
 # Common AI-ish/corporate patterns to block at the gate (heuristics)
 _AI_PATTERN_STRINGS = (
@@ -254,6 +260,10 @@ def detect_banned_elements(text: str) -> List[str]:
 
     if _HASHTAG_RE.search(text):
         issues.append("contains hashtag")
+    if _URL_RE.search(lower):
+        issues.append("contains link")
+    if _EMOJI_RE.search(text):
+        issues.append("contains emoji")
 
     for rex in _AI_PATTERN_RES:
         if rex.search(lower):

@@ -7,3 +7,4 @@ openai
 tenacity
 python-dotenv
 PyYAML
+numpy==1.26.4

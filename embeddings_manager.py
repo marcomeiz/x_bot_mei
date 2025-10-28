@@ -4,7 +4,7 @@ from openai import OpenAI
 import threading
 import chromadb
 from dotenv import load_dotenv
-from typing import List
+from typing import List, Optional
 
 from logger_config import logger
 from src.settings import AppSettings
@@ -15,6 +15,13 @@ load_dotenv()
 _chroma_client = None
 _chroma_lock = threading.Lock()
 _last_embed_error_ts: float = 0.0
+# Modelo de embeddings efectivo (override dinámico si el default falla)
+_embed_model_override: Optional[str] = None
+_embed_fallback_candidates = (
+    "openai/text-embedding-3-small",
+    "thenlper/gte-small",
+    "jinaai/jina-embeddings-v2-base-en",
+)
 
 def get_chroma_client():
     """
@@ -60,39 +67,58 @@ def get_memory_collection():
 
 def get_embedding(text: str):
     """Genera el embedding para un texto dado usando OpenRouter (OpenAI-compatible embeddings)."""
-    global _last_embed_error_ts
+    global _last_embed_error_ts, _embed_model_override
     # Circuit breaker: if there was an error in the last 60s, skip to avoid long timeouts
     if _last_embed_error_ts and (time.time() - _last_embed_error_ts) < 60:
         logger.warning("Embedding circuit open (recent failures); skipping embedding generation.")
         return None
     try:
         s = AppSettings.load()
-        logger.info(f"Generando embedding (model={s.embed_model}) para: '{text[:50]}...'")
+        model_name = _embed_model_override or s.embed_model
+        logger.info(f"Generando embedding (model={model_name}) para: '{text[:50]}...'")
         # Prefer HTTP path (more predictable in this environment)
         url = s.openrouter_base_url.rstrip('/') + '/embeddings'
         headers = {
             'Authorization': f'Bearer {s.openrouter_api_key}',
             'Content-Type': 'application/json'
         }
-        payload = {"model": s.embed_model, "input": text}
-        resp = requests.post(url, headers=headers, json=payload, timeout=6)
-        ctype = resp.headers.get('content-type', '')
-        data = resp.json() if 'application/json' in ctype else {}
-        if resp.status_code != 200:
-            logger.error(f"Embeddings HTTP error {resp.status_code}: {str(data)[:200]}")
-            _last_embed_error_ts = time.time()
-            return None
-        arr = data.get('data') or []
-        if not arr or not isinstance(arr, list):
-            logger.error("Embedding HTTP response missing data array")
-            _last_embed_error_ts = time.time()
-            return None
-        vec = arr[0].get('embedding')
-        if not isinstance(vec, list) or not all(isinstance(x, (int, float)) for x in vec):
-            logger.error("Embedding HTTP vector invalid type")
-            _last_embed_error_ts = time.time()
-            return None
-        return vec
+        
+        def _http_call(model: str) -> Optional[list]:
+            payload = {"model": model, "input": text}
+            resp = requests.post(url, headers=headers, json=payload, timeout=6)
+            ctype = resp.headers.get('content-type', '')
+            data = resp.json() if 'application/json' in ctype else {}
+            if resp.status_code != 200:
+                logger.error(f"Embeddings HTTP error {resp.status_code}: {str(data)[:200]}")
+                return None
+            arr = data.get('data') or []
+            if not arr or not isinstance(arr, list):
+                logger.error("Embedding HTTP response missing data array")
+                return None
+            vec = arr[0].get('embedding')
+            if not isinstance(vec, list) or not all(isinstance(x, (int, float)) for x in vec):
+                logger.error("Embedding HTTP vector invalid type")
+                return None
+            return vec
+
+        # Intento con el modelo actual
+        vec = _http_call(model_name)
+        if vec is not None:
+            return vec
+
+        # Probar candidatos alternativos baratos soportados en OR
+        for candidate in _embed_fallback_candidates:
+            if candidate == model_name:
+                continue
+            logger.warning(f"Embedding fallback: probando modelo alternativo '{candidate}'")
+            vec2 = _http_call(candidate)
+            if vec2 is not None:
+                _embed_model_override = candidate
+                logger.info(f"Embedding model conmutado dinámicamente a '{candidate}'")
+                return vec2
+
+        _last_embed_error_ts = time.time()
+        return None
     except Exception as ee:
         logger.error(f"Error inesperado generando embedding: {ee}", exc_info=True)
         _last_embed_error_ts = time.time()

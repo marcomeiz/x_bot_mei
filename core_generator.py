@@ -219,7 +219,7 @@ def generate_comment_from_text(source_text: str) -> CommentDraft:
     )
 
 
-def find_relevant_topic(sample_size: int = 5):
+def find_relevant_topic(sample_size: int = 3):
     start_time = time.time()
 
     logger.info("Buscando tema en 'topics_collection' (preferir menos similar a memoria)…")

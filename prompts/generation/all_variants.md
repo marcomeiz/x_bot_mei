@@ -24,7 +24,7 @@ You will write three tweet drafts from the topic abstract.
 Write clean at the source. Do not rely on downstream fixes.
 
 Voice & Audience
-- Alex Hormozi contract (cadence, ruthlessness, no fluff).
+- VOICE CONTRACT V3 — Brutal Honest Solopreneur Ops.
 - Solopreneur-in-the-Trenches ICP (operators-first, tactical).
 
 Hard Rules (must all pass)

@@ -10,7 +10,7 @@ from src.prompt_loader import load_prompt
 from src.settings import AppSettings
 from logger_config import logger
 from prompt_context import PromptContext
-from style_guard import StyleRejection, improve_style
+from style_guard import StyleRejection, improve_style, label_sections
 from writing_rules import (
     BANNED_WORDS,
     FormatProfile,
@@ -1238,7 +1238,7 @@ def generate_all_variants(
             draft = _strip_hashtags_and_fix(draft)
             # Warden audit+rewrite using the style contract
             try:
-                improved, _audit = improve_style(draft, context.contract, mode="tweet")
+                improved, audit_payload = improve_style(draft, context.contract, mode="tweet")
                 draft = _strip_hashtags_and_fix(improved)
             except StyleRejection as e:
                 reason = f"Variant {label} rejected by style audit: {e}"
@@ -1250,6 +1250,30 @@ def generate_all_variants(
                 _enforce_variant_compliance(label.upper(), draft, format_profile=None, allow_analogy=False)
             except StyleRejection:
                 # Deterministic mechanical repair pass
+                # Label core sections; preserve core truth and hammer
+                try:
+                    labels = label_sections(draft, context.contract)
+                except Exception:
+                    labels = {"preserve_indices": []}
+                preserve_idx = set(int(i) for i in labels.get("preserve_indices", []) if isinstance(i, int))
+
+                # If preserved lines violate mechanics that would force splitting or punctuation changes → reject (voice wins)
+                lines = [ln.strip() for ln in draft.splitlines() if ln.strip()]
+                def _words(nline: str) -> int:
+                    import re as _re
+                    return len(_re.findall(r"\b[\w']+\b", nline))
+                for pi in preserve_idx:
+                    if 0 <= pi < len(lines):
+                        pline = lines[pi]
+                        if ENFORCE_NO_COMMAS and "," in pline:
+                            msg = f"Variant {label}: repair would degrade preserved core (comma in preserved line)"
+                            logger.warning(f"WARDEN_FAIL_CATEGORY=voice; {msg}")
+                            raise StyleRejection(msg)
+                        if _words(pline) > WARDEN_WPL_HI:
+                            msg = f"Variant {label}: repair would need to split preserved line (>{WARDEN_WPL_HI} words)"
+                            logger.warning(f"WARDEN_FAIL_CATEGORY=voice; {msg}")
+                            raise StyleRejection(msg)
+
                 draft2 = _mechanical_repair(draft)
                 try:
                     _enforce_variant_compliance(label.upper(), draft2, format_profile=None, allow_analogy=False)
@@ -1268,9 +1292,13 @@ def generate_all_variants(
                 raise StyleRejection(reason)
             banned_hit = _no_banned_language(draft)
             if banned_hit:
-                reason = f"Variant {label} rejected: {banned_hit} language."
-                logger.warning(f"WARDEN_FAIL_REASON={reason}")
-                raise StyleRejection(reason)
+                # Cliché contextual: allow if auditor judged it as allowed
+                if banned_hit == "cliche" and isinstance(audit_payload, dict) and str(audit_payload.get("cliche_context", "")).lower() == "allowed":
+                    pass
+                else:
+                    reason = f"Variant {label} rejected: {banned_hit} language."
+                    logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                    raise StyleRejection(reason)
             if not _one_sentence_per_line(draft):
                 reason = f"Variant {label} rejected: one sentence per line required."
                 logger.warning(f"WARDEN_FAIL_REASON={reason}")

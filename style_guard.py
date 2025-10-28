@@ -1,5 +1,5 @@
 import os
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, List, Optional
 
 from dotenv import load_dotenv
 
@@ -105,6 +105,9 @@ Return ONLY strict JSON with fields:
   "local_flavor_present": boolean, // subtle, grounded, human flavor (no clichés), in natural English
   "cliche_score": integer,        // 0 (none) .. 5 (heavy clichés)
   "corporate_jargon_score": integer, // 0..5 based on jargon tone (not exact words)
+  "addresses_icp": boolean,       // speaks directly to the ICP with clear relevance
+  "micro_win_present": boolean,   // contains a clear tactical next step (micro-win)
+  "cliche_context": "allowed"|"blocked", // allow sharp phrasing if it amplifies authority without sounding like a poster
   "needs_revision": boolean,      // true if the text feels generic/boardroom, lacks flavor, or violates contract
   "reason": string
 }}
@@ -134,6 +137,114 @@ Return ONLY strict JSON with fields:
     except Exception as e:
         logger.warning(f"Style audit failed: {e}")
         return {}
+
+
+def _heuristic_label_sections(lines: List[str]) -> Dict[str, Optional[int]]:
+    """Heuristic fallback for labeling core sections without LLM.
+    Returns indices for core_truth, hammer, contrast, imperative (or None).
+    """
+    import re as _re
+    n = len(lines)
+    if n == 0:
+        return {"core_truth_idx": None, "hammer_idx": None, "contrast_idx": None, "imperative_idx": None}
+    hammer_idx = n - 1
+    core_truth_idx = 0
+    contrast_idx: Optional[int] = None
+    imperative_idx: Optional[int] = None
+
+    # Detect imperative: start with strong verb or ends with '!'
+    imperative_re = _re.compile(r"^(stop|start|set|charge|raise|lower|build|do|fix|delete|close|ship|post|sell|buy|pay|cut|keep|make|use)\b",
+                                _re.IGNORECASE)
+    contrast_re = _re.compile(r"\b(vs|but|instead)\b|\bdon't\b|\bdo\s+this\b|\bnot\b", _re.IGNORECASE)
+    truth_re = _re.compile(r"\b(the real|truth|math|you (are|\'re) not|stop)\b", _re.IGNORECASE)
+
+    for idx, ln in enumerate(lines):
+        if imperative_idx is None and (ln.endswith("!") or imperative_re.search(ln)):
+            imperative_idx = idx
+        if contrast_idx is None and contrast_re.search(ln):
+            contrast_idx = idx
+        if truth_re.search(ln):
+            core_truth_idx = idx
+
+    return {
+        "core_truth_idx": core_truth_idx,
+        "hammer_idx": hammer_idx,
+        "contrast_idx": contrast_idx,
+        "imperative_idx": imperative_idx,
+    }
+
+
+def label_sections(text: str, contract_text: str) -> Dict[str, Any]:
+    """Label core sections in a tweet-like text.
+
+    Returns a JSON-like dict:
+    {
+      "core_truth_idx": int|null,
+      "hammer_idx": int|null,
+      "contrast_idx": int|null,
+      "imperative_idx": int|null,
+      "preserve_indices": [int, ...]
+    }
+    """
+    lines = [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
+    if not lines:
+        return {"core_truth_idx": None, "hammer_idx": None, "contrast_idx": None, "imperative_idx": None, "preserve_indices": []}
+
+    prompt = f"""
+Label the following lines with the indices of:
+- core_truth: the uncomfortable truth / diagnosis that frames the problem
+- hammer: the final decisive punch line
+- contrast: the line that exposes the gap (wrong vs right / before vs after)
+- imperative: the mandatory action (explicit imperative)
+
+Return strict JSON with fields:
+{{
+  "core_truth_idx": integer|null,
+  "hammer_idx": integer|null,
+  "contrast_idx": integer|null,
+  "imperative_idx": integer|null
+}}
+
+LINES (0-based):
+{chr(10).join(f"[{i}] {l}" for i, l in enumerate(lines))}
+"""
+    try:
+        data = llm.chat_json(
+            model=os.getenv("COMMENT_AUDIT_MODEL", "qwen/qwen-2.5-7b-instruct"),
+            messages=[
+                {"role": "system", "content": (
+                    "You precisely label core sections. Respond with strict JSON only. "
+                    "Use the style contract for interpretation but do not rewrite.\n\n"
+                    "<STYLE_CONTRACT>\n" + contract_text + "\n</STYLE_CONTRACT>"
+                )},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.1,
+        )
+        if not isinstance(data, dict):
+            raise ValueError("Invalid labeler response")
+        core_truth_idx = data.get("core_truth_idx")
+        hammer_idx = data.get("hammer_idx")
+        contrast_idx = data.get("contrast_idx")
+        imperative_idx = data.get("imperative_idx")
+    except Exception:
+        heur = _heuristic_label_sections(lines)
+        core_truth_idx = heur.get("core_truth_idx")
+        hammer_idx = heur.get("hammer_idx")
+        contrast_idx = heur.get("contrast_idx")
+        imperative_idx = heur.get("imperative_idx")
+
+    preserve = []
+    for v in (core_truth_idx, hammer_idx):
+        if isinstance(v, int) and 0 <= v < len(lines):
+            preserve.append(v)
+    return {
+        "core_truth_idx": core_truth_idx if isinstance(core_truth_idx, int) else None,
+        "hammer_idx": hammer_idx if isinstance(hammer_idx, int) else None,
+        "contrast_idx": contrast_idx if isinstance(contrast_idx, int) else None,
+        "imperative_idx": imperative_idx if isinstance(imperative_idx, int) else None,
+        "preserve_indices": preserve,
+    }
 
 
 def revise_for_style(text: str, contract_text: str, hint: str = "", mode: str | None = None) -> str:
@@ -245,6 +356,14 @@ def improve_style(text: str, contract_text: str, rounds: int = STYLE_REVISION_RO
     _append_reason(bool(final_audit.get("needs_revision")), final_audit.get("reason", "LLM audit flagged unresolved issues"))
     _append_reason(str(final_audit.get("voice", "")).lower() == "boardroom", "Voice drifted to boardroom")
     _append_reason(not bool(final_audit.get("english_only", True)), "Non-English fragment detected")
+    # Voice-first gating signals
+    if isinstance(final_audit, dict):
+        if not bool(final_audit.get("addresses_icp", True)):
+            _append_reason(True, "Does not address ICP directly")
+        if not bool(final_audit.get("micro_win_present", True)):
+            _append_reason(True, "Missing clear micro-win")
+        if str(final_audit.get("cliche_context", "")).lower() == "blocked":
+            _append_reason(True, "Cliché blocked by context")
 
     final_jargon = _detect_corporate_jargon(revised)
     final_hedge = _detect_hedging(revised)

@@ -129,8 +129,8 @@ def get_embedding(text: str):
     def _sdk_call(model: str) -> Optional[list]:
         try:
             client = _get_embed_client()
-            # Nota: algunas versiones del cliente requieren configurar timeout vía with_options
-            resp = client.embeddings.with_options(timeout=15).create(model=model, input=[text])
+            # Usar llamada directa; algunas versiones no soportan with_options en embeddings
+            resp = client.embeddings.create(model=model, input=[text], timeout=15)
             data = getattr(resp, "data", None) or []
             if not data:
                 logger.error("Embedding SDK response missing data array")
@@ -167,11 +167,19 @@ def get_embedding(text: str):
                 snippet = str(data.get("error"))[:240]
                 logger.error(f"Embeddings HTTP returned error payload: {snippet}")
                 return None
-            arr = (data.get("data") if isinstance(data, dict) else None) or []
-            if not arr or not isinstance(arr, list):
-                logger.error("Embedding HTTP response missing data array")
+            arr = (data.get("data") if isinstance(data, dict) else None)
+            vec = None
+            if isinstance(arr, list) and arr:
+                vec = arr[0].get("embedding") if isinstance(arr[0], dict) else None
+            # Tolerancia a esquemas alternativos
+            if vec is None and isinstance(data, dict):
+                # Algunos proveedores devuelven {"embedding": [...]} directo
+                maybe_vec = data.get("embedding")
+                if isinstance(maybe_vec, list):
+                    vec = maybe_vec
+            if not isinstance(vec, list) or not all(isinstance(x, (int, float)) for x in vec):
+                logger.error("Embedding HTTP vector invalid/missing in response")
                 return None
-            vec = arr[0].get("embedding")
             if not isinstance(vec, list) or not all(isinstance(x, (int, float)) for x in vec):
                 logger.error("Embedding HTTP vector invalid type")
                 return None

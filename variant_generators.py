@@ -641,8 +641,6 @@ def regenerate_single_variant(
         draft = str(data.get(label) or "").strip()
         if not draft:
             return None
-        # Apply tweet-mode rewrite without gating, then return
-        draft = revise_for_style(draft, context.contract, mode="tweet").strip()
         return draft
     except Exception:
         return None
@@ -1265,74 +1263,61 @@ def generate_all_variants(
             f"[PERF] Single-call for all variants took {time.time() - start_time:.2f} seconds."
         )
 
-        # Raw mode: minimal Warden only (JSON present, English-only, char ranges)
+        # Raw mode: NO guardrails (return raw drafts for VOICE tuning)
         if SUSPEND_GUARDRAILS:
-            minimal = {
+            return {
                 "short": (drafts.get("short") or "").strip(),
                 "mid": (drafts.get("mid") or "").strip(),
                 "long": (drafts.get("long") or "").strip(),
             }
-            for label in ("short", "mid", "long"):
-                d = minimal[label]
-                if not d:
-                    raise StyleRejection(f"Minimal Warden: missing '{label}' content.")
-                if not _english_only(d):
-                    raise StyleRejection(f"Minimal Warden: non-English characters in '{label}'.")
-                if not _range_ok(label, d):
-                    raise StyleRejection(f"Minimal Warden: wrong char range for '{label}' (len={len(d)}).")
-                # Basic bans even in raw mode: hashtags and commas
-                import re as _re
-                if _re.search(r"#[A-Za-z0-9_]+", d):
-                    raise StyleRejection(f"Minimal Warden: hashtag detected in '{label}'.")
-                if "," in d:
-                    raise StyleRejection(f"Minimal Warden: comma detected in '{label}'.")
-            return minimal
 
         # Minimal Warden with style rewrite (V3.1 by default):
         if WARDEN_MINIMAL:
             cleaned: Dict[str, str] = {}
             import re as _re
+            COMMA_RE = _re.compile(r"[,\uFF0C\u060C\uFE10\uFE11\uFE50\uFE51]")
             for label in ("short", "mid", "long"):
                 draft = (drafts.get(label) or "").strip()
                 if not draft:
-                    raise StyleRejection(f"Minimal Warden: missing '{label}' content.")
-                # Apply V3.1 rewrite (tweet mode) with zero politeness; no gating here
-                draft = revise_for_style(draft, context.contract, mode="tweet").strip()
+                    # Missing: regenerate this label from scratch (up to 2 attempts)
+                    ok = None
+                    for _ in range(2):
+                        ok = regenerate_single_variant(label, topic_abstract, context, settings)
+                        if ok:
+                            break
+                    if not ok:
+                        raise StyleRejection(f"Minimal Warden: missing '{label}' content.")
+                    draft = ok.strip()
 
-                # Minimal checks with one local remediation attempt per issue
-                if not _english_only(draft):
-                    # Try a targeted regeneration for this label
-                    regen = regenerate_single_variant(label, topic_abstract, context, settings)
-                    draft2 = (regen or draft).strip()
-                    if not _english_only(draft2):
-                        raise StyleRejection(f"Minimal Warden: non-English characters in '{label}'.")
-                    draft = draft2
+                # Validate with minimal checks; on failure, regenerate only this label (up to 2 attempts)
+                def _passes_minimal(s: str) -> bool:
+                    if not _english_only(s):
+                        return False
+                    if _re.search(r"#[A-Za-z0-9_]+", s):
+                        return False
+                    if COMMA_RE.search(s):
+                        return False
+                    return _range_ok(label, s)
 
-                lo, hi = (0, 160) if label == "short" else ((180, 230) if label == "mid" else (240, 280))
-                if not _range_ok(label, draft):
-                    fixed = ensure_char_range_via_llm(draft, settings.generation_model, lo, hi).strip()
-                    if not _range_ok(label, fixed):
+                if not _passes_minimal(draft):
+                    success = None
+                    for _ in range(2):
                         regen = regenerate_single_variant(label, topic_abstract, context, settings)
-                        fixed = (regen or draft).strip()
-                        if not _range_ok(label, fixed):
-                            raise StyleRejection(f"Minimal Warden: wrong char range for '{label}' (len={len(draft)}).")
-                    draft = fixed
-
-                if _re.search(r"#[A-Za-z0-9_]+", draft):
-                    regen = regenerate_single_variant(label, topic_abstract, context, settings)
-                    draft2 = (regen or draft).strip()
-                    if _re.search(r"#[A-Za-z0-9_]+", draft2):
-                        raise StyleRejection(f"Minimal Warden: hashtag detected in '{label}'.")
-                    draft = draft2
-
-                if "," in draft:
-                    fixed = draft.replace(",", ".").strip()
-                    if "," in fixed:
-                        regen = regenerate_single_variant(label, topic_abstract, context, settings)
-                        fixed = (regen or draft).strip()
-                        if "," in fixed:
+                        candidate = (regen or "").strip()
+                        if candidate and _passes_minimal(candidate):
+                            success = candidate
+                            break
+                    if not success:
+                        # Emit precise reason based on last draft
+                        if not _english_only(draft):
+                            raise StyleRejection(f"Minimal Warden: non-English characters in '{label}'.")
+                        if _re.search(r"#[A-Za-z0-9_]+", draft):
+                            raise StyleRejection(f"Minimal Warden: hashtag detected in '{label}'.")
+                        if COMMA_RE.search(draft):
                             raise StyleRejection(f"Minimal Warden: comma detected in '{label}'.")
-                    draft = fixed
+                        if not _range_ok(label, draft):
+                            raise StyleRejection(f"Minimal Warden: wrong char range for '{label}' (len={len(draft)}).")
+                    draft = success or draft
                 cleaned[label] = draft
             return cleaned
 

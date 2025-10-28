@@ -146,7 +146,7 @@ SECRET_LIST=$(IFS=, ; echo "${SECRET_FLAGS[*]}")
 
 # Build env var string with custom item delimiter to allow comma in values
 # Using gcloud's escaping feature: ^:<delim>^
-ENV_VARS='^~^FALLBACK_PROVIDER_ORDER=gemini,openrouter~CHROMA_DB_PATH=/mnt/db~GEMINI_MODEL=gemini-2.5-pro~SHOW_TOPIC_ID=0'
+ENV_VARS='^~^FALLBACK_PROVIDER_ORDER=gemini,openrouter~CHROMA_DB_URL=http://34.14.34.69:8080~CHROMA_DB_PATH=/mnt/db~GEMINI_MODEL=gemini-2.5-pro~SHOW_TOPIC_ID=0'
 
 gcloud run deploy "$SERVICE" \
   --image "$IMG" \

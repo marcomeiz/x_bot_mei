@@ -1,5 +1,5 @@
 import os
-from typing import Literal, Optional
+from typing import Optional
 
 import yaml
 from pydantic import BaseModel, Field
@@ -12,6 +12,10 @@ class AppSettings(BaseModel):
 
     # Per-purpose model choices (cheap by default)
     post_model: str = Field(default=os.getenv("POST_MODEL", "qwen/qwen-2.5-7b-instruct"))
+    # Temperature for generation (allow override via POST_TEMPERATURE or POST_PRESET)
+    post_temperature: float = Field(default=float(os.getenv("POST_TEMPERATURE", "0.6") or 0.6))
+    # Optional preset to coordinate model + temperature: speed | balanced | quality
+    post_preset: Optional[str] = Field(default=os.getenv("POST_PRESET"))
     eval_fast_model: str = Field(default=os.getenv("EVAL_FAST_MODEL", "qwen/qwen-2.5-7b-instruct"))
     eval_slow_model: str = Field(default=os.getenv("EVAL_SLOW_MODEL", "mistralai/mistral-nemo"))
     comment_audit_model: str = Field(default=os.getenv("COMMENT_AUDIT_MODEL", "qwen/qwen-2.5-7b-instruct"))
@@ -32,6 +36,8 @@ class AppSettings(BaseModel):
     def load(cls) -> "AppSettings":
         path = os.getenv("APP_CONFIG_PATH")
         base = cls()
+        # Apply preset mapping before loading file overrides
+        base = _apply_post_preset(base)
         if not path:
             return base
         try:
@@ -54,6 +60,8 @@ class AppSettings(BaseModel):
                 "log_prompts": "LOG_PROMPTS",
                 "log_prompts_full": "LOG_PROMPTS_FULL",
                 "log_provider_decisions": "LOG_PROVIDER_DECISIONS",
+                "post_temperature": "POST_TEMPERATURE",
+                "post_preset": "POST_PRESET",
             }
             merged = base.model_dump()
             for k, v in data.items():
@@ -61,6 +69,41 @@ class AppSettings(BaseModel):
                 env_set = bool(env_name and os.getenv(env_name))
                 if not env_set:
                     merged[k] = v
-            return cls(**merged)
+            obj = cls(**merged)
+            # Re-apply preset mapping after file load, unless explicit env overrides exist
+            return _apply_post_preset(obj)
         except Exception:
             return base
+
+
+def _apply_post_preset(settings: AppSettings) -> AppSettings:
+    """If POST_PRESET is set, adjust model and temperature accordingly, unless POST_MODEL/POST_TEMPERATURE are explicitly provided.
+
+    Presets:
+    - speed:    model=qwen/qwen-2.5-7b-instruct, temperature=0.5
+    - balanced: model=mistralai/mistral-nemo,      temperature=0.6
+    - quality:  model=qwen/qwen-2.5-14b-instruct,  temperature=0.7
+    """
+    preset = (settings.post_preset or "").strip().lower()
+    if not preset:
+        return settings
+    explicit_model = bool(os.getenv("POST_MODEL"))
+    explicit_temp = bool(os.getenv("POST_TEMPERATURE"))
+    model = settings.post_model
+    temp = settings.post_temperature
+    if preset == "speed":
+        if not explicit_model:
+            model = "qwen/qwen-2.5-7b-instruct"
+        if not explicit_temp:
+            temp = 0.5
+    elif preset == "balanced":
+        if not explicit_model:
+            model = "mistralai/mistral-nemo"
+        if not explicit_temp:
+            temp = 0.6
+    elif preset == "quality":
+        if not explicit_model:
+            model = "qwen/qwen-2.5-14b-instruct"
+        if not explicit_temp:
+            temp = 0.7
+    return settings.model_copy(update={"post_model": model, "post_temperature": temp})

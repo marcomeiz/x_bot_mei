@@ -62,6 +62,7 @@ def _build_settings() -> GenerationSettings:
     return GenerationSettings(
         generation_model=GENERATION_MODEL,
         validation_model=VALIDATION_MODEL,
+        generation_temperature=settings.post_temperature,
     )
 
 

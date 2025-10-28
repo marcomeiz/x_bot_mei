@@ -35,6 +35,7 @@ from writing_rules import (
 class GenerationSettings:
     generation_model: str
     validation_model: str
+    generation_temperature: float = 0.6
 
 
 @dataclass
@@ -1052,15 +1053,13 @@ def generate_all_variants(
 
 
     try:
-
-
         resp = llm.chat_json(
             model=settings.generation_model,
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=0.75,  # Higher temp for more creative variety
+            temperature=max(0.0, min(1.0, settings.generation_temperature)),
         )
 
         # Accept both schemas: {short,mid,long} or {draft_short,draft_mid,draft_long}

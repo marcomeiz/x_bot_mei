@@ -258,13 +258,14 @@ def revise_for_style(text: str, contract_text: str, hint: str = "", mode: str | 
     )
     extra = ("\n" + tweet_rules) if (mode == "tweet") else ""
     user = f"""
-Rewrite the text to satisfy the style contract with a subtle, human local flavor in natural English — and sharper punch.{extra}
+Rewrite the text to satisfy the VOICE CONTRACT V3.1 with brutal honesty — zero politeness — and sharper punch.{extra}
 - Preserve the same core insight.
 - Open with a punchy line (no hedging, no "Most people…").
 - Add one concrete image or tactical detail (micro‑visual) to ground it.
 - No hashtags, emojis, or quotes. English only.
 - Avoid corporate tone and clichés. Sound like a person at a bar, not a boardroom.
 - Short sentences. Strong verbs. Cut qualifiers (seems, maybe, might).
+- Do NOT soften tone. No apologies. No courtesy words (no please/thanks). Keep street‑smart slang if it helps the punch.
 {('Hints: ' + hint) if hint else ''}
 
 Return ONLY the rewritten text (no commentary).

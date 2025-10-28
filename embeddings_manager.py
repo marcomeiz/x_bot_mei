@@ -8,7 +8,6 @@ from typing import List, Optional
 
 from logger_config import logger
 from src.settings import AppSettings
-import requests
 
 load_dotenv()
 
@@ -22,6 +21,21 @@ _embed_fallback_candidates = (
     "thenlper/gte-small",
     "jinaai/jina-embeddings-v2-base-en",
 )
+
+_embed_client: Optional[OpenAI] = None
+_embed_client_lock = threading.Lock()
+
+def _get_embed_client() -> OpenAI:
+    global _embed_client
+    if _embed_client is None:
+        with _embed_client_lock:
+            if _embed_client is None:
+                s = AppSettings.load()
+                if not s.openrouter_api_key:
+                    logger.warning("OPENROUTER_API_KEY no configurada para embeddings.")
+                # OpenAI SDK compatible con OpenRouter
+                _embed_client = OpenAI(base_url=s.openrouter_base_url, api_key=s.openrouter_api_key)
+    return _embed_client
 
 def get_chroma_client():
     """
@@ -66,63 +80,51 @@ def get_memory_collection():
     return client.get_or_create_collection(name="memory_collection", metadata={"hnsw:space": "cosine"})
 
 def get_embedding(text: str):
-    """Genera el embedding para un texto dado usando OpenRouter (OpenAI-compatible embeddings)."""
+    """Genera el embedding para un texto dado usando el SDK OpenAI contra OpenRouter."""
     global _last_embed_error_ts, _embed_model_override
-    # Circuit breaker: if there was an error in the last 60s, skip to avoid long timeouts
+    # Circuit breaker: evita timeouts repetidos durante 60s tras fallo
     if _last_embed_error_ts and (time.time() - _last_embed_error_ts) < 60:
         logger.warning("Embedding circuit open (recent failures); skipping embedding generation.")
         return None
-    try:
-        s = AppSettings.load()
-        model_name = _embed_model_override or s.embed_model
-        logger.info(f"Generando embedding (model={model_name}) para: '{text[:50]}...'")
-        # Prefer HTTP path (more predictable in this environment)
-        url = s.openrouter_base_url.rstrip('/') + '/embeddings'
-        headers = {
-            'Authorization': f'Bearer {s.openrouter_api_key}',
-            'Content-Type': 'application/json'
-        }
-        
-        def _http_call(model: str) -> Optional[list]:
-            payload = {"model": model, "input": text}
-            resp = requests.post(url, headers=headers, json=payload, timeout=6)
-            ctype = resp.headers.get('content-type', '')
-            data = resp.json() if 'application/json' in ctype else {}
-            if resp.status_code != 200:
-                logger.error(f"Embeddings HTTP error {resp.status_code}: {str(data)[:200]}")
+    s = AppSettings.load()
+    model_name = _embed_model_override or s.embed_model
+    logger.info(f"Generando embedding (model={model_name}) para: '{text[:50]}...'")
+
+    def _sdk_call(model: str) -> Optional[list]:
+        try:
+            client = _get_embed_client()
+            resp = client.embeddings.create(model=model, input=[text], timeout=15)
+            data = getattr(resp, "data", None) or []
+            if not data:
+                logger.error("Embedding SDK response missing data array")
                 return None
-            arr = data.get('data') or []
-            if not arr or not isinstance(arr, list):
-                logger.error("Embedding HTTP response missing data array")
-                return None
-            vec = arr[0].get('embedding')
+            vec = getattr(data[0], "embedding", None)
             if not isinstance(vec, list) or not all(isinstance(x, (int, float)) for x in vec):
-                logger.error("Embedding HTTP vector invalid type")
+                logger.error("Embedding SDK vector invalid type")
                 return None
             return vec
+        except Exception as e:
+            logger.error(f"Embedding SDK error for model '{model}': {e}")
+            return None
 
-        # Intento con el modelo actual
-        vec = _http_call(model_name)
-        if vec is not None:
-            return vec
+    # Intento con el modelo actual
+    vec = _sdk_call(model_name)
+    if vec is not None:
+        return vec
 
-        # Probar candidatos alternativos baratos soportados en OR
-        for candidate in _embed_fallback_candidates:
-            if candidate == model_name:
-                continue
-            logger.warning(f"Embedding fallback: probando modelo alternativo '{candidate}'")
-            vec2 = _http_call(candidate)
-            if vec2 is not None:
-                _embed_model_override = candidate
-                logger.info(f"Embedding model conmutado dinámicamente a '{candidate}'")
-                return vec2
+    # Probar candidatos alternativos baratos soportados en OR
+    for candidate in _embed_fallback_candidates:
+        if candidate == model_name:
+            continue
+        logger.warning(f"Embedding fallback: probando modelo alternativo '{candidate}'")
+        vec2 = _sdk_call(candidate)
+        if vec2 is not None:
+            _embed_model_override = candidate
+            logger.info(f"Embedding model conmutado dinámicamente a '{candidate}'")
+            return vec2
 
-        _last_embed_error_ts = time.time()
-        return None
-    except Exception as ee:
-        logger.error(f"Error inesperado generando embedding: {ee}", exc_info=True)
-        _last_embed_error_ts = time.time()
-        return None
+    _last_embed_error_ts = time.time()
+    return None
 
 def find_similar_topics(topic_text: str, n_results: int = 4) -> List[str]:
     """Finds similar topics in the topics_collection."""

@@ -144,9 +144,25 @@ class ProposalService:
             draft_c = drafts.get("long", "")
 
         except Exception as e:
-            logger.error(f"[CHAT_ID: {chat_id}] Error generating tweet from topic: {e}", exc_info=True)
-            self.telegram.send_message(chat_id, f"❌ Ocurrió un error inesperado: {e}")
-            return False
+            msg = str(e)
+            # If only a single-length Warden issue (e.g., wrong char range), try one cheap retry before discarding topic
+            if "wrong char range for 'short'" in msg or "wrong char range for 'mid'" in msg or "wrong char range for 'long'" in msg:
+                logger.warning("[CHAT_ID: %s] Length issue detected (%s). Retrying generation once for the same topic…", chat_id, msg)
+                try:
+                    drafts = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
+                    if "error" in drafts:
+                        raise Exception(drafts["error"])
+                    draft_a = drafts.get("short", "")
+                    draft_b = drafts.get("mid", "")
+                    draft_c = drafts.get("long", "")
+                except Exception as e2:
+                    logger.error(f"[CHAT_ID: {chat_id}] Error after retry: {e2}", exc_info=True)
+                    self.telegram.send_message(chat_id, f"❌ Ocurrió un error inesperado: {e2}")
+                    return False
+            else:
+                logger.error(f"[CHAT_ID: {chat_id}] Error generating tweet from topic: {e}", exc_info=True)
+                self.telegram.send_message(chat_id, f"❌ Ocurrió un error inesperado: {e}")
+                return False
 
         # Labeling logic as per user suggestion
         def get_label(text: str) -> str:

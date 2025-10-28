@@ -15,8 +15,8 @@ from logger_config import logger
 # Load environment variables
 load_dotenv()
 
-# Model configuration
-TOPIC_EXTRACTION_MODEL = "anthropic/claude-3.5-sonnet"
+# Model configuration (OpenRouter-only; cheap default)
+TOPIC_EXTRACTION_MODEL = os.getenv("TOPIC_EXTRACTION_MODEL", "mistralai/mistral-nemo")
 
 async def generate_embeddings(topics: List[str]) -> List[List[float]]:
     """Generates embeddings for a list of topics."""

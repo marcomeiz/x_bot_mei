@@ -6,10 +6,18 @@ from pydantic import BaseModel, Field
 
 
 class AppSettings(BaseModel):
-    # LLM providers
-    fallback_provider_order: str = Field(default=os.getenv("FALLBACK_PROVIDER_ORDER", "gemini,openrouter"))
-    gemini_model: str = Field(default=os.getenv("GEMINI_MODEL", "gemini-2.5-pro"))
-    openrouter_default_model: str = Field(default=os.getenv("OPENROUTER_DEFAULT_MODEL", "anthropic/claude-3.5-sonnet"))
+    # LLM provider (OpenRouter-only)
+    openrouter_api_key: Optional[str] = Field(default=os.getenv("OPENROUTER_API_KEY"))
+    openrouter_base_url: str = Field(default=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"))
+
+    # Per-purpose model choices (cheap by default)
+    post_model: str = Field(default=os.getenv("POST_MODEL", "qwen/qwen-2.5-7b-instruct"))
+    eval_fast_model: str = Field(default=os.getenv("EVAL_FAST_MODEL", "qwen/qwen-2.5-7b-instruct"))
+    eval_slow_model: str = Field(default=os.getenv("EVAL_SLOW_MODEL", "mistralai/mistral-nemo"))
+    comment_audit_model: str = Field(default=os.getenv("COMMENT_AUDIT_MODEL", "qwen/qwen-2.5-7b-instruct"))
+    comment_rewrite_model: str = Field(default=os.getenv("COMMENT_REWRITE_MODEL", "mistralai/mistral-nemo"))
+    topic_extraction_model: str = Field(default=os.getenv("TOPIC_EXTRACTION_MODEL", "mistralai/mistral-nemo"))
+    embed_model: str = Field(default=os.getenv("EMBED_MODEL", "text-embedding-3-small"))
 
     # Paths
     prompts_dir: str = Field(default=os.getenv("PROMPTS_DIR", "prompts"))
@@ -33,9 +41,15 @@ class AppSettings(BaseModel):
                 return base
             # Environment has precedence; config overrides defaults when no env var is set for that field
             env_map = {
-                "fallback_provider_order": "FALLBACK_PROVIDER_ORDER",
-                "gemini_model": "GEMINI_MODEL",
-                "openrouter_default_model": "OPENROUTER_DEFAULT_MODEL",
+                "openrouter_api_key": "OPENROUTER_API_KEY",
+                "openrouter_base_url": "OPENROUTER_BASE_URL",
+                "post_model": "POST_MODEL",
+                "eval_fast_model": "EVAL_FAST_MODEL",
+                "eval_slow_model": "EVAL_SLOW_MODEL",
+                "comment_audit_model": "COMMENT_AUDIT_MODEL",
+                "comment_rewrite_model": "COMMENT_REWRITE_MODEL",
+                "topic_extraction_model": "TOPIC_EXTRACTION_MODEL",
+                "embed_model": "EMBED_MODEL",
                 "prompts_dir": "PROMPTS_DIR",
                 "log_prompts": "LOG_PROMPTS",
                 "log_prompts_full": "LOG_PROMPTS_FULL",

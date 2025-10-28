@@ -1,10 +1,16 @@
 # 03 · LLM Ops (políticas, prompts, fallback, evaluación)
 
-## Fallback
-- Orden por defecto: `FALLBACK_PROVIDER_ORDER=gemini,openrouter`.
-- Gemini: requiere `GOOGLE_API_KEY` y `GEMINI_MODEL`.
-- OpenRouter: requiere `OPENROUTER_API_KEY`. Si se cae Gemini y el `model` empieza por `gemini-`, se usa `OPENROUTER_DEFAULT_MODEL`.
-- Responder SIEMPRE JSON estricto en generación y evaluación.
+## Proveedor (OpenRouter‑only)
+- Proveedor único: OpenRouter (`OPENROUTER_API_KEY`).
+- Modelos baratos por defecto:
+  - Post: `qwen/qwen-2.5-7b-instruct`
+  - Eval (fast): `qwen/qwen-2.5-7b-instruct`
+  - Eval (slow): `mistralai/mistral-nemo`
+  - Audit comentarios: `qwen/qwen-2.5-7b-instruct`
+  - Rewrite comentarios: `mistralai/mistral-nemo`
+  - Tópicos: `mistralai/mistral-nemo`
+  - Embeddings: `text-embedding-3-small`
+- JSON estricto: si el modelo no soporta `response_format`, se hace fallback a parseo robusto.
 
 ## Generación (A/B/C)
 - Prompt único con contrato, ICP y guías finales.
@@ -20,4 +26,3 @@
 ## Auditoría de comentarios (/c)
 - Protocolo “Accept and Connect” v4.0; respuesta JSON con `is_compliant` y posible `corrected_text`.
 - Menos de 140 caracteres en comentario final.
-

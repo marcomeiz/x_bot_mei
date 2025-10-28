@@ -50,8 +50,10 @@ class CommentSkip(Exception):
 
 load_dotenv()
 
-GENERATION_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
-VALIDATION_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+from src.settings import AppSettings
+settings = AppSettings.load()
+GENERATION_MODEL = settings.post_model
+VALIDATION_MODEL = settings.post_model
 SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.20") or 0.20)
 MAX_GENERATION_ATTEMPTS = 3
 

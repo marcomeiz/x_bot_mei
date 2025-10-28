@@ -123,7 +123,7 @@ Return ONLY strict JSON with fields:
 """
     try:
         data = llm.chat_json(
-            model="anthropic/claude-3-haiku",
+            model=os.getenv("COMMENT_AUDIT_MODEL", "qwen/qwen-2.5-7b-instruct"),
             messages=[
                 {"role": "system", "content": "You are a strict style auditor. Respond with strict JSON only."},
                 {"role": "user", "content": prompt},
@@ -156,7 +156,7 @@ TEXT:
 """
     try:
         out = llm.chat_text(
-            model="anthropic/claude-3.5-sonnet",
+            model=os.getenv("COMMENT_REWRITE_MODEL", "mistralai/mistral-nemo"),
             messages=[
                 {"role": "system", "content": (
                     "You are a world-class ghostwriter. Follow the style contract strictly. "

@@ -32,7 +32,18 @@ def _run_evaluation(text: str, context: PromptContext, rubric: Dict[str, Any]) -
     if not rubric or not text:
         return None
 
-    model = rubric.get("model", "gemini-1.5-flash")
+    # Allow env overrides for cheap OpenRouter models
+    fast_override = os.getenv("EVAL_FAST_MODEL")
+    slow_override = os.getenv("EVAL_SLOW_MODEL")
+    default_model = rubric.get("model") or "qwen/qwen-2.5-7b-instruct"
+    # Heuristic: if rubric name indicates speed, apply override
+    name = str(rubric.get("name", "")).lower()
+    if fast_override and ("fast" in name or name == ""):
+        model = fast_override
+    elif slow_override and "slow" in name:
+        model = slow_override
+    else:
+        model = default_model
     rubric_text = yaml.dump(rubric.get("rubric", {}))
     output_format_text = yaml.dump(rubric.get("output_format", {}))
 

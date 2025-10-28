@@ -129,7 +129,7 @@ def _extract_topics_with_llm(text: str, context: PromptContext) -> List[str]:
     )
     try:
         payload = llm.chat_json(
-            model=os.getenv("GEMINI_MODEL", "gemini-2.5-pro"),
+            model=os.getenv("TOPIC_EXTRACTION_MODEL", "mistralai/mistral-nemo"),
             messages=[
                 {
                     "role": "system",
@@ -176,7 +176,7 @@ def _validate_topic(abstract: str, cfg: WatcherConfig) -> bool:
         prompt = f'Is this topic "{abstract}" relevant for a COO persona?'
 
     fallback = llm.chat_json(
-        model=os.getenv("GEMINI_MODEL", "gemini-2.5-pro"),
+        model=os.getenv("TOPIC_EXTRACTION_MODEL", "mistralai/mistral-nemo"),
         messages=[
             {
                 "role": "system",

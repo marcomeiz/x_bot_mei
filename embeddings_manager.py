@@ -1,25 +1,15 @@
 import os
-import google.generativeai as genai
+from openai import OpenAI
 import threading
 import chromadb
 from dotenv import load_dotenv
 from typing import List
 
-# --- NUEVO: Importar el logger configurado ---
 from logger_config import logger
+from src.settings import AppSettings
 
 load_dotenv()
 
-# La configuración de la API puede ser global
-try:
-    genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-except Exception as e:
-    # --- MODIFICADO: Usar el logger para registrar el error ---
-    logger.critical(f"No se pudo configurar la API de Google. El programa no puede continuar. Error: {e}", exc_info=True)
-    # Considera salir del programa si esta configuración es crítica
-    # exit(1)
-
-# Patrón para asegurar una única instancia del cliente por proceso
 _chroma_client = None
 _chroma_lock = threading.Lock()
 
@@ -66,15 +56,16 @@ def get_memory_collection():
     return client.get_or_create_collection(name="memory_collection", metadata={"hnsw:space": "cosine"})
 
 def get_embedding(text: str):
-    """Genera el embedding para un texto dado."""
+    """Genera el embedding para un texto dado usando OpenRouter (OpenAI-compatible embeddings)."""
     try:
-        # --- NUEVO: Registrar la llamada a la API ---
-        logger.info(f"Generando embedding para texto: '{text[:50]}...'")
-        result = genai.embed_content(model="models/embedding-001", content=text, task_type="RETRIEVAL_DOCUMENT")
-        return result['embedding']
+        s = AppSettings.load()
+        logger.info(f"Generando embedding (model={s.embed_model}) para: '{text[:50]}...'")
+        client = OpenAI(base_url=s.openrouter_base_url, api_key=s.openrouter_api_key)
+        resp = client.embeddings.create(model=s.embed_model, input=text)
+        emb = resp.data[0].embedding if getattr(resp, 'data', None) else None
+        return emb
     except Exception as e:
-        # --- NUEVO: Registrar el error específico de la API ---
-        logger.error(f"Error al llamar a la API de Google para generar embedding: {e}", exc_info=True)
+        logger.error(f"Error al generar embedding vía OpenRouter: {e}", exc_info=True)
         return None
 
 def find_similar_topics(topic_text: str, n_results: int = 4) -> List[str]:

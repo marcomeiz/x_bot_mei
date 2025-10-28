@@ -1,63 +1,15 @@
-# AGENTS.md — Guía para agentes y desarrolladores
+# AGENTS.md — Índice de directivas
 
-Este documento instruye a cualquier agente/colaborador sobre cómo trabajar en este repositorio sin romper nada, aportando de forma segura, rápida y con criterios de ingeniería sólidos.
+Este archivo era un monolito. Ahora es un índice mínimo. La guía completa vive en `.github/AGENTS/`.
 
-Su alcance aplica a TODO el árbol bajo esta carpeta.
-
-## Principios No Negociables
-
-- No destruyas datos ni reescribas historial sin confirmación explícita.
-- Cambios pequeños, enfocados y reversibles; propone antes que “refactorizar por deporte”.
-- Respeta las invariantes de negocio:
-  - Tweets deben ser ≤ 280 caracteres sin recorte local: solo mediante LLM.
-  - Mensajes de Telegram incluyen: tema (abstract), nombre del PDF origen si existe, y contadores `(N/280)` por opción.
-- Los temas en ChromaDB incluyen metadatos `{"pdf": <nombre>}` cuando provienen del pipeline de ingestión (`watcher_v2.py`/`run_watcher.py` + módulos auxiliares).
-- Fallback LLM: intentar Gemini y, si falla (401/403/404/429/insufficient), pasar a OpenRouter sin interrumpir el flujo.
-- Preferir seguridad y claridad sobre “optimización prematura”.
-
-## Arquitectura (vista de 10.000 ft)
-
-- `watcher_v2.py` / `run_watcher.py`
-  - Observa `uploads/` para nuevos PDFs y delega en módulos especializados.
-- `ingestion_config.py`
-  - Carga configuración desde `.env` y garantiza directorios de trabajo.
-- `pdf_extractor.py`
-  - Convierte cada PDF a texto plano usando PyMuPDF.
-- `topic_pipeline.py`
-  - Gestiona extracción de tópicos (LlamaIndex + fallback), validación de relevancia COO y gating de estilo.
-- `persistence_service.py`
-  - Inserta tópicos en Chroma, sincroniza con endpoints remotos y genera resúmenes JSON.
-- `embeddings_manager.py`
-  - Cliente único de ChromaDB (persistente) con lock de inicialización; funciones para colecciones y embeddings (Google `models/embedding-001`).
-- `core_generator.py`
-  - Selecciona un tema de `topics_collection`, comprueba similitud contra `memory_collection` y genera A/B bajo contrato de estilo.
-  - Refinado de estilo + “acortado iterativo” vía LLM hasta ≤ 280 (sin truncar localmente).
-- `variant_generators.py`
-  - Encapsula prompts, refinamientos, control de longitud y selección de categorías para las variantes A/B/C.
-  - Antes de escribir cada borrador, genera ángulos “tail” (probabilidad < 0.15) para romper narrativas mainstream y pegarlas como columna vertebral de los textos.
-  - Después de generar cada variante, corre un debate interno (contrarian, compliance, clarity reviewers) y reescribe con ese feedback antes del pulido final.
-  - Usa `writing_rules.py` para rotar formatos (stair up/down, staccato, list strikes), asignar hooks (dolor, vulnerabilidad, controversia, credibilidad, curiosidad, cambio radical) y bloquear vocabulario o sintaxis prohibida (sin comas, sin “-mente”/“-ly”, sin “y/o”).
-  - Cada variante valida el formato y la limpieza léxica antes de entregarse; si no respeta la escalera/ritmo asignado o usa palabras vetadas, se rechaza y se regenera.
-- `prompt_context.py`
-  - Provee el bundle del contrato, ICP y pautas de revisión para inyectar en los prompts.
-- `writing_rules.py`
-  - Fuente única de formatos, hooks, bloqueos de vocabulario y validadores de estructura usados por los generadores y `/comentar`.
-- `evaluation.py`
-  - Evalúa cada borrador con rubricas de estilo, señal contraria, claridad y factualidad (formato G-Eval) y devuelve un resumen que se adjunta en Telegram.
-- `telegram_client.py`
-  - Cliente HTTP + helpers de formato (HTML seguro, teclados) para Telegram.
-- `proposal_service.py`
-  - Orquesta selección de temas, generación A/B/C y manejo de callbacks del bot.
-- `admin_service.py`
-  - Lógica de ingestión remota y estadísticas (`/pdfs`, `/stats`).
-- `draft_repository.py`
-  - Guarda y recupera los borradores por chat/tema de forma atómica.
-- `callback_parser.py`
-  - Tipifica y parsea los datos de los botones inline de Telegram.
-- `llm_fallback.py`
-  - Capa común de LLM: intenta Gemini → OpenRouter (por defecto), con manejo de JSON robusto y detección de errores para fallback.
-- `bot.py`
-  - Webhook de Telegram: `/g` para proponer A/B/C y callbacks para aprobar/rechazar; `/c <texto>` para comentar.
+Consulta:
+- .github/AGENTS/00_PRINCIPLES.md — Principios y DoD
+- .github/AGENTS/01_ARCHITECTURE.md — Arquitectura
+- .github/AGENTS/02_DATAFLOWS.md — Flujos
+- .github/AGENTS/03_LLM_OPS.md — LLM Ops
+- .github/AGENTS/04_CONTRACTS_API.md — Contratos/API
+- .github/AGENTS/05_STACK_CONFIG.md — Stack/Config
+- .github/AGENTS/06_RUNBOOK_TESTS.md — Runbook/Tests
   - Envía mensajes con comprobación de errores Telegram (Markdown → plano si falla).
   - Gestiona archivos temporales en `/tmp` para conservar borradores entre callbacks.
 - `copywriter_contract_hormozi.md`

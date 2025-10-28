@@ -7,6 +7,7 @@ from typing import List
 
 from logger_config import logger
 from src.settings import AppSettings
+import requests
 
 load_dotenv()
 
@@ -84,8 +85,33 @@ def get_embedding(text: str):
             return None
         return vec
     except Exception as e:
-        logger.error(f"Error al generar embedding vía OpenRouter: {e}", exc_info=True)
-        return None
+        logger.error(f"Error al generar embedding vía OpenRouter (SDK): {e}", exc_info=True)
+        # Fallback HTTP directo a OpenRouter Embeddings
+        try:
+            s = AppSettings.load()
+            url = s.openrouter_base_url.rstrip('/') + '/embeddings'
+            headers = {
+                'Authorization': f'Bearer {s.openrouter_api_key}',
+                'Content-Type': 'application/json'
+            }
+            payload = {"model": s.embed_model, "input": text}
+            resp = requests.post(url, headers=headers, json=payload, timeout=15)
+            data = resp.json() if resp.headers.get('content-type','').startswith('application/json') else {}
+            if resp.status_code != 200:
+                logger.error(f"Embeddings HTTP error {resp.status_code}: {str(data)[:200]}")
+                return None
+            arr = data.get('data') or []
+            if not arr:
+                logger.error("Embedding HTTP response missing data array")
+                return None
+            vec = arr[0].get('embedding')
+            if not isinstance(vec, list) or not all(isinstance(x, (int, float)) for x in vec):
+                logger.error("Embedding HTTP vector invalid type")
+                return None
+            return vec
+        except Exception as ee:
+            logger.error(f"Error al generar embedding vía OpenRouter (HTTP): {ee}", exc_info=True)
+            return None
 
 def find_similar_topics(topic_text: str, n_results: int = 4) -> List[str]:
     """Finds similar topics in the topics_collection."""

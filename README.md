@@ -30,6 +30,10 @@ La arquitectura actual se basa en los siguientes principios:
 2.  **Implementar "Golden Set" de Calidad:** Crear un conjunto de casos de prueba con resultados ideales para validar automáticamente la calidad de la generación tras futuros cambios en los prompts.
 3.  **Monitorización y Alertas:** Configurar dashboards y alertas en Google Cloud para monitorizar la latencia, el ratio de errores y los costes de forma proactiva.
 
+## Documentación de Generación + Warden
+
+- Guía completa de guardrails, presets, prompt v2.0, validadores y despliegue: ver `docs/GENERATION_WARDEN.md`.
+
 ## Instalación y Ejecución
 
 La instalación y ejecución no han cambiado, pero se documentan las variables relevantes del motor de fallback.

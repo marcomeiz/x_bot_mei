@@ -3,6 +3,7 @@ import time
 from openai import OpenAI
 import threading
 import chromadb
+from chromadb.config import Settings as ChromaSettings
 from dotenv import load_dotenv
 from typing import List, Optional
 
@@ -53,19 +54,45 @@ def get_chroma_client():
                 chroma_url = os.getenv("CHROMA_DB_URL")
                 # Si CHROMA_DB_URL está presente, SIEMPRE usamos el cliente HTTP
                 if chroma_url:
+                    # Parse host/port/ssl
+                    raw = chroma_url.strip()
+                    parsed = urlparse(raw if "://" in raw else f"http://{raw}")
+                    host = parsed.hostname or raw
+                    port = parsed.port
+                    use_ssl = (parsed.scheme == "https")
+                    log_target = f"{host}:{port}" if port else host
+                    # Intento API v2 (HttpClient)
                     try:
-                        # Acepta valores como 'http://host:port' o 'host:port' o sólo 'host'
-                        raw = chroma_url.strip()
-                        parsed = urlparse(raw if "://" in raw else f"http://{raw}")
-                        host = parsed.hostname or raw
-                        port = parsed.port
-                        use_ssl = (parsed.scheme == "https")
-                        log_target = f"{host}:{port}" if port else host
                         logger.info(f"Inicializando cliente HTTP de ChromaDB (host='{log_target}', ssl={use_ssl})…")
                         _chroma_client = chromadb.HttpClient(host=host, port=port, ssl=use_ssl)
-                    except Exception as e:
-                        logger.critical(f"Fallo crítico conectando con el servidor ChromaDB: {e}", exc_info=True)
-                        raise
+                        # llamada ligera para forzar handshake y versión
+                        try:
+                            _ = _chroma_client.get_version()  # v2 debería exponer versión
+                        except Exception:
+                            pass
+                    except Exception as e_v2:
+                        logger.warning(f"Chroma v2 HttpClient falló ({e_v2}). Probando modo legacy (v1)…")
+                        # Fallback API v1 (legacy REST)
+                        try:
+                            settings = ChromaSettings(
+                                chroma_api_impl="rest",
+                                chroma_server_host=host,
+                                chroma_server_http_port=port or 80,
+                                chroma_server_ssl_enabled=use_ssl,
+                            )
+                            _chroma_client = chromadb.Client(settings)
+                            # Verificar que responde
+                            try:
+                                _ = _chroma_client.heartbeat()
+                            except Exception:
+                                pass
+                            logger.info("Cliente Chroma legacy (v1) inicializado correctamente.")
+                        except Exception as e_v1:
+                            logger.critical(
+                                f"Fallo crítico conectando con Chroma (v2 y v1): v2='{e_v2}' v1='{e_v1}'",
+                                exc_info=True,
+                            )
+                            raise
                 else:
                     # Entorno local sin URL definida
                     try:

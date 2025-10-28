@@ -9,8 +9,16 @@
   - Audit comentarios: `qwen/qwen-2.5-7b-instruct`
   - Rewrite comentarios: `mistralai/mistral-nemo`
   - Tópicos: `mistralai/mistral-nemo`
-  - Embeddings: `text-embedding-3-small`
+  - Embeddings: `openai/text-embedding-3-small` (HTTP-first)
 - JSON estricto: si el modelo no soporta `response_format`, se hace fallback a parseo robusto.
+
+## Embeddings (HTTP-first + fallback + circuito)
+- Ruta primaria: HTTP directo a `{OPENROUTER_BASE_URL}/embeddings` con `{"model","input"}`.
+- Si la respuesta no incluye `data[0].embedding`, se prueban candidatos alternativos (en orden):
+  - `openai/text-embedding-3-small`, `thenlper/gte-small`, `jinaai/jina-embeddings-v2-base-en`.
+- Si uno responde bien, se conmute dinámicamente el modelo efectivo para siguientes llamadas.
+- Circuit breaker: ante errores, se evita reintentar durante 60s (protege costes y latencia).
+- Logs: mensajes claros `Embeddings HTTP error …` o `Embedding HTTP response missing data array` solo en caso de fallo real del proveedor.
 
 ## Generación (A/B/C)
 - Prompt único con contrato, ICP y guías finales.

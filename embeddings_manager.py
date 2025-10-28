@@ -8,6 +8,8 @@ from typing import List, Optional
 
 from logger_config import logger
 from src.settings import AppSettings
+import json as _json
+import requests
 
 load_dotenv()
 
@@ -93,7 +95,8 @@ def get_embedding(text: str):
     def _sdk_call(model: str) -> Optional[list]:
         try:
             client = _get_embed_client()
-            resp = client.embeddings.create(model=model, input=[text], timeout=15)
+            # Nota: algunas versiones del cliente requieren configurar timeout vía with_options
+            resp = client.embeddings.with_options(timeout=15).create(model=model, input=[text])
             data = getattr(resp, "data", None) or []
             if not data:
                 logger.error("Embedding SDK response missing data array")
@@ -107,8 +110,44 @@ def get_embedding(text: str):
             logger.error(f"Embedding SDK error for model '{model}': {e}")
             return None
 
-    # Intento con el modelo actual
-    vec = _sdk_call(model_name)
+    def _http_call(model: str) -> Optional[list]:
+        try:
+            s2 = AppSettings.load()
+            url = s2.openrouter_base_url.rstrip('/') + '/embeddings'
+            headers = {"Authorization": f"Bearer {s2.openrouter_api_key}", "Content-Type": "application/json"}
+            payload = {"model": model, "input": [text]}
+            resp = requests.post(url, headers=headers, data=_json.dumps(payload), timeout=10)
+            raw = resp.text
+            try:
+                data = resp.json()
+            except Exception:
+                try:
+                    data = _json.loads(raw)
+                except Exception:
+                    data = {}
+            if resp.status_code != 200:
+                snippet = raw[:240].replace("\n", " ")
+                logger.error(f"Embeddings HTTP error {resp.status_code}: {snippet}")
+                return None
+            if isinstance(data, dict) and "error" in data:
+                snippet = str(data.get("error"))[:240]
+                logger.error(f"Embeddings HTTP returned error payload: {snippet}")
+                return None
+            arr = (data.get("data") if isinstance(data, dict) else None) or []
+            if not arr or not isinstance(arr, list):
+                logger.error("Embedding HTTP response missing data array")
+                return None
+            vec = arr[0].get("embedding")
+            if not isinstance(vec, list) or not all(isinstance(x, (int, float)) for x in vec):
+                logger.error("Embedding HTTP vector invalid type")
+                return None
+            return vec
+        except Exception as ee:
+            logger.error(f"Embedding HTTP exception: {ee}")
+            return None
+
+    # Intento con el modelo actual via SDK, luego HTTP
+    vec = _sdk_call(model_name) or _http_call(model_name)
     if vec is not None:
         return vec
 
@@ -117,7 +156,7 @@ def get_embedding(text: str):
         if candidate == model_name:
             continue
         logger.warning(f"Embedding fallback: probando modelo alternativo '{candidate}'")
-        vec2 = _sdk_call(candidate)
+        vec2 = _sdk_call(candidate) or _http_call(candidate)
         if vec2 is not None:
             _embed_model_override = candidate
             logger.info(f"Embedding model conmutado dinámicamente a '{candidate}'")

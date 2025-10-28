@@ -1063,23 +1063,45 @@ def generate_all_variants(
             temperature=0.75,  # Higher temp for more creative variety
         )
 
-        if not isinstance(resp, dict) or not all(
-            k in resp for k in ["draft_short", "draft_mid", "draft_long"]
-        ):
-            raise StyleRejection(
-                "LLM failed to produce all three drafts in a single call."
-            )
+        # Accept both schemas: {short,mid,long} or {draft_short,draft_mid,draft_long}
+        def map_to_drafts(payload: Dict[str, object]) -> Dict[str, str]:
+            return {
+                "short": str(payload.get("short") or payload.get("draft_short") or "").strip(),
+                "mid": str(payload.get("mid") or payload.get("draft_mid") or "").strip(),
+                "long": str(payload.get("long") or payload.get("draft_long") or "").strip(),
+            }
 
-        drafts = {
-            "short": str(resp.get("draft_short", "")).strip(),
-            "mid": str(resp.get("draft_mid", "")).strip(),
-            "long": str(resp.get("draft_long", "")).strip(),
-        }
+        def all_present(d: Dict[str, str]) -> bool:
+            return all(bool(d[k]) for k in ("short", "mid", "long"))
 
-        if not all(drafts.values()):
-            raise StyleRejection(
-                f"LLM produced one or more empty drafts. Got keys: {list(drafts.keys())}"
-            )
+        if not isinstance(resp, dict):
+            raise StyleRejection("LLM did not return a JSON object.")
+
+        drafts = map_to_drafts(resp)
+
+        if not all_present(drafts):
+            # Single, cheap retry to enforce schema
+            try:
+                minimal_user = (
+                    "Return ONLY strict JSON with keys {\"short\",\"mid\",\"long\"} under 280 chars each. "
+                    "Avoid commas and conjunctions. If any field was missing, generate it now. Topic: "
+                    + topic_abstract
+                )
+                fix = llm.chat_json(
+                    model=settings.generation_model,
+                    messages=[
+                        {"role": "system", "content": "You format JSON only. No prose."},
+                        {"role": "user", "content": minimal_user},
+                    ],
+                    temperature=0.2,
+                )
+                if isinstance(fix, dict):
+                    drafts = map_to_drafts(fix)
+            except Exception:
+                pass
+
+        if not all_present(drafts):
+            raise StyleRejection("LLM failed to produce all three drafts in a single call.")
 
         logger.info(
             f"[PERF] Single-call for all variants took {time.time() - start_time:.2f} seconds."

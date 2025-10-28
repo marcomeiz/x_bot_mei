@@ -62,8 +62,27 @@ def get_embedding(text: str):
         logger.info(f"Generando embedding (model={s.embed_model}) para: '{text[:50]}...'")
         client = OpenAI(base_url=s.openrouter_base_url, api_key=s.openrouter_api_key)
         resp = client.embeddings.create(model=s.embed_model, input=text)
-        emb = resp.data[0].embedding if getattr(resp, 'data', None) else None
-        return emb
+        # Handle SDK object or raw JSON string
+        if hasattr(resp, 'data'):
+            data = resp.data
+        else:
+            # Try to parse if it's a string or dict-like
+            import json as _json
+            payload = resp
+            if isinstance(payload, str):
+                try:
+                    payload = _json.loads(payload)
+                except Exception:
+                    payload = {}
+            data = payload.get('data') if isinstance(payload, dict) else None
+        if not data:
+            logger.error("Embedding response has no data field")
+            return None
+        vec = data[0].get('embedding') if isinstance(data[0], dict) else getattr(data[0], 'embedding', None)
+        if not isinstance(vec, list) or not all(isinstance(x, (int, float)) for x in vec):
+            logger.error("Embedding vector not found or invalid type")
+            return None
+        return vec
     except Exception as e:
         logger.error(f"Error al generar embedding vía OpenRouter: {e}", exc_info=True)
         return None

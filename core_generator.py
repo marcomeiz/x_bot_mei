@@ -225,23 +225,27 @@ def find_relevant_topic(sample_size: int = 5):
     logger.info("Buscando tema en 'topics_collection' (preferir menos similar a memoria)…")
     topics_collection = get_topics_collection()
     try:
-        raw = topics_collection.get(include=["metadatas"])  # type: ignore[arg-type]
-        all_ids = _flatten_maybe(raw.get("ids") if isinstance(raw, dict) else None)
-        all_metadata = _flatten_metadata(raw.get("metadatas") if isinstance(raw, dict) else None)
-        if not all_ids:
-            logger.warning("'topics_collection' está vacía. No se pueden encontrar temas.")
-            return None
-        approved_ids = []
-        if all_metadata and len(all_metadata) == len(all_ids):
-            for cid, meta in zip(all_ids, all_metadata):
-                if isinstance(meta, dict) and meta.get("status") == "approved":
-                    approved_ids.append(cid)
-
-        pool = list(approved_ids or all_ids)
-        if approved_ids:
-            logger.info("Se encontraron %s temas aprobados. Se priorizarán sobre %s totales.", len(approved_ids), len(all_ids))
+        # 1) Fetch a small window of approved topics (fast path)
+        raw = topics_collection.get(where={"status": {"$eq": "approved"}}, include=["metadatas", "documents"], limit=200)  # type: ignore[arg-type]
+        ids_approved = _flatten_maybe(raw.get("ids") if isinstance(raw, dict) else None)
+        # 2) If none approved, fetch a random window from all
+        if not ids_approved:
+            try:
+                total = topics_collection.count()  # type: ignore
+            except Exception:
+                total = None
+            offset = 0
+            if isinstance(total, int) and total > 200:
+                offset = random.randrange(0, max(total - 200, 1))
+            raw = topics_collection.get(include=["metadatas", "documents"], limit=200, offset=offset)  # type: ignore[arg-type]
+            all_ids = _flatten_maybe(raw.get("ids") if isinstance(raw, dict) else None)
+            pool = list(all_ids or [])
         else:
-            logger.info("No hay temas aprobados; se usará el total disponible.")
+            pool = list(ids_approved)
+
+        if not pool:
+            logger.warning("'topics_collection' no devolvió IDs. No se pueden encontrar temas.")
+            return None
 
         candidates = random.sample(pool, min(sample_size, len(pool)))
 

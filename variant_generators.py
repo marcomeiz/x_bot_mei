@@ -596,6 +596,58 @@ def ensure_char_range_via_llm(text: str, model: str, lo: int, hi: int) -> str:
     return best
 
 
+def regenerate_single_variant(
+    label: str,
+    topic_abstract: str,
+    context: PromptContext,
+    settings: GenerationSettings,
+) -> Optional[str]:
+    """Ask the LLM to generate only one variant (short/mid/long) with V3.1 voice and target char range.
+
+    Returns the draft string or None on failure.
+    """
+    label = label.lower().strip()
+    if label not in {"short", "mid", "long"}:
+        return None
+    lo, hi = (0, 160) if label == "short" else ((180, 230) if label == "mid" else (240, 280))
+    sys = (
+        "You are a world-class ghostwriter. Follow the style contract and ICP exactly. "
+        "Return ONLY strict JSON."
+        "\n\n<STYLE_CONTRACT>\n" + context.contract + "\n</STYLE_CONTRACT>\n\n"
+        "Audience ICP:\n<ICP>\n" + context.icp + "\n</ICP>\n\n"
+        "<FINAL_REVIEW_GUIDELINES>\n" + context.final_guidelines + "\n</FINAL_REVIEW_GUIDELINES>"
+    )
+    user = (
+        f"Generate ONLY the '{label}' tweet draft for the topic below.\n"
+        f"- Preserve VOICE V3.1 (brutal, street-smart, zero polite).\n"
+        f"- English only. No hashtags. No commas.\n"
+        f"- Aim for {lo}–{hi} characters (hard target).\n\n"
+        f"Topic:\n{topic_abstract}\n\n"
+        "Return JSON ONLY: {\n"
+        f"  \"{label}\": \"...\"\n"
+        "}"
+    )
+    try:
+        data = llm.chat_json(
+            model=settings.generation_model,
+            messages=[
+                {"role": "system", "content": sys},
+                {"role": "user", "content": user},
+            ],
+            temperature=max(0.0, min(1.0, settings.generation_temperature)),
+        )
+        if not isinstance(data, dict):
+            return None
+        draft = str(data.get(label) or "").strip()
+        if not draft:
+            return None
+        # Apply tweet-mode rewrite without gating, then return
+        draft = revise_for_style(draft, context.contract, mode="tweet").strip()
+        return draft
+    except Exception:
+        return None
+
+
 def _limit_lines(text: str, max_lines: int = 2) -> str:
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     if not lines:
@@ -1247,19 +1299,40 @@ def generate_all_variants(
                 # Apply V3.1 rewrite (tweet mode) with zero politeness; no gating here
                 draft = revise_for_style(draft, context.contract, mode="tweet").strip()
 
+                # Minimal checks with one local remediation attempt per issue
                 if not _english_only(draft):
-                    raise StyleRejection(f"Minimal Warden: non-English characters in '{label}'.")
+                    # Try a targeted regeneration for this label
+                    regen = regenerate_single_variant(label, topic_abstract, context, settings)
+                    draft2 = (regen or draft).strip()
+                    if not _english_only(draft2):
+                        raise StyleRejection(f"Minimal Warden: non-English characters in '{label}'.")
+                    draft = draft2
+
+                lo, hi = (0, 160) if label == "short" else ((180, 230) if label == "mid" else (240, 280))
                 if not _range_ok(label, draft):
-                    # Try a single targeted length adjustment for just this variant
-                    lo, hi = (0, 160) if label == "short" else ((180, 230) if label == "mid" else (240, 280))
                     fixed = ensure_char_range_via_llm(draft, settings.generation_model, lo, hi).strip()
                     if not _range_ok(label, fixed):
-                        raise StyleRejection(f"Minimal Warden: wrong char range for '{label}' (len={len(draft)}).")
+                        regen = regenerate_single_variant(label, topic_abstract, context, settings)
+                        fixed = (regen or draft).strip()
+                        if not _range_ok(label, fixed):
+                            raise StyleRejection(f"Minimal Warden: wrong char range for '{label}' (len={len(draft)}).")
                     draft = fixed
+
                 if _re.search(r"#[A-Za-z0-9_]+", draft):
-                    raise StyleRejection(f"Minimal Warden: hashtag detected in '{label}'.")
+                    regen = regenerate_single_variant(label, topic_abstract, context, settings)
+                    draft2 = (regen or draft).strip()
+                    if _re.search(r"#[A-Za-z0-9_]+", draft2):
+                        raise StyleRejection(f"Minimal Warden: hashtag detected in '{label}'.")
+                    draft = draft2
+
                 if "," in draft:
-                    raise StyleRejection(f"Minimal Warden: comma detected in '{label}'.")
+                    fixed = draft.replace(",", ".").strip()
+                    if "," in fixed:
+                        regen = regenerate_single_variant(label, topic_abstract, context, settings)
+                        fixed = (regen or draft).strip()
+                        if "," in fixed:
+                            raise StyleRejection(f"Minimal Warden: comma detected in '{label}'.")
+                    draft = fixed
                 cleaned[label] = draft
             return cleaned
 

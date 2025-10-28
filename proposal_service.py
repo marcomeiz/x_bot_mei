@@ -40,19 +40,26 @@ class ProposalService:
     # ------------------------------------------------------------------ public
     def do_the_work(self, chat_id: int) -> None:
         logger.info("[CHAT_ID: %s] Iniciando nuevo ciclo de generación.", chat_id)
-        max_retries = 5
-        for attempt in range(1, max_retries + 1):
-            logger.info("[CHAT_ID: %s] Intento %s/%s de encontrar tema.", chat_id, attempt, max_retries)
+        max_topic_retries = 5
+        per_topic_gen_retries = int(os.getenv("GENERATION_RETRIES_PER_TOPIC", "1") or 1)
+
+        for attempt in range(1, max_topic_retries + 1):
+            logger.info("[CHAT_ID: %s] Intento %s/%s de encontrar tema.", chat_id, attempt, max_topic_retries)
             topic = find_relevant_topic()
             if not topic:
                 continue
-            if self.propose_tweet(chat_id, topic):
-                logger.info("[CHAT_ID: %s] Propuesta enviada correctamente.", chat_id)
-                return
-            logger.warning("[CHAT_ID: %s] Tema descartado por similitud. Reintentando.", chat_id)
-            self.telegram.send_message(chat_id, "⚠️ Tema similar a uno previo. Buscando otro…")
+            # Reintentos de generación para el mismo tema si fallan reglas mínimas
+            gen_ok = False
+            for gen_try in range(1, per_topic_gen_retries + 2):  # +1 intento base
+                if self.propose_tweet(chat_id, topic):
+                    logger.info("[CHAT_ID: %s] Propuesta enviada correctamente.", chat_id)
+                    return
+                logger.warning("[CHAT_ID: %s] Generación fallida para el mismo tema (intento %s/%s).", chat_id, gen_try, per_topic_gen_retries + 1)
+                # Evitar mensajes engañosos: no afirmar similitud salvo que lo detectemos explícitamente en el futuro
+            logger.warning("[CHAT_ID: %s] Cambiando a otro tema tras fallar generación para el actual.", chat_id)
+            self.telegram.send_message(chat_id, "⚠️ No pude generar variantes válidas para este tema. Probando otro…")
 
-        logger.warning("[CHAT_ID: %s] Sin tema único tras %s intentos. Permitiremos similitud.", chat_id, max_retries)
+        logger.warning("[CHAT_ID: %s] Sin tema válido tras %s intentos. Permitiremos similitud.", chat_id, max_topic_retries)
         topic = find_relevant_topic()
         if topic and self.propose_tweet(chat_id, topic, ignore_similarity=True):
             logger.info("[CHAT_ID: %s] Propuesta enviada con similitud permitida.", chat_id)

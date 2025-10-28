@@ -1,4 +1,5 @@
 import os
+import time
 from openai import OpenAI
 import threading
 import chromadb
@@ -13,6 +14,7 @@ load_dotenv()
 
 _chroma_client = None
 _chroma_lock = threading.Lock()
+_last_embed_error_ts: float = 0.0
 
 def get_chroma_client():
     """
@@ -58,60 +60,43 @@ def get_memory_collection():
 
 def get_embedding(text: str):
     """Genera el embedding para un texto dado usando OpenRouter (OpenAI-compatible embeddings)."""
+    global _last_embed_error_ts
+    # Circuit breaker: if there was an error in the last 60s, skip to avoid long timeouts
+    if _last_embed_error_ts and (time.time() - _last_embed_error_ts) < 60:
+        logger.warning("Embedding circuit open (recent failures); skipping embedding generation.")
+        return None
     try:
         s = AppSettings.load()
         logger.info(f"Generando embedding (model={s.embed_model}) para: '{text[:50]}...'")
-        client = OpenAI(base_url=s.openrouter_base_url, api_key=s.openrouter_api_key)
-        resp = client.embeddings.create(model=s.embed_model, input=text)
-        # Handle SDK object or raw JSON string
-        if hasattr(resp, 'data'):
-            data = resp.data
-        else:
-            # Try to parse if it's a string or dict-like
-            import json as _json
-            payload = resp
-            if isinstance(payload, str):
-                try:
-                    payload = _json.loads(payload)
-                except Exception:
-                    payload = {}
-            data = payload.get('data') if isinstance(payload, dict) else None
-        if not data:
-            logger.error("Embedding response has no data field")
+        # Prefer HTTP path (more predictable in this environment)
+        url = s.openrouter_base_url.rstrip('/') + '/embeddings'
+        headers = {
+            'Authorization': f'Bearer {s.openrouter_api_key}',
+            'Content-Type': 'application/json'
+        }
+        payload = {"model": s.embed_model, "input": text}
+        resp = requests.post(url, headers=headers, json=payload, timeout=6)
+        ctype = resp.headers.get('content-type', '')
+        data = resp.json() if 'application/json' in ctype else {}
+        if resp.status_code != 200:
+            logger.error(f"Embeddings HTTP error {resp.status_code}: {str(data)[:200]}")
+            _last_embed_error_ts = time.time()
             return None
-        vec = data[0].get('embedding') if isinstance(data[0], dict) else getattr(data[0], 'embedding', None)
+        arr = data.get('data') or []
+        if not arr or not isinstance(arr, list):
+            logger.error("Embedding HTTP response missing data array")
+            _last_embed_error_ts = time.time()
+            return None
+        vec = arr[0].get('embedding')
         if not isinstance(vec, list) or not all(isinstance(x, (int, float)) for x in vec):
-            logger.error("Embedding vector not found or invalid type")
+            logger.error("Embedding HTTP vector invalid type")
+            _last_embed_error_ts = time.time()
             return None
         return vec
-    except Exception as e:
-        logger.error(f"Error al generar embedding vía OpenRouter (SDK): {e}", exc_info=True)
-        # Fallback HTTP directo a OpenRouter Embeddings
-        try:
-            s = AppSettings.load()
-            url = s.openrouter_base_url.rstrip('/') + '/embeddings'
-            headers = {
-                'Authorization': f'Bearer {s.openrouter_api_key}',
-                'Content-Type': 'application/json'
-            }
-            payload = {"model": s.embed_model, "input": text}
-            resp = requests.post(url, headers=headers, json=payload, timeout=15)
-            data = resp.json() if resp.headers.get('content-type','').startswith('application/json') else {}
-            if resp.status_code != 200:
-                logger.error(f"Embeddings HTTP error {resp.status_code}: {str(data)[:200]}")
-                return None
-            arr = data.get('data') or []
-            if not arr:
-                logger.error("Embedding HTTP response missing data array")
-                return None
-            vec = arr[0].get('embedding')
-            if not isinstance(vec, list) or not all(isinstance(x, (int, float)) for x in vec):
-                logger.error("Embedding HTTP vector invalid type")
-                return None
-            return vec
-        except Exception as ee:
-            logger.error(f"Error al generar embedding vía OpenRouter (HTTP): {ee}", exc_info=True)
-            return None
+    except Exception as ee:
+        logger.error(f"Error inesperado generando embedding: {ee}", exc_info=True)
+        _last_embed_error_ts = time.time()
+        return None
 
 def find_similar_topics(topic_text: str, n_results: int = 4) -> List[str]:
     """Finds similar topics in the topics_collection."""

@@ -10,6 +10,7 @@ from logger_config import logger
 from src.settings import AppSettings
 import json as _json
 import requests
+from urllib.parse import urlparse
 
 load_dotenv()
 
@@ -53,9 +54,15 @@ def get_chroma_client():
                 # Si CHROMA_DB_URL está presente, SIEMPRE usamos el cliente HTTP
                 if chroma_url:
                     try:
-                        logger.info(f"Inicializando cliente HTTP de ChromaDB (url='{chroma_url}')...")
-                        # El cliente infiere el puerto y el protocolo desde la URL
-                        _chroma_client = chromadb.HttpClient(host=chroma_url)
+                        # Acepta valores como 'http://host:port' o 'host:port' o sólo 'host'
+                        raw = chroma_url.strip()
+                        parsed = urlparse(raw if "://" in raw else f"http://{raw}")
+                        host = parsed.hostname or raw
+                        port = parsed.port
+                        use_ssl = (parsed.scheme == "https")
+                        log_target = f"{host}:{port}" if port else host
+                        logger.info(f"Inicializando cliente HTTP de ChromaDB (host='{log_target}', ssl={use_ssl})…")
+                        _chroma_client = chromadb.HttpClient(host=host, port=port, ssl=use_ssl)
                     except Exception as e:
                         logger.critical(f"Fallo crítico conectando con el servidor ChromaDB: {e}", exc_info=True)
                         raise

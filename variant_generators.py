@@ -153,6 +153,7 @@ MID_MIN = int(os.getenv("MID_MIN", "180") or 180)
 MID_MAX = int(os.getenv("MID_MAX", "230") or 230)
 LONG_MIN = int(os.getenv("LONG_MIN", "240") or 240)
 LONG_MAX = int(os.getenv("LONG_MAX", "280") or 280)
+SUSPEND_GUARDRAILS = os.getenv("SUSPEND_GUARDRAILS", "0").lower() in {"1", "true", "yes", "y"}
 
 HEDGING_REGEX = re.compile(
     r"\b(i think|maybe|probably|seems|appears|kind of|sort of|in my opinion|i feel|could|might)\b",
@@ -1177,6 +1178,14 @@ def generate_all_variants(
         logger.info(
             f"[PERF] Single-call for all variants took {time.time() - start_time:.2f} seconds."
         )
+
+        # Raw mode: bypass style audit and mechanical guards to inspect base voice
+        if SUSPEND_GUARDRAILS:
+            return {
+                "short": (drafts.get("short") or "").strip(),
+                "mid": (drafts.get("mid") or "").strip(),
+                "long": (drafts.get("long") or "").strip(),
+            }
 
         # Hard gate: clean, audit and enforce mechanical rules before returning
         def _strip_hashtags_and_fix(text: str) -> str:

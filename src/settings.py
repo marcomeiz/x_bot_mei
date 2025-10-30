@@ -12,7 +12,7 @@ class AppSettings(BaseModel):
 
     # Per-purpose model choices (cheap by default)
     # Default generation model (can be overridden via POST_MODEL)
-    post_model: str = Field(default=os.getenv("POST_MODEL", "xAI/grok-3"))
+    post_model: str = Field(default=os.getenv("POST_MODEL", "x-ai/grok-3"))
     # Temperature for generation (allow override via POST_TEMPERATURE or POST_PRESET)
     post_temperature: float = Field(default=float(os.getenv("POST_TEMPERATURE", "0.6") or 0.6))
     # Optional preset to coordinate model + temperature: speed | balanced | quality

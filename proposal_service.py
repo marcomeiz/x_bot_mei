@@ -21,6 +21,10 @@ from style_guard import StyleRejection
 from telegram_client import TelegramClient
 
 
+class ProviderGenerationError(Exception):
+    """Raised cuando el proveedor LLM devuelve un error no recuperable (modelo, créditos, etc.)."""
+
+
 class ProposalService:
     def __init__(
         self,
@@ -53,8 +57,12 @@ class ProposalService:
             return
 
         for gen_try in range(1, per_topic_gen_retries + 2):  # +1 intento base
-            if self.propose_tweet(chat_id, topic):
-                logger.info("[CHAT_ID: %s] Propuesta enviada correctamente.", chat_id)
+            try:
+                if self.propose_tweet(chat_id, topic):
+                    logger.info("[CHAT_ID: %s] Propuesta enviada correctamente.", chat_id)
+                    return
+            except ProviderGenerationError:
+                logger.warning("[CHAT_ID: %s] Abortando reintentos: error del proveedor LLM.", chat_id)
                 return
             logger.warning(
                 "[CHAT_ID: %s] Generación fallida para el mismo tema (intento %s/%s).",
@@ -64,8 +72,12 @@ class ProposalService:
             )
 
         logger.warning("[CHAT_ID: %s] Generación fallida tras todos los reintentos. Permitiremos similitud para el mismo tema.", chat_id)
-        if self.propose_tweet(chat_id, topic, ignore_similarity=True):
-            logger.info("[CHAT_ID: %s] Propuesta enviada con similitud permitida para el mismo tema.", chat_id)
+        try:
+            if self.propose_tweet(chat_id, topic, ignore_similarity=True):
+                logger.info("[CHAT_ID: %s] Propuesta enviada con similitud permitida para el mismo tema.", chat_id)
+                return
+        except ProviderGenerationError:
+            logger.warning("[CHAT_ID: %s] Abortando intento adicional (ignorar similitud) por error del proveedor LLM.", chat_id)
             return
 
         self.telegram.send_message(
@@ -150,8 +162,17 @@ class ProposalService:
         draft_b = ""
         draft_c = ""
 
-        try:
-            gen_result = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
+        def _process_generation_result(gen_result: Dict[str, object]) -> None:
+            nonlocal draft_a, draft_b, draft_c, variant_errors
+            if gen_result.get("provider_error"):
+                reason = str(gen_result.get("error") or "El proveedor LLM devolvió un error.")
+                self.telegram.send_message(
+                    chat_id,
+                    f"❌ Error del proveedor LLM: {reason}",
+                    reply_markup=self.telegram.get_new_tweet_keyboard(),
+                )
+                raise ProviderGenerationError(reason)
+
             if "error" in gen_result and not any(
                 gen_result.get(k) for k in ("short", "mid", "long")
             ):
@@ -162,21 +183,21 @@ class ProposalService:
             draft_b = (gen_result.get("mid") or "").strip()
             draft_c = (gen_result.get("long") or "").strip()
 
+        try:
+            gen_result = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
+            _process_generation_result(gen_result)
+
+        except ProviderGenerationError:
+            raise
         except Exception as e:
             msg = str(e)
-            # If only a single-length Warden issue (e.g., wrong char range), try one cheap retry before discarding topic
             if "wrong char range for 'short'" in msg or "wrong char range for 'mid'" in msg or "wrong char range for 'long'" in msg:
                 logger.warning("[CHAT_ID: %s] Length issue detected (%s). Retrying generation once for the same topic…", chat_id, msg)
                 try:
                     gen_result = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
-                    if "error" in gen_result and not any(
-                        gen_result.get(k) for k in ("short", "mid", "long")
-                    ):
-                        raise Exception(gen_result["error"])
-                    variant_errors = dict(gen_result.get("variant_errors", {}))
-                    draft_a = (gen_result.get("short") or "").strip()
-                    draft_b = (gen_result.get("mid") or "").strip()
-                    draft_c = (gen_result.get("long") or "").strip()
+                    _process_generation_result(gen_result)
+                except ProviderGenerationError:
+                    raise
                 except Exception as e2:
                     logger.error(f"[CHAT_ID: {chat_id}] Error after retry: {e2}", exc_info=True)
                     self.telegram.send_message(chat_id, f"❌ Ocurrió un error inesperado: {e2}")

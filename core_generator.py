@@ -57,6 +57,36 @@ VALIDATION_MODEL = settings.post_model
 SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.20") or 0.20)
 MAX_GENERATION_ATTEMPTS = 3
 
+_PROVIDER_ERROR_MARKERS = (
+    "not a valid model",
+    "model not found",
+    "no such model",
+    "invalid model",
+    "insufficient funds",
+    "insufficient balance",
+    "insufficient credit",
+    "insufficient quota",
+    "quota exceeded",
+    "insufficient tokens",
+    "payment required",
+    "billing hard limit",
+    "rate limit",
+    "429",
+    "403",
+    "openrouter",
+    "todos los proveedores fallaron",
+    "all providers failed",
+    "authentication",
+    "api key",
+)
+
+
+def _is_provider_error_message(message: str) -> bool:
+    if not message:
+        return False
+    lower = message.lower()
+    return any(marker in lower for marker in _PROVIDER_ERROR_MARKERS)
+
 
 def _build_settings() -> GenerationSettings:
     return GenerationSettings(
@@ -144,13 +174,14 @@ def _log_similarity(topic_abstract: str, ignore_similarity: bool) -> None:
     logger.info("Comprobación de similitud finalizada.")
 
 
-def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = True) -> Dict[str, str]:
+def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = True) -> Dict[str, object]:
     context = build_prompt_context()
     settings = _build_settings()
 
     _log_similarity(topic_abstract, ignore_similarity)
 
     last_error = ""
+    provider_error_message = ""
     for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
         logger.info("Intento de generación de IA %s/%s…", attempt, MAX_GENERATION_ATTEMPTS)
         try:
@@ -167,15 +198,28 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
                 return result
             last_error = "; ".join(variant_errors.values()) or "Sin variantes válidas."
             logger.warning("Intento %s sin variantes publicables: %s", attempt, last_error)
+            if _is_provider_error_message(last_error):
+                provider_error_message = last_error
+                break
         except StyleRejection as rejection:
             last_error = str(rejection).strip()
             logger.warning("Rechazo del revisor final en intento %s: %s", attempt, last_error)
+            if _is_provider_error_message(last_error):
+                provider_error_message = last_error
+                break
         except Exception as exc:
             last_error = str(exc)
             logger.error("Error crítico en el intento %s: %s", attempt, exc, exc_info=True)
+            if _is_provider_error_message(last_error):
+                provider_error_message = last_error
+                break
 
     logger.error("No se pudo generar un borrador válido tras varios intentos.")
     error_message = f"Error: {last_error}" if last_error else "Error: No se pudo generar un borrador válido."
+    if provider_error_message:
+        return {"error": provider_error_message, "provider_error": True}
+    if _is_provider_error_message(error_message):
+        return {"error": error_message, "provider_error": True}
     return {"error": error_message}
 
 

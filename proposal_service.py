@@ -21,6 +21,8 @@ from logger_config import logger
 from prompt_context import build_prompt_context
 from style_guard import StyleRejection
 from telegram_client import TelegramClient
+from llm_fallback import llm
+from src.settings import AppSettings
 
 
 class ProviderGenerationError(Exception):
@@ -49,6 +51,8 @@ class ProposalService:
         )
         self.show_internal_summary = os.getenv("SHOW_INTERNAL_SUMMARY", "0").lower() in {"1", "true", "yes", "y"}
         self.job_scheduler = job_scheduler
+        settings = AppSettings.load()
+        self.refiner_model = settings.post_refiner_model
 
     # ------------------------------------------------------------------ public
     def do_the_work(self, chat_id: int, deadline: Optional[float] = None) -> None:
@@ -340,22 +344,67 @@ class ProposalService:
             enable_b=available_b,
         )
 
-        evaluations = {}
         context = build_prompt_context()
-        for i, draft in enumerate([draft_a, draft_b, draft_c]):
+        label_map = {0: "A", 1: "B", 2: "C"}
+        draft_map = {"A": draft_a, "B": draft_b, "C": draft_c}
+        evaluations: Dict[str, Dict[str, object]] = {}
+        for idx, draft in enumerate([draft_a, draft_b, draft_c]):
+            label = label_map[idx]
             if draft:
                 raw_eval = evaluate_draft(draft, context)
-                evaluations[chr(65+i)] = raw_eval or {}
+                evaluations[label] = raw_eval or {}
+            else:
+                evaluations[label] = {}
+
+        normalized_evals = self._normalize_evaluations(evaluations)
+        updated_variants = False
+        for label in ("A", "B", "C"):
+            eval_data = normalized_evals.get(label)
+            text = draft_map.get(label) or ""
+            others = {k: v for k, v in draft_map.items() if k != label}
+            if self._should_refine_variant(eval_data, text):
+                refined = self._refine_variant(label, text, eval_data or {}, topic_abstract or "", context, others)
+                if refined and refined != text:
+                    draft_map[label] = refined
+                    eval_raw = evaluate_draft(refined, context) or {}
+                    evaluations[label] = eval_raw
+                    normalized_evals[label] = self._normalize_evaluations({label: eval_raw}).get(label, eval_data)
+                    updated_variants = True
+
+        if updated_variants:
+            draft_a, draft_b, draft_c = draft_map["A"], draft_map["B"], draft_map["C"]
+            normalized_evals = self._normalize_evaluations(evaluations)
+            similar, pair_info_after = self._check_variant_similarity(draft_map)
+            if similar:
+                labels = " y ".join(pair_info_after[:2]) if pair_info_after else ""
+                sim_value = pair_info_after[2] if pair_info_after else 0.0
+                logger.warning(
+                    "[CHAT_ID: %s] Variantes aún similares tras reescritura (%s, sim=%.2f). Regenerando…",
+                    chat_id,
+                    labels,
+                    sim_value,
+                )
+                self.telegram.send_message(chat_id, "⚠️ Variantes todavía similares. Intento de nuevo…")
+                return False
+
+        compliance_warnings = self._check_contract_requirements(draft_map)
+        if compliance_warnings:
+            logger.info(
+                "[CHAT_ID: %s] Variantes con avisos de contrato: %s",
+                chat_id,
+                compliance_warnings,
+            )
+            variant_errors.update(compliance_warnings)
 
         message_text = self.telegram.format_proposal_message(
             topic_id,
             topic_abstract or "",
             source_pdf,
-            draft_a if draft_a else None,
-            draft_b if draft_b else None,
-            draft_c if draft_c else None,
+            draft_map["A"] if draft_map["A"] else None,
+            draft_map["B"] if draft_map["B"] else None,
+            draft_map["C"] if draft_map["C"] else None,
             "Multi-length",
-            evaluations=self._normalize_evaluations(evaluations),
+            evaluations=normalized_evals,
             labels=labeled_drafts,
             errors=variant_errors,
         )
@@ -531,13 +580,91 @@ class ProposalService:
 
             issues = []
             if not has_number:
-                issues.append("Añade un número o threshold claro.")
+                issues.append("Sugerencia: añade un número o threshold claro.")
             if not speaks_to_you:
-                issues.append("Habla en segunda persona ('you').")
+                issues.append("Sugerencia: habla en segunda persona ('you').")
 
             if issues:
                 warnings[label] = " ".join(issues)
         return warnings
+
+    def _should_refine_variant(self, evaluation: Optional[Dict[str, object]], text: str) -> bool:
+        if not evaluation or not isinstance(evaluation, dict):
+            return False
+        if not text or not text.strip():
+            return False
+        if evaluation.get("needs_revision"):
+            return True
+        style = evaluation.get("style_score")
+        if isinstance(style, (int, float)) and style < 4:
+            return True
+        summary = str(evaluation.get("summary") or "").lower()
+        if any(keyword in summary for keyword in {"vague", "blando", "generic", "soft"}):
+            return True
+        return False
+
+    def _refine_variant(
+        self,
+        label: str,
+        original: str,
+        evaluation: Dict[str, object],
+        topic_abstract: str,
+        context,
+        other_variants: Dict[str, str],
+    ) -> Optional[str]:
+        model = getattr(self, "refiner_model", None)
+        if not model or not original or not original.strip():
+            return None
+        try:
+            summary = str(evaluation.get("summary") or "").strip()
+            analysis = "".join(
+                f"- {item.get('comment')}\n" for item in evaluation.get("analysis", []) if isinstance(item, dict)
+            )
+            others_text = "\n".join(
+                f"{lbl}: {txt}" for lbl, txt in other_variants.items() if lbl != label and txt
+            )
+            system_message = (
+                "You are a senior rewrite specialist. Maintain Alex Hormozi voice exactly as defined. "
+                "Keep sentences short, direct, second-person, contract-compliant."
+            )
+            user_prompt = (
+                "CONTRACT (excerpt):\n"
+                f"{context.contract}\n\n"
+                "ICP:\n"
+                f"{context.icp}\n\n"
+                "FINAL REVIEW GUIDELINES:\n"
+                f"{context.final_guidelines}\n\n"
+                "TOPIC ABSTRACT:\n"
+                f"{topic_abstract}\n\n"
+                "THIS VARIANT (label {label}):\n"
+                f"{original}\n\n"
+                "OTHER VARIANTS FOR DIVERSITY (read-only):\n"
+                f"{others_text or 'N/A'}\n\n"
+                "EVALUATION SUMMARY:\n"
+                f"{summary or 'N/A'}\n"
+                f"{analysis or ''}\n"
+                "Rewrite the variant to: \n"
+                "- Add specific proof (numbers, thresholds, vivid example) if missing.\n"
+                "- Maintain second-person voice.\n"
+                "- Keep 3-5 sentences max, each on its own line.\n"
+                "- Stay under 280 characters.\n"
+                "- Avoid repeating phrases used in other variants.\n"
+                "Return only the rewritten text."
+            )
+            response = llm.chat_text(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.35,
+            )
+            refined = (response or "").strip()
+            if refined and len(refined) <= 280:
+                return refined
+        except Exception as exc:
+            logger.warning("[REFINE] Error al reescribir variante %s: %s", label, exc)
+        return None
 
     def _handle_approve(
         self,

@@ -35,9 +35,10 @@ def _parse_json_robust(text: str) -> Any:
 class OpenRouterLLM:
     def __init__(self) -> None:
         s = AppSettings.load()
-        if not s.openrouter_api_key:
+        api_key = (s.openrouter_api_key or "").strip()
+        if not api_key:
             logger.warning("OPENROUTER_API_KEY no configurada.")
-        self.client = OpenAI(base_url=s.openrouter_base_url, api_key=s.openrouter_api_key)
+        self.client = OpenAI(base_url=s.openrouter_base_url, api_key=api_key)
 
     def _call(
         self,

@@ -7,9 +7,11 @@ delegating prompt construction and variant-specific logic to
 control-flow, logging and data access.
 """
 
+import math
 import os
 import random
 import time
+from datetime import datetime, timezone
 from typing import Dict, Optional
 
 from dotenv import load_dotenv
@@ -56,6 +58,13 @@ GENERATION_MODEL = settings.post_model
 VALIDATION_MODEL = settings.post_model
 SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.20") or 0.20)
 MAX_GENERATION_ATTEMPTS = 3
+TOPIC_CANDIDATE_MULTIPLIER = max(1, int(os.getenv("TOPIC_CANDIDATE_MULTIPLIER", "4") or 4))
+TOPIC_CANDIDATE_MIN = max(1, int(os.getenv("TOPIC_CANDIDATE_MIN", "12") or 12))
+TOPIC_RECENCY_HALF_LIFE_HOURS = max(1.0, float(os.getenv("TOPIC_RECENCY_HALF_LIFE_HOURS", "96") or 96.0))
+TOPIC_SCORE_DISTANCE_WEIGHT = float(os.getenv("TOPIC_SCORE_DISTANCE_WEIGHT", "0.75") or 0.75)
+TOPIC_SCORE_RECENCY_WEIGHT = float(os.getenv("TOPIC_SCORE_RECENCY_WEIGHT", "0.20") or 0.20)
+TOPIC_SCORE_PRIORITY_WEIGHT = float(os.getenv("TOPIC_SCORE_PRIORITY_WEIGHT", "0.05") or 0.05)
+TOPIC_SCORE_JITTER_WEIGHT = float(os.getenv("TOPIC_SCORE_JITTER_WEIGHT", "0.05") or 0.05)
 
 _PROVIDER_ERROR_MARKERS = (
     "not a valid model",
@@ -110,7 +119,66 @@ def _flatten_metadata(raw):
         return flat
     return raw or []
 
-def _extract_topic_entry(collection, topic_id: str) -> Optional[Dict[str, str]]:
+
+def _parse_metadata_timestamp(value) -> Optional[datetime]:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        try:
+            # Interpret large numbers as milliseconds
+            ts = float(value)
+            if ts > 1e12:
+                ts /= 1000.0
+            return datetime.fromtimestamp(ts, tz=timezone.utc)
+        except (ValueError, OSError):
+            return None
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        return datetime.fromisoformat(text)
+    except ValueError:
+        try:
+            return datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+
+
+def _compute_recency_score(metadata: Optional[Dict[str, object]], now: Optional[datetime] = None) -> float:
+    if not isinstance(metadata, dict):
+        return 0.0
+    timestamp = None
+    for key in ("created_at", "createdAt", "ingested_at", "ingestedAt", "updated_at", "updatedAt", "timestamp", "ts"):
+        if key in metadata:
+            timestamp = _parse_metadata_timestamp(metadata.get(key))
+            if timestamp:
+                break
+    if not timestamp:
+        return 0.0
+    now_dt = now or datetime.now(timezone.utc)
+    age_hours = (now_dt - timestamp).total_seconds() / 3600.0
+    if age_hours <= 0:
+        return 1.0
+    return math.exp(-age_hours / TOPIC_RECENCY_HALF_LIFE_HOURS)
+
+
+def _compute_priority_boost(metadata: Optional[Dict[str, object]]) -> float:
+    if not isinstance(metadata, dict):
+        return 0.0
+    for key in ("priority_score", "priority", "importance", "score"):
+        if key in metadata:
+            try:
+                value = float(metadata[key])
+                return max(0.0, min(value, 1.0))
+            except (TypeError, ValueError):
+                continue
+    return 0.0
+
+def _extract_topic_entry(collection, topic_id: str) -> Optional[Dict[str, object]]:
     try:
         data = collection.get(ids=[topic_id], include=["documents", "metadatas"])  # type: ignore[arg-type]
     except Exception as exc:
@@ -123,15 +191,19 @@ def _extract_topic_entry(collection, topic_id: str) -> Optional[Dict[str, str]]:
     abstract = docs[0][0] if isinstance(docs[0], list) else docs[0]
 
     pdf_name = None
+    metadata_entry = None
     metadatas = data.get("metadatas") if isinstance(data, dict) else None
     if metadatas:
         md_entry = metadatas[0][0] if isinstance(metadatas[0], list) and metadatas[0] else metadatas[0]
         if isinstance(md_entry, dict):
+            metadata_entry = md_entry
             pdf_name = md_entry.get("pdf") or md_entry.get("source_pdf")
 
     result = {"topic_id": topic_id, "abstract": abstract}
     if pdf_name:
         result["source_pdf"] = pdf_name
+    if metadata_entry:
+        result["metadata"] = metadata_entry
     return result
 
 
@@ -302,7 +374,8 @@ def find_relevant_topic(sample_size: int = 3):
             logger.warning("'topics_collection' no devolvió IDs. No se pueden encontrar temas.")
             return None
 
-        candidates = random.sample(pool, min(sample_size, len(pool)))
+        candidate_pool_size = min(len(pool), max(sample_size * TOPIC_CANDIDATE_MULTIPLIER, TOPIC_CANDIDATE_MIN))
+        candidates = random.sample(pool, candidate_pool_size)
 
         memory_collection = get_memory_collection()
         try:
@@ -310,8 +383,13 @@ def find_relevant_topic(sample_size: int = 3):
         except Exception:
             has_memory = False
 
-        best_topic = None
-        best_distance = -1.0
+        best_topic: Optional[Dict[str, object]] = None
+        best_score = float("-inf")
+        best_distance = 0.0
+        best_recency = 0.0
+        best_priority = 0.0
+        fallback_candidates = []
+        now = datetime.now(timezone.utc)
 
         for cid in candidates:
             entry = _extract_topic_entry(topics_collection, cid)
@@ -324,24 +402,69 @@ def find_relevant_topic(sample_size: int = 3):
                 embedding = get_embedding(abstract)
                 if embedding is not None:
                     try:
-                        res = memory_collection.query(query_embeddings=[embedding], n_results=1)
+                        res = memory_collection.query(query_embeddings=[embedding], n_results=3)
                         dist_val = res and res.get("distances") and res["distances"][0][0]
                         distance = float(dist_val) if isinstance(dist_val, (int, float)) else 0.0
                     except Exception:
                         distance = 0.0
 
-            if distance > best_distance:
-                best_distance = distance
+            metadata = entry.get("metadata")
+            recency_score = _compute_recency_score(metadata, now)
+            priority_boost = _compute_priority_boost(metadata)
+            jitter = random.random()
+
+            score = (
+                TOPIC_SCORE_DISTANCE_WEIGHT * distance
+                + TOPIC_SCORE_RECENCY_WEIGHT * recency_score
+                + TOPIC_SCORE_PRIORITY_WEIGHT * priority_boost
+                + TOPIC_SCORE_JITTER_WEIGHT * jitter
+            )
+
+            logger.debug(
+                "Evaluando topic_id=%s | distancia=%.4f recency=%.4f priority=%.4f score=%.4f",
+                cid,
+                distance,
+                recency_score,
+                priority_boost,
+                score,
+            )
+
+            if has_memory and distance < SIMILARITY_THRESHOLD:
+                fallback_candidates.append((score, entry, distance, recency_score, priority_boost))
+                continue
+
+            if score > best_score:
+                best_score = score
                 best_topic = entry
+                best_distance = distance
+                best_recency = recency_score
+                best_priority = priority_boost
 
         if best_topic:
             logger.info(
-                "Tema seleccionado (menos similar en muestra %s), distancia≈%.4f",
+                "Tema seleccionado (pool=%s) distancia≈%.4f recency≈%.4f priority≈%.4f score≈%.4f",
                 len(candidates),
                 best_distance,
+                best_recency,
+                best_priority,
+                best_score,
             )
             logger.info(f"[PERF] find_relevant_topic took {time.time() - start_time:.2f} seconds.")
             return best_topic
+
+        if fallback_candidates:
+            fallback_candidates.sort(key=lambda item: item[0], reverse=True)
+            score, entry, distance, recency_score, priority_boost = fallback_candidates[0]
+            logger.info(
+                "Tema seleccionado pese a similitud (distancia=%.4f < umbral %.2f) | recency≈%.4f priority≈%.4f score≈%.4f",
+                distance,
+                SIMILARITY_THRESHOLD,
+                recency_score,
+                priority_boost,
+                score,
+            )
+            logger.info(f"[PERF] find_relevant_topic (fallback similarity) took {time.time() - start_time:.2f} seconds.")
+            return entry
 
         # Fallback absoluto: devolver cualquier tema
         try:

@@ -1,7 +1,9 @@
 import os
+import re
 import threading
 import time
-from typing import Callable, Dict, Optional
+from itertools import combinations
+from typing import Callable, Dict, Optional, Tuple
 from urllib.parse import quote
 
 from callback_parser import CallbackAction, CallbackType, parse_callback
@@ -27,6 +29,7 @@ class ProviderGenerationError(Exception):
 
 MIN_LLM_WINDOW_SECONDS = float(os.getenv("LLM_MIN_WINDOW_SECONDS", "5") or 5.0)
 JOB_TIMEOUT_MESSAGE = "⌛ Estoy al máximo ahora mismo. Intenta nuevamente en unos segundos."
+VARIANT_SIMILARITY_THRESHOLD = float(os.getenv("VARIANT_SIMILARITY_THRESHOLD", "0.78") or 0.78)
 
 
 class ProposalService:
@@ -253,6 +256,37 @@ class ProposalService:
                 self.telegram.send_message(chat_id, f"❌ Ocurrió un error inesperado: {e}")
                 return False
 
+        similar, pair_info = self._check_variant_similarity({
+            "A": draft_a,
+            "B": draft_b,
+            "C": draft_c,
+        })
+        if similar:
+            labels = " y ".join(pair_info[:2]) if pair_info else ""
+            sim_value = pair_info[2] if pair_info else 0.0
+            logger.warning(
+                "[CHAT_ID: %s] Variantes demasiado similares (%s, sim=%.2f). Regenerando…",
+                chat_id,
+                labels,
+                sim_value,
+            )
+            self.telegram.send_message(chat_id, "⚠️ Variantes muy similares. Buscando otros ángulos…")
+            return False
+
+        compliance_errors = self._check_contract_requirements({
+            "short": draft_a,
+            "mid": draft_b,
+            "long": draft_c,
+        })
+        if compliance_errors:
+            logger.warning(
+                "[CHAT_ID: %s] Variantes incumplen contrato: %s",
+                chat_id,
+                compliance_errors,
+            )
+            self.telegram.send_message(chat_id, "⚠️ Afinando para respetar el contrato. Dame un momento…")
+            return False
+
         available_a = bool(draft_a)
         available_b = bool(draft_b)
         available_c = bool(draft_c)
@@ -308,7 +342,8 @@ class ProposalService:
         context = build_prompt_context()
         for i, draft in enumerate([draft_a, draft_b, draft_c]):
             if draft:
-                evaluations[chr(65+i)] = evaluate_draft(draft, context)
+                raw_eval = evaluate_draft(draft, context)
+                evaluations[chr(65+i)] = raw_eval or {}
 
         message_text = self.telegram.format_proposal_message(
             topic_id,
@@ -318,7 +353,7 @@ class ProposalService:
             draft_b if draft_b else None,
             draft_c if draft_c else None,
             "Multi-length",
-            evaluations=evaluations,
+            evaluations=self._normalize_evaluations(evaluations),
             labels=labeled_drafts,
             errors=variant_errors,
         )
@@ -375,6 +410,100 @@ class ProposalService:
             logger.warning("[CHAT_ID: %s] Callback no reconocido: %s", chat_id, callback_data)
 
     # -------------------------------------------------------------- helpers
+    def _normalize_evaluations(self, evaluations: Dict[str, Dict[str, object]]) -> Dict[str, Dict[str, object]]:
+        normalized: Dict[str, Dict[str, object]] = {}
+        for label, payload in evaluations.items():
+            if not isinstance(payload, dict):
+                continue
+            if payload.get("error"):
+                normalized[label] = {
+                    "summary": str(payload["error"]),
+                    "needs_revision": True,
+                }
+                continue
+
+            fast_eval = payload.get("fast_eval") if isinstance(payload.get("fast_eval"), dict) else {}
+            slow_eval = payload.get("slow_eval") if isinstance(payload.get("slow_eval"), dict) else {}
+
+            style_score = fast_eval.get("style_score")
+            clarity_score = fast_eval.get("clarity_score")
+            under_limit = fast_eval.get("is_under_limit")
+            fast_summary = str(fast_eval.get("summary", "")).strip()
+            slow_summary = str(slow_eval.get("summary", "")).strip()
+            combined_summary = " ".join(part for part in (fast_summary, slow_summary) if part).strip()
+
+            factuality = slow_eval.get("factuality")
+            contrarian_score = slow_eval.get("contrarian_score")
+            brand_fit_score = slow_eval.get("brand_fit_score")
+
+            analysis_parts = []
+            if isinstance(clarity_score, (int, float)):
+                analysis_parts.append(f"Clarity {clarity_score}/5")
+            if isinstance(contrarian_score, (int, float)):
+                analysis_parts.append(f"Contrarian {contrarian_score}/5")
+            if isinstance(brand_fit_score, (int, float)):
+                analysis_parts.append(f"Brand {brand_fit_score}/10")
+            if under_limit is False:
+                analysis_parts.append("Length > limit")
+
+            needs_revision = False
+            if isinstance(style_score, (int, float)) and style_score < 4:
+                needs_revision = True
+            if isinstance(clarity_score, (int, float)) and clarity_score < 4:
+                needs_revision = True
+            if isinstance(contrarian_score, (int, float)) and contrarian_score < 3:
+                needs_revision = True
+            if isinstance(brand_fit_score, (int, float)) and brand_fit_score < 7:
+                needs_revision = True
+            if isinstance(factuality, str) and factuality.lower() in {"risky", "unclear"}:
+                needs_revision = True
+
+            normalized[label] = {
+                "style_score": style_score,
+                "factuality": factuality,
+                "summary": combined_summary or None,
+                "needs_revision": needs_revision,
+            }
+            if analysis_parts:
+                normalized[label]["analysis"] = [{"comment": "; ".join(analysis_parts)}]
+        return normalized
+
+    def _check_variant_similarity(self, drafts: Dict[str, str]) -> Tuple[bool, Tuple[str, str, float]]:
+        best_pair: Tuple[str, str, float] = ("", "", 0.0)
+        for (label_a, text_a), (label_b, text_b) in combinations(drafts.items(), 2):
+            text_a = (text_a or "").strip()
+            text_b = (text_b or "").strip()
+            if not text_a or not text_b:
+                continue
+            tokens_a = set(re.findall(r"\b[\w']+\b", text_a.lower()))
+            tokens_b = set(re.findall(r"\b[\w']+\b", text_b.lower()))
+            if not tokens_a or not tokens_b:
+                continue
+            intersection = tokens_a & tokens_b
+            union = tokens_a | tokens_b
+            similarity = len(intersection) / len(union) if union else 0.0
+            if similarity >= VARIANT_SIMILARITY_THRESHOLD:
+                return True, (label_a, label_b, similarity)
+            if similarity > best_pair[2]:
+                best_pair = (label_a, label_b, similarity)
+        return False, best_pair
+
+    def _check_contract_requirements(self, drafts: Dict[str, str]) -> Dict[str, str]:
+        errors: Dict[str, str] = {}
+        for label, text in drafts.items():
+            content = (text or "").strip()
+            if not content:
+                continue
+            issues = []
+            if not re.search(r"\d", content):
+                issues.append("Añade un número o threshold claro.")
+            lower = content.lower()
+            if "you" not in lower and "your" not in lower:
+                issues.append("Habla en segunda persona ('you').")
+            if issues:
+                errors[label] = " ".join(issues)
+        return errors
+
     def _handle_approve(
         self,
         chat_id: int,

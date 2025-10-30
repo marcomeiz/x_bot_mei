@@ -41,9 +41,11 @@ La instalación y ejecución no han cambiado, pero se documentan las variables r
 1.  **Instalar:** `python -m venv venv && source venv/bin/activate && pip install -r requirements.txt`.
 2.  **Variables (.env) — claves y modelos**
     - `OPENROUTER_API_KEY` (obligatoria)
-    - `OPENROUTER_BASE_URL` (por defecto `https://openrouter.ai/api/v1`)
-    - `POST_MODEL` (por defecto `x-ai/grok-3`), `EVAL_FAST_MODEL`, `EVAL_SLOW_MODEL`
-    - `POST_PRESET` (`speed|balanced|quality`) y/o `POST_TEMPERATURE`
+- `OPENROUTER_BASE_URL` (por defecto `https://openrouter.ai/api/v1`)
+- `POST_MODEL` (por defecto `x-ai/grok-3`), `EVAL_FAST_MODEL`, `EVAL_SLOW_MODEL`
+- `POST_PRESET` (`speed|balanced|quality`) y/o `POST_TEMPERATURE`
+- `JOB_MAX_WORKERS` (por defecto `3`), `JOB_QUEUE_MAXSIZE` (por defecto `12`), `JOB_TIMEOUT_SECONDS` (por defecto `35`)
+- `LLM_REQUEST_TIMEOUT_SECONDS` (por defecto `15`), `LLM_MIN_WINDOW_SECONDS` (por defecto `5`)
 3.  **Embeddings (HTTP-first)**
     - `EMBED_MODEL` (por defecto `jinaai/jina-embeddings-v2-base-en`)
     - Llamada HTTP directa con fallback a SDK; circuito de 60s tras errores.

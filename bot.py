@@ -2,7 +2,10 @@ print("---- ESTA ES LA PUTA VERSIÓN NUEVA DEL CÓDIGO: v_FINAL ----", flush=Tru
 
 import os
 import threading
-from typing import Dict, Optional
+import time
+from concurrent.futures import ThreadPoolExecutor
+from queue import Full, Queue
+from typing import Any, Callable, Dict, Optional
 
 from dotenv import load_dotenv
 from flask import Flask, request
@@ -21,6 +24,10 @@ ADMIN_API_TOKEN = os.getenv("ADMIN_API_TOKEN", "")
 TELEGRAM_SECRET_TOKEN = os.getenv("TELEGRAM_SECRET_TOKEN", "")
 SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.20") or 0.20)
 TEMP_DIR = os.getenv("BOT_TEMP_DIR", "/tmp")
+JOB_MAX_WORKERS = int(os.getenv("JOB_MAX_WORKERS", "3") or 3)
+JOB_QUEUE_MAXSIZE = int(os.getenv("JOB_QUEUE_MAXSIZE", "12") or 12)
+JOB_TIMEOUT_SECONDS = float(os.getenv("JOB_TIMEOUT_SECONDS", "35") or 35.0)
+
 
 app = Flask(__name__)
 telegram_client = TelegramClient(TELEGRAM_BOT_TOKEN, show_topic_id=SHOW_TOPIC_ID)
@@ -31,6 +38,88 @@ proposal_service = ProposalService(
     similarity_threshold=SIMILARITY_THRESHOLD,
 )
 admin_service = AdminService()
+
+_job_executor = ThreadPoolExecutor(max_workers=JOB_MAX_WORKERS)
+_job_queue: "Queue[Dict[str, Any]]" = Queue(maxsize=JOB_QUEUE_MAXSIZE)
+_chat_locks: Dict[int, threading.Lock] = {}
+_chat_lock_guard = threading.Lock()
+
+
+def _acquire_chat_lock(chat_id: int) -> bool:
+    with _chat_lock_guard:
+        lock = _chat_locks.get(chat_id)
+        if lock is None:
+            lock = threading.Lock()
+            _chat_locks[chat_id] = lock
+    acquired = lock.acquire(blocking=False)
+    if not acquired:
+        logger.info("[CHAT_ID: %s] Job ya en curso; se evita duplicado.", chat_id)
+    return acquired
+
+
+def _release_chat_lock(chat_id: int) -> None:
+    with _chat_lock_guard:
+        lock = _chat_locks.get(chat_id)
+    if lock and lock.locked():
+        lock.release()
+
+
+def _run_job(job: Dict[str, Any]) -> None:
+    chat_id = job["chat_id"]
+    func: Callable[..., None] = job["func"]
+    args = job.get("args", ())
+    kwargs = job.get("kwargs", {})
+    try:
+        func(*args, **kwargs)
+    except Exception as exc:
+        logger.error("[CHAT_ID: %s] Error ejecutando job: %s", chat_id, exc, exc_info=True)
+        try:
+            telegram_client.send_message(chat_id, "❌ Ocurrió un error inesperado al generar la propuesta.")
+        except Exception:
+            logger.exception("[CHAT_ID: %s] No se pudo notificar el error al usuario.", chat_id)
+    finally:
+        _release_chat_lock(chat_id)
+        _job_queue.task_done()
+
+
+def _job_dispatcher() -> None:
+    while True:
+        job = _job_queue.get()
+        if job is None:
+            _job_queue.task_done()
+            break
+        _job_executor.submit(_run_job, job)
+
+
+_dispatcher_thread = threading.Thread(target=_job_dispatcher, daemon=True)
+_dispatcher_thread.start()
+
+
+def _schedule_generation(chat_id: int) -> None:
+    if not _acquire_chat_lock(chat_id):
+        telegram_client.send_message(chat_id, "⚠️ Ya estoy trabajando en tu última solicitud. Dame unos segundos.")
+        return
+    job = {
+        "chat_id": chat_id,
+        "func": proposal_service.do_the_work,
+        "args": (chat_id,),
+        "kwargs": {"deadline": time.monotonic() + JOB_TIMEOUT_SECONDS},
+    }
+    try:
+        _job_queue.put_nowait(job)
+        logger.info(
+            "[CHAT_ID: %s] Job encolado (queue=%s/%s).",
+            chat_id,
+            _job_queue.qsize(),
+            JOB_QUEUE_MAXSIZE,
+        )
+    except Full:
+        _release_chat_lock(chat_id)
+        logger.warning("[CHAT_ID: %s] Cola de trabajos llena. Rechazando solicitud.", chat_id)
+        telegram_client.send_message(chat_id, "⌛ Estoy al máximo ahora mismo. Intenta en breve.")
+
+
+proposal_service.job_scheduler = _schedule_generation
 
 
 # ---------------------------------------------------------------------- helpers
@@ -43,7 +132,8 @@ def _process_update(update: Dict) -> None:
 
         if text == "/g":
             logger.info("[CHAT_ID: %s] Comando '/g' recibido.", chat_id)
-            threading.Thread(target=proposal_service.do_the_work, args=(chat_id,)).start()
+            _schedule_generation(chat_id)
+            return
         elif text.startswith("/c"):
             logger.info("[CHAT_ID: %s] Comando '/c' recibido.", chat_id)
             payload = text[len("/c"):].strip()

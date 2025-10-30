@@ -1,7 +1,7 @@
 import os
 import threading
 import time
-from typing import Dict, Optional
+from typing import Callable, Dict, Optional
 from urllib.parse import quote
 
 from callback_parser import CallbackAction, CallbackType, parse_callback
@@ -25,12 +25,17 @@ class ProviderGenerationError(Exception):
     """Raised cuando el proveedor LLM devuelve un error no recuperable (modelo, créditos, etc.)."""
 
 
+MIN_LLM_WINDOW_SECONDS = float(os.getenv("LLM_MIN_WINDOW_SECONDS", "5") or 5.0)
+JOB_TIMEOUT_MESSAGE = "⌛ Estoy al máximo ahora mismo. Intenta nuevamente en unos segundos."
+
+
 class ProposalService:
     def __init__(
         self,
         telegram: TelegramClient,
         draft_repo: Optional[DraftRepository] = None,
         similarity_threshold: float = 0.20,
+        job_scheduler: Optional[Callable[[int], None]] = None,
     ) -> None:
         self.telegram = telegram
         self.drafts = draft_repo or DraftRepository("/tmp")
@@ -40,11 +45,19 @@ class ProposalService:
             "https://www.threads.net/intent/post?text=",
         )
         self.show_internal_summary = os.getenv("SHOW_INTERNAL_SUMMARY", "0").lower() in {"1", "true", "yes", "y"}
+        self.job_scheduler = job_scheduler
 
     # ------------------------------------------------------------------ public
-    def do_the_work(self, chat_id: int) -> None:
+    def do_the_work(self, chat_id: int, deadline: Optional[float] = None) -> None:
         logger.info("[CHAT_ID: %s] Iniciando nuevo ciclo de generación.", chat_id)
         per_topic_gen_retries = int(os.getenv("GENERATION_RETRIES_PER_TOPIC", "1") or 1)
+
+        def _deadline_exceeded() -> bool:
+            return deadline is not None and time.monotonic() >= deadline
+
+        if _deadline_exceeded():
+            self.telegram.send_message(chat_id, JOB_TIMEOUT_MESSAGE)
+            return
 
         topic = find_relevant_topic()
         if not topic:
@@ -57,8 +70,11 @@ class ProposalService:
             return
 
         for gen_try in range(1, per_topic_gen_retries + 2):  # +1 intento base
+            if _deadline_exceeded():
+                self.telegram.send_message(chat_id, JOB_TIMEOUT_MESSAGE)
+                return
             try:
-                if self.propose_tweet(chat_id, topic):
+                if self.propose_tweet(chat_id, topic, deadline=deadline):
                     logger.info("[CHAT_ID: %s] Propuesta enviada correctamente.", chat_id)
                     return
             except ProviderGenerationError:
@@ -72,8 +88,11 @@ class ProposalService:
             )
 
         logger.warning("[CHAT_ID: %s] Generación fallida tras todos los reintentos. Permitiremos similitud para el mismo tema.", chat_id)
+        if _deadline_exceeded():
+            self.telegram.send_message(chat_id, JOB_TIMEOUT_MESSAGE)
+            return
         try:
-            if self.propose_tweet(chat_id, topic, ignore_similarity=True):
+            if self.propose_tweet(chat_id, topic, ignore_similarity=True, deadline=deadline):
                 logger.info("[CHAT_ID: %s] Propuesta enviada con similitud permitida para el mismo tema.", chat_id)
                 return
         except ProviderGenerationError:
@@ -137,7 +156,13 @@ class ProposalService:
         )
         self.telegram.send_message(chat_id, message, as_html=True)
 
-    def propose_tweet(self, chat_id: int, topic: Dict, ignore_similarity: bool = False) -> bool:
+    def propose_tweet(
+        self,
+        chat_id: int,
+        topic: Dict,
+        ignore_similarity: bool = False,
+        deadline: Optional[float] = None,
+    ) -> bool:
         topic_abstract = topic.get("abstract")
         topic_id = topic.get("topic_id")
         source_pdf = topic.get("source_pdf")
@@ -156,6 +181,9 @@ class ProposalService:
             pre_lines.append(f"📄 Origen: {source_pdf}")
         pre_lines.append("Generando 3 alternativas de longitud variable…")
         self.telegram.send_message(chat_id, "\n".join(pre_lines))
+
+        def _deadline_reached() -> bool:
+            return deadline is not None and time.monotonic() >= deadline
 
         variant_errors: Dict[str, str] = {}
         draft_a = ""
@@ -183,6 +211,16 @@ class ProposalService:
             draft_b = (gen_result.get("mid") or "").strip()
             draft_c = (gen_result.get("long") or "").strip()
 
+        if _deadline_reached():
+            self.telegram.send_message(chat_id, JOB_TIMEOUT_MESSAGE)
+            return False
+
+        if deadline is not None:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or remaining < MIN_LLM_WINDOW_SECONDS:
+                self.telegram.send_message(chat_id, JOB_TIMEOUT_MESSAGE)
+                return False
+
         try:
             gen_result = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
             _process_generation_result(gen_result)
@@ -191,9 +229,17 @@ class ProposalService:
             raise
         except Exception as e:
             msg = str(e)
+            if _deadline_reached():
+                self.telegram.send_message(chat_id, JOB_TIMEOUT_MESSAGE)
+                return False
             if "wrong char range for 'short'" in msg or "wrong char range for 'mid'" in msg or "wrong char range for 'long'" in msg:
                 logger.warning("[CHAT_ID: %s] Length issue detected (%s). Retrying generation once for the same topic…", chat_id, msg)
                 try:
+                    if deadline is not None:
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0 or remaining < MIN_LLM_WINDOW_SECONDS:
+                            self.telegram.send_message(chat_id, JOB_TIMEOUT_MESSAGE)
+                            return False
                     gen_result = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
                     _process_generation_result(gen_result)
                 except ProviderGenerationError:
@@ -321,7 +367,10 @@ class ProposalService:
         elif action.type == CallbackType.GENERATE:
             logger.info("[CHAT_ID: %s] Solicitud de nueva propuesta manual.", chat_id)
             self.telegram.edit_message(chat_id, message_id, "🚀 Buscando un nuevo tema…")
-            threading.Thread(target=self.do_the_work, args=(chat_id,)).start()
+            if self.job_scheduler:
+                self.job_scheduler(chat_id)
+            else:
+                threading.Thread(target=self.do_the_work, args=(chat_id,)).start()
         else:
             logger.warning("[CHAT_ID: %s] Callback no reconocido: %s", chat_id, callback_data)
 

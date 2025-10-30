@@ -6,8 +6,8 @@ from typing import Optional
 
 @dataclass
 class DraftPayload:
-    draft_a: str
-    draft_b: str
+    draft_a: Optional[str]
+    draft_b: Optional[str]
     draft_c: Optional[str]
     category: Optional[str]
 
@@ -52,4 +52,3 @@ class DraftRepository:
             path.unlink()
         except FileNotFoundError:
             pass
-

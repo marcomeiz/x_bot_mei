@@ -154,9 +154,19 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
     for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
         logger.info("Intento de generación de IA %s/%s…", attempt, MAX_GENERATION_ATTEMPTS)
         try:
-            drafts = generate_all_variants(topic_abstract, context, settings)
-            logger.info("Intento %s: todos los borradores generados y validados.", attempt)
-            return drafts
+            drafts, variant_errors = generate_all_variants(topic_abstract, context, settings)
+            result = {
+                "short": (drafts.get("short") or "").strip(),
+                "mid": (drafts.get("mid") or "").strip(),
+                "long": (drafts.get("long") or "").strip(),
+            }
+            if variant_errors:
+                result["variant_errors"] = variant_errors
+            if any(result[label] for label in ("short", "mid", "long")):
+                logger.info("Intento %s: variantes generadas (con %s errores).", attempt, len(variant_errors))
+                return result
+            last_error = "; ".join(variant_errors.values()) or "Sin variantes válidas."
+            logger.warning("Intento %s sin variantes publicables: %s", attempt, last_error)
         except StyleRejection as rejection:
             last_error = str(rejection).strip()
             logger.warning("Rechazo del revisor final en intento %s: %s", attempt, last_error)

@@ -40,33 +40,37 @@ class ProposalService:
     # ------------------------------------------------------------------ public
     def do_the_work(self, chat_id: int) -> None:
         logger.info("[CHAT_ID: %s] Iniciando nuevo ciclo de generación.", chat_id)
-        max_topic_retries = 5
         per_topic_gen_retries = int(os.getenv("GENERATION_RETRIES_PER_TOPIC", "1") or 1)
 
-        for attempt in range(1, max_topic_retries + 1):
-            logger.info("[CHAT_ID: %s] Intento %s/%s de encontrar tema.", chat_id, attempt, max_topic_retries)
-            topic = find_relevant_topic()
-            if not topic:
-                continue
-            # Reintentos de generación para el mismo tema si fallan reglas mínimas
-            gen_ok = False
-            for gen_try in range(1, per_topic_gen_retries + 2):  # +1 intento base
-                if self.propose_tweet(chat_id, topic):
-                    logger.info("[CHAT_ID: %s] Propuesta enviada correctamente.", chat_id)
-                    return
-                logger.warning("[CHAT_ID: %s] Generación fallida para el mismo tema (intento %s/%s).", chat_id, gen_try, per_topic_gen_retries + 1)
-                # Evitar mensajes engañosos: no afirmar similitud salvo que lo detectemos explícitamente en el futuro
-            logger.warning("[CHAT_ID: %s] Cambiando a otro tema tras fallar generación para el actual.", chat_id)
-            self.telegram.send_message(chat_id, "⚠️ No pude generar variantes válidas para este tema. Probando otro…")
-
-        logger.warning("[CHAT_ID: %s] Sin tema válido tras %s intentos. Permitiremos similitud.", chat_id, max_topic_retries)
         topic = find_relevant_topic()
-        if topic and self.propose_tweet(chat_id, topic, ignore_similarity=True):
-            logger.info("[CHAT_ID: %s] Propuesta enviada con similitud permitida.", chat_id)
+        if not topic:
+            logger.warning("[CHAT_ID: %s] No hay temas disponibles para generar.", chat_id)
+            self.telegram.send_message(
+                chat_id,
+                "❌ No encontré temas disponibles para generar en este momento.",
+                reply_markup=self.telegram.get_new_tweet_keyboard(),
+            )
             return
+
+        for gen_try in range(1, per_topic_gen_retries + 2):  # +1 intento base
+            if self.propose_tweet(chat_id, topic):
+                logger.info("[CHAT_ID: %s] Propuesta enviada correctamente.", chat_id)
+                return
+            logger.warning(
+                "[CHAT_ID: %s] Generación fallida para el mismo tema (intento %s/%s).",
+                chat_id,
+                gen_try,
+                per_topic_gen_retries + 1,
+            )
+
+        logger.warning("[CHAT_ID: %s] Generación fallida tras todos los reintentos. Permitiremos similitud para el mismo tema.", chat_id)
+        if self.propose_tweet(chat_id, topic, ignore_similarity=True):
+            logger.info("[CHAT_ID: %s] Propuesta enviada con similitud permitida para el mismo tema.", chat_id)
+            return
+
         self.telegram.send_message(
             chat_id,
-            "❌ No pude generar propuesta, incluso permitiendo similitud.",
+            "❌ No pude generar propuesta para este tema. Inténtalo nuevamente en unos minutos.",
             reply_markup=self.telegram.get_new_tweet_keyboard(),
         )
 
@@ -141,14 +145,22 @@ class ProposalService:
         pre_lines.append("Generando 3 alternativas de longitud variable…")
         self.telegram.send_message(chat_id, "\n".join(pre_lines))
 
-        try:
-            drafts = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
-            if "error" in drafts:
-                raise Exception(drafts["error"])
+        variant_errors: Dict[str, str] = {}
+        draft_a = ""
+        draft_b = ""
+        draft_c = ""
 
-            draft_a = drafts.get("short", "")
-            draft_b = drafts.get("mid", "")
-            draft_c = drafts.get("long", "")
+        try:
+            gen_result = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
+            if "error" in gen_result and not any(
+                gen_result.get(k) for k in ("short", "mid", "long")
+            ):
+                raise Exception(gen_result["error"])
+
+            variant_errors = dict(gen_result.get("variant_errors", {}))
+            draft_a = (gen_result.get("short") or "").strip()
+            draft_b = (gen_result.get("mid") or "").strip()
+            draft_c = (gen_result.get("long") or "").strip()
 
         except Exception as e:
             msg = str(e)
@@ -156,12 +168,15 @@ class ProposalService:
             if "wrong char range for 'short'" in msg or "wrong char range for 'mid'" in msg or "wrong char range for 'long'" in msg:
                 logger.warning("[CHAT_ID: %s] Length issue detected (%s). Retrying generation once for the same topic…", chat_id, msg)
                 try:
-                    drafts = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
-                    if "error" in drafts:
-                        raise Exception(drafts["error"])
-                    draft_a = drafts.get("short", "")
-                    draft_b = drafts.get("mid", "")
-                    draft_c = drafts.get("long", "")
+                    gen_result = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
+                    if "error" in gen_result and not any(
+                        gen_result.get(k) for k in ("short", "mid", "long")
+                    ):
+                        raise Exception(gen_result["error"])
+                    variant_errors = dict(gen_result.get("variant_errors", {}))
+                    draft_a = (gen_result.get("short") or "").strip()
+                    draft_b = (gen_result.get("mid") or "").strip()
+                    draft_c = (gen_result.get("long") or "").strip()
                 except Exception as e2:
                     logger.error(f"[CHAT_ID: {chat_id}] Error after retry: {e2}", exc_info=True)
                     self.telegram.send_message(chat_id, f"❌ Ocurrió un error inesperado: {e2}")
@@ -171,6 +186,26 @@ class ProposalService:
                 self.telegram.send_message(chat_id, f"❌ Ocurrió un error inesperado: {e}")
                 return False
 
+        available_a = bool(draft_a)
+        available_b = bool(draft_b)
+        available_c = bool(draft_c)
+
+        if not (available_a or available_b or available_c):
+            error_summary = variant_errors or {"all": "No se generaron variantes utilizables."}
+            label_lookup = {"short": "A", "mid": "B", "long": "C", "all": "Todas"}
+            summary_lines = [
+                "❌ No pude generar variantes publicables para este tema."
+            ] + [
+                f"- {label_lookup.get(label, label.upper())}: {reason}"
+                for label, reason in error_summary.items()
+            ]
+            self.telegram.send_message(
+                chat_id,
+                "\n".join(summary_lines),
+                reply_markup=self.telegram.get_new_tweet_keyboard(),
+            )
+            return False
+
         # Labeling logic as per user suggestion
         def get_label(text: str) -> str:
             length = len(text)
@@ -178,21 +213,29 @@ class ProposalService:
             if 170 <= length <= 230: return "mid"
             return "long"
 
-        labeled_drafts = {
-            get_label(draft_a): draft_a,
-            get_label(draft_b): draft_b,
-            get_label(draft_c): draft_c,
-        }
+        labeled_drafts: Dict[str, str] = {}
+        if draft_a:
+            labeled_drafts[get_label(draft_a)] = draft_a
+        if draft_b:
+            labeled_drafts[get_label(draft_b)] = draft_b
+        if draft_c:
+            labeled_drafts[get_label(draft_c)] = draft_c
 
         payload = DraftPayload(
-            draft_a=draft_a, 
-            draft_b=draft_b, 
-            draft_c=draft_c, 
+            draft_a=draft_a or None, 
+            draft_b=draft_b or None, 
+            draft_c=draft_c or None, 
             category="Multi-length"
         )
         self.drafts.save(chat_id, topic_id, payload)
 
-        keyboard = self.telegram.build_proposal_keyboard(topic_id, has_variant_c=True, allow_variant_c=True)
+        keyboard = self.telegram.build_proposal_keyboard(
+            topic_id,
+            has_variant_c=available_c,
+            allow_variant_c=available_c,
+            enable_a=available_a,
+            enable_b=available_b,
+        )
 
         evaluations = {}
         context = build_prompt_context()
@@ -204,12 +247,13 @@ class ProposalService:
             topic_id,
             topic_abstract or "",
             source_pdf,
-            draft_a,
-            draft_b,
-            draft_c,
+            draft_a if draft_a else None,
+            draft_b if draft_b else None,
+            draft_c if draft_c else None,
             "Multi-length",
             evaluations=evaluations,
-            labels=labeled_drafts
+            labels=labeled_drafts,
+            errors=variant_errors,
         )
 
         logger.info("[CHAT_ID: %s] Intentando enviar propuesta a Telegram.", chat_id)

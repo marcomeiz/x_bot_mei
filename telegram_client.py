@@ -44,17 +44,19 @@ class TelegramClient:
         topic_id: str,
         abstract: str,
         source_pdf: Optional[str],
-        draft_a: str,
-        draft_b: str,
+        draft_a: Optional[str],
+        draft_b: Optional[str],
         draft_c: Optional[str] = None,
         category_name: Optional[str] = None,
         evaluations: Optional[Dict[str, Dict[str, object]]] = None,
         labels: Optional[Dict[str, str]] = None,
+        errors: Optional[Dict[str, str]] = None,
     ) -> str:
         safe_id = self.escape(topic_id or "-")
         safe_abstract = self.escape(self.clean_abstract(abstract or ""))
         safe_source = self.escape(source_pdf) if source_pdf else None
         safe_category = self.escape(category_name) if category_name else None
+        error_map = errors or {}
 
         header: list[str] = ["<b>Propuestas listas</b>"]
         if self.show_topic_id or not source_pdf:
@@ -69,13 +71,23 @@ class TelegramClient:
         header.append("Pulsa ✅ para aprobar o selecciona el bloque de código para copiar.")
 
         blocks = [
-            self._format_variant_block("🅰️", "A", draft_a, evaluations),
-            self._format_variant_block("🅱️", "B", draft_b, evaluations),
+            self._format_variant_block("🅰️", "A", draft_a, evaluations, error=error_map.get("short")),
+            self._format_variant_block("🅱️", "B", draft_b, evaluations, error=error_map.get("mid")),
         ]
-        if draft_c:
-            blocks.append(self._format_variant_block("🇨", "C", draft_c, evaluations))
+        if draft_c or error_map.get("long"):
+            blocks.append(self._format_variant_block("🇨", "C", draft_c, evaluations, error=error_map.get("long")))
 
-        return "\n\n".join(["\n".join(header)] + blocks).strip()
+        sections = ["\n".join(header)] + blocks
+
+        if error_map:
+            label_map = {"short": "A", "mid": "B", "long": "C", "all": "Todas"}
+            error_lines = ["<b>Errores detectados:</b>"]
+            for key, message in error_map.items():
+                label = label_map.get(key, key.upper())
+                error_lines.append(f"{label}: {self.escape(message)}")
+            sections.append("\n".join(error_lines))
+
+        return "\n\n".join(sections).strip()
 
     def format_comment_message(
         self,
@@ -109,19 +121,24 @@ class TelegramClient:
         text: Optional[str],
         evaluations: Optional[Dict[str, Dict[str, object]]],
         length_label: Optional[str] = None,
+        error: Optional[str] = None,
     ) -> str:
-        text = text or ""
-        safe_text = self.escape(text)
-        code_block = f"<pre><code>{safe_text}</code></pre>"
-        
         title_parts = [f"{icon} <b>Opción {label}</b>"]
         if length_label:
             title_parts.append(f"<i>[{length_label}]</i>")
-        title_parts.append(f"· {len(text)}/280")
 
-        block = [" ".join(title_parts), code_block]
+        text = (text or "").strip()
+        block: list[str] = []
 
-        if evaluations and label in evaluations:
+        if text:
+            title_parts.append(f"· {len(text)}/280")
+            safe_text = self.escape(text)
+            block = [" ".join(title_parts), f"<pre><code>{safe_text}</code></pre>"]
+        else:
+            note = error or "No se pudo generar esta variante."
+            block = [" ".join(title_parts), f"⚠️ {self.escape(note)}"]
+
+        if text and evaluations and label in evaluations:
             eval_block = self._format_evaluation(evaluations[label])
             if eval_block:
                 block.append(eval_block)
@@ -151,23 +168,29 @@ class TelegramClient:
         prefix = "⚠️ " if needs_revision else "📝 "
         return f"{prefix}" + self.escape(" | ".join(parts))
 
-    def build_proposal_keyboard(self, topic_id: str, has_variant_c: bool, allow_variant_c: bool) -> Dict:
-        rows = [
-            [
-                {"text": "👍 Aprobar A", "callback_data": f"approve_A_{topic_id}"},
-                {"text": "👍 Aprobar B", "callback_data": f"approve_B_{topic_id}"},
-            ],
-        ]
+    def build_proposal_keyboard(
+        self,
+        topic_id: str,
+        has_variant_c: bool,
+        allow_variant_c: bool,
+        *,
+        enable_a: bool = True,
+        enable_b: bool = True,
+    ) -> Dict:
+        rows: list[list[Dict[str, str]]] = []
+        approve_row: list[Dict[str, str]] = []
+        if enable_a:
+            approve_row.append({"text": "👍 Aprobar A", "callback_data": f"approve_A_{topic_id}"})
+        if enable_b:
+            approve_row.append({"text": "👍 Aprobar B", "callback_data": f"approve_B_{topic_id}"})
+        if approve_row:
+            rows.append(approve_row)
 
         if has_variant_c:
             if allow_variant_c:
-                rows.append(
-                    [{"text": "👍 Aprobar C", "callback_data": f"approve_C_{topic_id}"}]
-                )
+                rows.append([{"text": "👍 Aprobar C", "callback_data": f"approve_C_{topic_id}"}])
             else:
-                rows.append(
-                    [{"text": "⚠️ C Rechazada", "callback_data": "noop"}]
-                )
+                rows.append([{"text": "⚠️ C Rechazada", "callback_data": "noop"}])
 
         rows.append([{"text": "👎 Rechazar Todos", "callback_data": f"reject_{topic_id}"}])
         rows.append([{"text": "🔁 Generar Nuevo", "callback_data": "generate_new"}])

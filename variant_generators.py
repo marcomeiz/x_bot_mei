@@ -1265,31 +1265,49 @@ def generate_all_variants(
 
         # Raw mode: NO guardrails (return raw drafts for VOICE tuning)
         if SUSPEND_GUARDRAILS:
-            return {
-                "short": (drafts.get("short") or "").strip(),
-                "mid": (drafts.get("mid") or "").strip(),
-                "long": (drafts.get("long") or "").strip(),
-            }
+            return (
+                {
+                    "short": (drafts.get("short") or "").strip(),
+                    "mid": (drafts.get("mid") or "").strip(),
+                    "long": (drafts.get("long") or "").strip(),
+                },
+                {},
+            )
 
         # Minimal Warden with style rewrite (V3.1 by default):
         if WARDEN_MINIMAL:
             cleaned: Dict[str, str] = {}
+            failed_variants: Dict[str, str] = {}
             import re as _re
             COMMA_RE = _re.compile(r"[,\uFF0C\u060C\uFE10\uFE11\uFE50\uFE51]")
+
+            def _minimal_failure_reason(label: str, text: str) -> str:
+                if not text:
+                    return "Missing content."
+                if not _english_only(text):
+                    return "Contains non-English characters."
+                if _re.search(r"#[A-Za-z0-9_]+", text):
+                    return "Contains hashtags."
+                if COMMA_RE.search(text):
+                    return "Contains commas."
+                if not _range_ok(label, text):
+                    return f"Length {len(text)} outside allowed range."
+                return "Failed minimal guardrails."
+
             for label in ("short", "mid", "long"):
                 draft = (drafts.get(label) or "").strip()
                 if not draft:
-                    # Missing: regenerate this label from scratch (up to 2 attempts)
                     ok = None
                     for _ in range(2):
                         ok = regenerate_single_variant(label, topic_abstract, context, settings)
                         if ok:
                             break
                     if not ok:
-                        raise StyleRejection(f"Minimal Warden: missing '{label}' content.")
+                        failed_variants[label] = _minimal_failure_reason(label, draft)
+                        cleaned[label] = ""
+                        continue
                     draft = ok.strip()
 
-                # Validate with minimal checks; on failure, regenerate only this label (up to 2 attempts)
                 def _passes_minimal(s: str) -> bool:
                     if not _english_only(s):
                         return False
@@ -1308,18 +1326,12 @@ def generate_all_variants(
                             success = candidate
                             break
                     if not success:
-                        # Emit precise reason based on last draft
-                        if not _english_only(draft):
-                            raise StyleRejection(f"Minimal Warden: non-English characters in '{label}'.")
-                        if _re.search(r"#[A-Za-z0-9_]+", draft):
-                            raise StyleRejection(f"Minimal Warden: hashtag detected in '{label}'.")
-                        if COMMA_RE.search(draft):
-                            raise StyleRejection(f"Minimal Warden: comma detected in '{label}'.")
-                        if not _range_ok(label, draft):
-                            raise StyleRejection(f"Minimal Warden: wrong char range for '{label}' (len={len(draft)}).")
+                        failed_variants[label] = _minimal_failure_reason(label, draft)
+                        cleaned[label] = ""
+                        continue
                     draft = success or draft
                 cleaned[label] = draft
-            return cleaned
+            return cleaned, failed_variants
 
         # Hard gate: clean, audit and enforce mechanical rules before returning
         def _strip_hashtags_and_fix(text: str) -> str:
@@ -1375,9 +1387,8 @@ def generate_all_variants(
             # Final cleanup
             return "\n".join(ln.strip() for ln in lines if ln.strip())
 
-        cleaned: Dict[str, str] = {}
-        for label in ("short", "mid", "long"):
-            draft = drafts.get(label, "").strip()
+        def _validate_variant(label: str, draft: str) -> str:
+            audit_payload: Optional[Dict[str, object]] = None
             draft = _strip_hashtags_and_fix(draft)
             # Warden audit+rewrite using the style contract
             try:
@@ -1402,9 +1413,11 @@ def generate_all_variants(
 
                 # If preserved lines violate mechanics that would force splitting or punctuation changes → reject (voice wins)
                 lines = [ln.strip() for ln in draft.splitlines() if ln.strip()]
+
                 def _words(nline: str) -> int:
                     import re as _re
                     return len(_re.findall(r"\b[\w']+\b", nline))
+
                 for pi in preserve_idx:
                     if 0 <= pi < len(lines):
                         pline = lines[pi]
@@ -1471,10 +1484,49 @@ def generate_all_variants(
                 reason = f"Variant {label} rejected: 'and/or' not allowed."
                 logger.warning(f"WARDEN_FAIL_REASON={reason}")
                 raise StyleRejection(reason)
+            return draft
 
-            cleaned[label] = draft
+        VARIANT_MAX_ATTEMPTS = 3
 
-        return cleaned
+        def _clean_variant_with_retries(label: str, seed: str) -> Tuple[str, Optional[str]]:
+            attempts = 0
+            candidate = seed
+            last_error = ""
+            while attempts < VARIANT_MAX_ATTEMPTS:
+                candidate_stripped = (candidate or "").strip()
+                if candidate_stripped:
+                    try:
+                        return _validate_variant(label, candidate_stripped), None
+                    except StyleRejection as err:
+                        last_error = (str(err) or "").strip()
+                        logger.warning(
+                            "Variant %s failed validation (attempt %s/%s): %s",
+                            label,
+                            attempts + 1,
+                            VARIANT_MAX_ATTEMPTS,
+                            last_error,
+                        )
+                else:
+                    last_error = "Missing content."
+                    logger.warning("Variant %s missing content; attempting regeneration.", label)
+
+                candidate = regenerate_single_variant(label, topic_abstract, context, settings)
+                attempts += 1
+                if candidate:
+                    logger.info("Variant %s regenerated (attempt %s/%s).", label, attempts, VARIANT_MAX_ATTEMPTS)
+
+            return "", (last_error or f"Variant {label} failed after {VARIANT_MAX_ATTEMPTS} attempts.").strip()
+
+        cleaned: Dict[str, str] = {}
+        failed_variants: Dict[str, str] = {}
+        for label in ("short", "mid", "long"):
+            text, err = _clean_variant_with_retries(label, drafts.get(label, ""))
+            cleaned[label] = text
+            if err:
+                trimmed = err if len(err) <= 120 else err[:117] + "..."
+                failed_variants[label] = trimmed
+
+        return cleaned, failed_variants
 
 
 

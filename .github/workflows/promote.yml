@@ -18,10 +18,9 @@ jobs:
       NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       HF_INGEST_LIMIT: ${{ vars.HF_INGEST_LIMIT }}
-      FALLBACK_PROVIDER_ORDER: gemini,openrouter
+      FALLBACK_PROVIDER_ORDER: openrouter
 
     steps:
       - name: Checkout

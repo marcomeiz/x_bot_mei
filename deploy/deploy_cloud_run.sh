@@ -76,7 +76,6 @@ gcloud artifacts repositories create "$REPO" --repository-format=docker --locati
 
 echo "Preparing secrets..."
 read_secret TELEGRAM_BOT_TOKEN
-read_secret GOOGLE_API_KEY
 read_secret ADMIN_API_TOKEN
 read_secret TELEGRAM_CHAT_ID
 
@@ -91,7 +90,6 @@ ensure_secret() {
 }
 
 ensure_secret TELEGRAM_BOT_TOKEN "$TELEGRAM_BOT_TOKEN"
-ensure_secret GOOGLE_API_KEY "$GOOGLE_API_KEY"
 if [[ -n "${OPENROUTER_API_KEY:-}" ]]; then
   ensure_secret OPENROUTER_API_KEY "$OPENROUTER_API_KEY"
 fi
@@ -135,7 +133,6 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
 # Build secret flags dynamically (OPENROUTER only if present)
 SECRET_FLAGS=(
   "TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN:latest"
-  "GOOGLE_API_KEY=GOOGLE_API_KEY:latest"
   "ADMIN_API_TOKEN=ADMIN_API_TOKEN:latest"
 )
 if gcloud secrets describe OPENROUTER_API_KEY >/dev/null 2>&1; then
@@ -146,7 +143,7 @@ SECRET_LIST=$(IFS=, ; echo "${SECRET_FLAGS[*]}")
 
 # Build env var string with custom item delimiter to allow comma in values
 # Using gcloud's escaping feature: ^:<delim>^
-ENV_VARS='^~^FALLBACK_PROVIDER_ORDER=gemini,openrouter~CHROMA_DB_URL=http://34.14.34.69:8080~CHROMA_DB_PATH=/mnt/db~GEMINI_MODEL=gemini-2.5-pro~SHOW_TOPIC_ID=0'
+ENV_VARS='^~^CHROMA_DB_URL=http://34.14.34.69:8080~CHROMA_DB_PATH=/mnt/db~SHOW_TOPIC_ID=0~LLM_REQUEST_TIMEOUT_SECONDS=60'
 
 gcloud run deploy "$SERVICE" \
   --image "$IMG" \

@@ -273,19 +273,21 @@ class ProposalService:
             self.telegram.send_message(chat_id, "⚠️ Variantes muy similares. Buscando otros ángulos…")
             return False
 
-        compliance_errors = self._check_contract_requirements({
+        compliance_warnings = self._check_contract_requirements({
             "short": draft_a,
             "mid": draft_b,
             "long": draft_c,
         })
-        if compliance_errors:
-            logger.warning(
-                "[CHAT_ID: %s] Variantes incumplen contrato: %s",
+        if compliance_warnings:
+            logger.info(
+                "[CHAT_ID: %s] Variantes con avisos de contrato: %s",
                 chat_id,
-                compliance_errors,
+                compliance_warnings,
             )
-            self.telegram.send_message(chat_id, "⚠️ Afinando para respetar el contrato. Dame un momento…")
-            return False
+            for key, warning in compliance_warnings.items():
+                variant_errors[key] = (
+                    f"{warning} " + variant_errors[key]
+                ) if key in variant_errors else warning
 
         available_a = bool(draft_a)
         available_b = bool(draft_b)
@@ -489,20 +491,53 @@ class ProposalService:
         return False, best_pair
 
     def _check_contract_requirements(self, drafts: Dict[str, str]) -> Dict[str, str]:
-        errors: Dict[str, str] = {}
+        warnings: Dict[str, str] = {}
+        spelled_numbers = {
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight",
+            "nine",
+            "ten",
+            "eleven",
+            "twelve",
+            "hundred",
+            "thousand",
+            "million",
+            "billion",
+            "percent",
+            "quarter",
+            "half",
+            "double",
+            "triple",
+        }
         for label, text in drafts.items():
             content = (text or "").strip()
             if not content:
                 continue
-            issues = []
-            if not re.search(r"\d", content):
-                issues.append("Añade un número o threshold claro.")
             lower = content.lower()
-            if "you" not in lower and "your" not in lower:
+            tokens = set(re.findall(r"\b[\w']+\b", lower))
+            has_number = bool(re.search(r"\d", content)) or bool(tokens & spelled_numbers) or "k" in tokens or "m" in tokens or "%" in content or "$" in content
+            speaks_to_you = bool(
+                re.search(r"\byou\b", lower)
+                or re.search(r"\byou['’]re\b", lower)
+                or re.search(r"\byou['’]ll\b", lower)
+                or re.search(r"\byour\b", lower)
+            )
+
+            issues = []
+            if not has_number:
+                issues.append("Añade un número o threshold claro.")
+            if not speaks_to_you:
                 issues.append("Habla en segunda persona ('you').")
+
             if issues:
-                errors[label] = " ".join(issues)
-        return errors
+                warnings[label] = " ".join(issues)
+        return warnings
 
     def _handle_approve(
         self,

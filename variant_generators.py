@@ -155,6 +155,7 @@ LONG_MIN = int(os.getenv("LONG_MIN", "240") or 240)
 LONG_MAX = int(os.getenv("LONG_MAX", "280") or 280)
 SUSPEND_GUARDRAILS = os.getenv("SUSPEND_GUARDRAILS", "0").lower() in {"1", "true", "yes", "y"}
 WARDEN_MINIMAL = os.getenv("WARDEN_MINIMAL", "0").lower() in {"1", "true", "yes", "y"}
+FORBIDDEN_EM_DASH = "—"
 
 HEDGING_REGEX = re.compile(
     r"\b(i think|maybe|probably|seems|appears|kind of|sort of|in my opinion|i feel|could|might)\b",
@@ -1290,6 +1291,8 @@ def generate_all_variants(
                     return "Contains hashtags."
                 if COMMA_RE.search(text):
                     return "Contains commas."
+                if FORBIDDEN_EM_DASH in text:
+                    return "Contains em dash (—)."
                 if not _range_ok(label, text):
                     return f"Length {len(text)} outside allowed range."
                 return "Failed minimal guardrails."
@@ -1314,6 +1317,8 @@ def generate_all_variants(
                     if _re.search(r"#[A-Za-z0-9_]+", s):
                         return False
                     if COMMA_RE.search(s):
+                        return False
+                    if FORBIDDEN_EM_DASH in s:
                         return False
                     return _range_ok(label, s)
 
@@ -1442,6 +1447,10 @@ def generate_all_variants(
                     draft = draft3
 
             # Additional Warden checks
+            if FORBIDDEN_EM_DASH in draft:
+                reason = f"Variant {label} rejected: em dash (—) not allowed."
+                logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                raise StyleRejection(reason)
             if not _english_only(draft):
                 reason = f"Variant {label} rejected: non-English characters."
                 logger.warning(f"WARDEN_FAIL_REASON={reason}")

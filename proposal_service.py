@@ -583,6 +583,8 @@ class ProposalService:
                 issues.append("Sugerencia: añade un número o threshold claro.")
             if not speaks_to_you:
                 issues.append("Sugerencia: habla en segunda persona ('you').")
+            if "—" in content:
+                issues.append("Sugerencia: reemplaza el em dash (—).")
 
             if issues:
                 warnings[label] = " ".join(issues)

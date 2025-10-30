@@ -183,6 +183,7 @@ Do the reps. Then believe.
 - **Numbers:** Use numerals (3, 10, 1,000).  
 - **Swear Words:** If used, purposeful and sparse.  
 - **Quotes:** Block or inline with attribution.
+- **Punctuation:** No em dash (—). Use periods or a simple hyphen instead.
 
 ---
 

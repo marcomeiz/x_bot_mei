@@ -1,8 +1,40 @@
+# Virtual environments & local env files
 venv/
-__pycache__/
+.venv/
 .env
-.DS_Store
+.env.*
+
+# Python caches & artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+
+# Logs & temp outputs
+*.log
+logs*.json
+bot.log
+clear.log
+watcher_v2.log
+
+# Local databases & state
+*.sqlite3
+db/
+db_local/
+
+# Generated data dumps
+json/
 uploads/
 texts/
-db/
-json/
+processed_pdfs/
+
+# OS / editor clutter
+.DS_Store
+.idea/
+.vscode/
+Thumbs.db

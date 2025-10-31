@@ -610,6 +610,7 @@ class ProposalService:
             if similarity is not None:
                 issues.append(f"Sugerencia: refuerza la voz (similitud {similarity:.2f}).")
                 if similarity < GOLDSET_MIN_SIMILARITY:
+                    logger.warning("[CONTRACT] Draft %s blocked: similarity %.3f under %.3f.", label, similarity, GOLDSET_MIN_SIMILARITY)
                     blocking = True
             if not speaks_to_you:
                 issues.append("Sugerencia: habla en segunda persona ('you').")

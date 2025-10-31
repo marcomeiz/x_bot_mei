@@ -1045,17 +1045,10 @@ def _refine_single_tweet_style_flexible(raw_text: str, model: str, context: Prom
 
 
 def generate_all_variants(
-
-
     topic_abstract: str,
-
-
     context: PromptContext,
-
-
     settings: GenerationSettings,
-
-
+    gold_examples: Optional[List[str]] = None,
 ) -> Dict[str, str]:
 
 
@@ -1248,7 +1241,8 @@ def generate_all_variants(
     try:
         prompts_dir = AppSettings.load().prompts_dir
         user_prompt = load_prompt(prompts_dir, "generation/all_variants").render(
-            topic_abstract=topic_abstract
+            topic_abstract=topic_abstract,
+            gold_examples=gold_examples or [],
         )
     except Exception:
         # Fallback to the inline prompt above if loading fails

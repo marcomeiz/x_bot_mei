@@ -53,6 +53,7 @@ class CommentSkip(Exception):
 load_dotenv()
 
 from src.settings import AppSettings
+from src.goldset import retrieve_goldset_examples
 settings = AppSettings.load()
 GENERATION_MODEL = settings.post_model
 VALIDATION_MODEL = settings.post_model
@@ -252,12 +253,21 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
 
     _log_similarity(topic_abstract, ignore_similarity)
 
+    gold_examples = retrieve_goldset_examples(topic_abstract or "", k=3)
+    if gold_examples:
+        logger.info("Using %s goldset examples as style anchors.", len(gold_examples))
+
     last_error = ""
     provider_error_message = ""
     for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
         logger.info("Intento de generación de IA %s/%s…", attempt, MAX_GENERATION_ATTEMPTS)
         try:
-            drafts, variant_errors = generate_all_variants(topic_abstract, context, settings)
+            drafts, variant_errors = generate_all_variants(
+                topic_abstract,
+                context,
+                settings,
+                gold_examples=gold_examples,
+            )
             result = {
                 "short": (drafts.get("short") or "").strip(),
                 "mid": (drafts.get("mid") or "").strip(),

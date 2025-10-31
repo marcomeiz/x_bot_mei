@@ -137,7 +137,6 @@ def _compute_embeddings_locally() -> Tuple[List[str], List[Sequence[float]]]:
     return valid_texts, embeddings
 
 
-
 def max_similarity_to_goldset(text: str) -> Optional[float]:
     if not text or not text.strip():
         return None
@@ -153,3 +152,25 @@ def max_similarity_to_goldset(text: str) -> Optional[float]:
         return None
     similarities = [_cosine_similarity(vec, gold_vec) for gold_vec in gold_embeddings]
     return max(similarities) if similarities else None
+
+
+def retrieve_goldset_examples(query: str, k: int = 3) -> List[str]:
+    """Return the top-k goldset texts most similar to the query."""
+    texts, embeddings = _get_gold_embeddings()
+    if not texts or not embeddings:
+        return []
+    vector = None
+    if query and query.strip():
+        try:
+            vector = get_embedding(query)
+        except Exception as exc:
+            logger.warning("Could not embed query for goldset retrieval: %s", exc)
+    if not vector:
+        return texts[:k]
+    scored = [
+        (_cosine_similarity(vector, gold_vec), text)
+        for text, gold_vec in zip(texts, embeddings)
+    ]
+    scored.sort(key=lambda item: item[0], reverse=True)
+    top_texts = [text for _, text in scored[:k]]
+    return top_texts

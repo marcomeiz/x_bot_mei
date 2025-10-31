@@ -30,6 +30,15 @@ Do NOT add goals or constraints beyond the cues above.
 Topic
 {topic_abstract}
 
+Reference Voice Anchors (do not copy; match tone and rhythm)
+{% if gold_examples %}
+{% for example in gold_examples %}
+- {{ example | replace('\n', ' ') }}
+{% endfor %}
+{% else %}
+- (No reference examples available; rely on contract.)
+{% endif %}
+
 Self‑check before output
 - If any of the cues above are missing, rewrite to fix VOICE.
 

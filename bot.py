@@ -67,17 +67,29 @@ def _warmup_anchors() -> int:
         for d, e in zip(g_docs, g_vecs):
             text = d[0] if isinstance(d, list) else d
             _ANCHORS_CACHE.append({"text": text, "vec": e})
-        # Si faltan, completar con topics
+        # Si faltan, completar con topics usando embeddings ya calculados
         if len(_ANCHORS_CACHE) < WARMUP_ANCHORS:
             topics = get_topics_collection()
-            t_res = topics.get(include=["documents"]) or {}
+            t_res = topics.get(include=["documents", "embeddings"]) or {}
             t_docs = t_res.get("documents") or []
+            t_vecs = t_res.get("embeddings") or []
             need = max(0, WARMUP_ANCHORS - len(_ANCHORS_CACHE))
-            for d in t_docs[:need]:
-                text = d[0] if isinstance(d, list) else d
-                vec = get_embedding(text)
-                if vec:
-                    _ANCHORS_CACHE.append({"text": text, "vec": vec})
+            added = 0
+            for d, e in zip(t_docs, t_vecs):
+                if added >= need:
+                    break
+                if e and isinstance(e, list) and e:
+                    text = d[0] if isinstance(d, list) else d
+                    _ANCHORS_CACHE.append({"text": text, "vec": e})
+                    added += 1
+            # Fallback: si aún faltan, generar embeddings on the fly
+            if added < need:
+                remaining = need - added
+                for d in t_docs[:remaining]:
+                    text = d[0] if isinstance(d, list) else d
+                    vec = get_embedding(text)
+                    if vec:
+                        _ANCHORS_CACHE.append({"text": text, "vec": vec})
         warmed = len(_ANCHORS_CACHE)
         logger.info("warmup_ok=%s, warmed=%s", warmed >= WARMUP_ANCHORS, warmed)
         return warmed

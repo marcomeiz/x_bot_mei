@@ -17,6 +17,7 @@ This note tracks every configuration surface that impacts tweet/comment generati
 ## 3. Runtime Messages
 - `config/messages.yaml` centraliza mensajes de usuario para bot/propuesta/avisos (cargado vía `src/messages.py`).
 - Telegram fallbacks/mensajes de error en `proposal_service.py` y `telegram_client.py`.
+- `LOG_GENERATED_VARIANTS` (env) activa el log detallado de cada variante + motivo de rechazo; útil para post-mortem cuando el contrato frena propuestas.
 - Logs de guardian (`style_guard`, `proposal_service`) tienen textos fijos pendientes de migrar si aplica.
 
 ## 4. Environment Switches

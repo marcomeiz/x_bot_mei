@@ -44,15 +44,27 @@ GOLDSET_EMB_CACHE: Optional[List[Sequence[float]]] = None
 def _load_embeddings_from_npz(path: Path) -> Optional[Tuple[List[str], List[Sequence[float]]]]:
     if not path.exists():
         return None
-    data = np.load(path, allow_pickle=True)
-    # Aceptar alias de claves para robustez
-    texts = data.get("texts") or data.get("documents")
-    vectors = data.get("embeddings") or data.get("vectors")
-    if texts is None or vectors is None:
-        logger.warning("NPZ missing 'texts/documents' or 'embeddings/vectors'. Ignoring.")
+    try:
+        data = np.load(path, allow_pickle=True)
+    except Exception as exc:
+        logger.warning("Could not read NPZ at %s: %s", path, exc)
         return None
-    decoded_texts = [t.decode("utf-8") if isinstance(t, bytes) else str(t) for t in texts]
-    vectors_list = vectors.tolist() if hasattr(vectors, "tolist") else list(vectors)
+    texts = data.get("texts")
+    documents = data.get("documents")
+    embeddings = data.get("embeddings")
+    vectors = data.get("vectors")
+    texts_arr = texts if texts is not None else documents
+    vectors_arr = embeddings if embeddings is not None else vectors
+    if texts_arr is None or vectors_arr is None:
+        logger.warning("NPZ missing texts/documents or embeddings/vectors. Ignoring.")
+        return None
+    try:
+        texts_list = texts_arr.tolist() if hasattr(texts_arr, "tolist") else list(texts_arr)
+        decoded_texts = [t.decode("utf-8") if isinstance(t, bytes) else str(t) for t in texts_list]
+        vectors_list = vectors_arr.tolist() if hasattr(vectors_arr, "tolist") else list(vectors_arr)
+    except Exception as exc:
+        logger.warning("Failed to parse NPZ contents: %s", exc)
+        return None
     return decoded_texts, vectors_list
 
 
@@ -60,11 +72,11 @@ def _load_embeddings_from_chroma() -> Optional[Tuple[List[str], List[Sequence[fl
     try:
         client = get_chroma_client()
         collection = client.get_or_create_collection(GOLDSET_COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
-        # Incluir embeddings y documentos explícitamente
-        result = collection.get(include=["embeddings", "documents"])
+        result = collection.get(include=["embeddings", "documents"])  # ensure embeddings are returned
         docs = result.get("documents") or []
         embeddings = result.get("embeddings") or []
         if not docs or not embeddings:
+            logger.info("Chroma goldset empty or missing embeddings.")
             return None
         texts = [d[0] if isinstance(d, list) else d for d in docs]
         return texts, embeddings
@@ -78,29 +90,31 @@ def _get_gold_embeddings() -> Tuple[List[str], List[Sequence[float]]]:
     if GOLDSET_TEXTS_CACHE is not None and GOLDSET_EMB_CACHE is not None:
         return GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE
 
-    # 1. Preferir Chroma como fuente canónica
+    # 1. Try Chroma collection first (canonical source)
     chroma_data = _load_embeddings_from_chroma()
     if chroma_data:
         GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE = chroma_data
         logger.info("Goldset embeddings loaded from Chroma collection '%s'.", GOLDSET_COLLECTION_NAME)
         return GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE
 
-    # 2. Fallback a NPZ local si Chroma está vacío o inaccesible
+    # 2. Fallback to NPZ file
     npz_data = _load_embeddings_from_npz(GOLDSET_EMBED_PATH)
     if npz_data:
         GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE = npz_data
         logger.info("Goldset embeddings loaded from NPZ (%s).", GOLDSET_EMBED_PATH)
         return GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE
 
-    # 3. Sin cómputo en caliente por defecto: deshabilitar para producción
-    allow_compute = os.getenv("GOLDSET_ALLOW_RUNTIME_COMPUTE", "0") == "1"
-    if allow_compute:
+    # 3. Final fallback: compute on the fly only if explicitly allowed
+    allow_runtime = os.getenv("GOLDSET_ALLOW_RUNTIME_COMPUTE", "0").lower() in {"1", "true", "yes", "y"}
+    if allow_runtime:
         texts, embeddings = _compute_embeddings_locally()
         GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE = texts, embeddings
         logger.warning("Goldset embeddings computed on the fly. Consider precomputing for stability.")
         return GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE
 
-    logger.error("Goldset embeddings unavailable; similarity checks disabled.")
+    logger.error(
+        "Goldset embeddings unavailable; set up Chroma or NPZ. Runtime compute disabled (GOLDSET_ALLOW_RUNTIME_COMPUTE=0)."
+    )
     GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE = [], []
     return GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE
 

@@ -1,6 +1,8 @@
 print("---- ESTA ES LA PUTA VERSIÓN NUEVA DEL CÓDIGO: v_FINAL ----", flush=True)
 
 import os
+import re
+import math
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from queue import Full, Queue
@@ -598,3 +600,99 @@ def _punch(text: str) -> str:
 
 def _one_pass_rewrite(text: str) -> str:
     return _punch(_reframe(_tighten(text)))
+
+# -------------------- Eval helpers --------------------
+
+def _split_lines(text: str) -> list[str]:
+    return [l.strip() for l in str(text).splitlines() if str(l).strip()]
+
+
+def _l2_normalize(vec: list[float]) -> list[float]:
+    if not vec:
+        return []
+    norm = math.sqrt(sum((x * x) for x in vec))
+    if norm <= 1e-12:
+        return vec[:]
+    return [x / norm for x in vec]
+
+
+def _cos(a: list[float], b: list[float]) -> float:
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    # Asumimos L2-normalizados; si no, el valor seguirá en [-1,1]
+    return float(sum(x * y for x, y in zip(a, b)))
+
+
+def _embed_line(text: str) -> Optional[list[float]]:
+    try:
+        vec = get_embedding(text)
+        if not isinstance(vec, list) or len(vec) != SIM_DIM:
+            return None
+        return _l2_normalize(vec)
+    except Exception:
+        return None
+
+
+def _fetch_anchors_by_ids(ids: list[str]) -> list[Dict[str, Any]]:
+    try:
+        client = get_chroma_client()
+        coll = client.get_or_create_collection(TOPICS_COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
+        res = coll.get(ids=ids, include=["documents", "embeddings", "metadatas", "ids"]) or {}
+        out = []
+        ids_r = res.get("ids") or []
+        docs_r = res.get("documents") or []
+        embs_r = res.get("embeddings") or []
+        for id_, d, e in zip(ids_r, docs_r, embs_r):
+            text = d[0] if isinstance(d, list) else d
+            out.append({"id": id_, "text": text, "vec": e})
+        return out
+    except Exception:
+        return []
+
+
+def _trigrams(text: str) -> set[str]:
+    toks = [t for t in re.findall(r"\w+", (text or "").lower()) if t]
+    grams = set()
+    for i in range(len(toks) - 2):
+        grams.add(" ".join(toks[i : i + 3]))
+    return grams
+
+
+def _jaccard(a: set[str], b: set[str]) -> float:
+    if not a or not b:
+        return 0.0
+    inter = a.intersection(b)
+    union = a.union(b)
+    if not union:
+        return 0.0
+    return float(len(inter)) / float(len(union))
+
+
+def _style_checks(lines: list[str]) -> float:
+    # Heurística simple: penaliza relleno, exceso de longitud y recompensa cierre imperativo
+    if not lines:
+        return 0.0
+    good = 0
+    total = len(lines)
+    bad_words = {"realmente", "claramente", "muy", "quizá", "quizás"}
+    imperative_starts = {"define", "corrige", "aplica", "cierra", "prioriza", "avanza", "stop", "fix", "ship"}
+    for ln in lines:
+        s = ln.strip()
+        if len(s) < 5 or len(s) > 180:
+            continue
+        if any(w in s.lower() for w in bad_words):
+            continue
+        reward = 0
+        if s.endswith("!"):
+            reward += 1
+        first = s.split()[0].lower() if s.split() else ""
+        if first in imperative_starts:
+            reward += 1
+        if reward >= 1:
+            good += 1
+    return good / total
+
+
+def _style_score(lines: list[str]) -> float:
+    # Normaliza a [0,1]
+    return float(max(0.0, min(1.0, _style_checks(lines))))

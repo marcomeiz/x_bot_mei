@@ -236,6 +236,15 @@ def retrieve_goldset_examples(query: str, k: int = 3) -> List[str]:
     if vector is None or vector.size == 0:
         return [text for _, text in anchors[:k]]
 
+    anchor_dim = anchors[0][0].shape[0] if anchors else 0
+    if vector.shape[0] != anchor_dim:
+        logger.warning(
+            "Goldset anchor dimension mismatch (query=%s, anchor=%s). Falling back to raw texts.",
+            vector.shape[0],
+            anchor_dim,
+        )
+        return [text for _, text in anchors[:k]]
+
     scored = [
         (float(vector @ centroid), text)
         for centroid, text in anchors

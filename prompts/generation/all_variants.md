@@ -39,6 +39,11 @@ Reference Voice Anchors (do not copy; match tone and rhythm)
 - (No reference examples available; rely on contract.)
 {% endif %}
 
+Internal Planning (do not output)
+- Compare the anchors and decide which style pattern (diagnosis punch, mini story, aforism, etc.) best fits the topic.
+- Adapt the chosen pattern to the abstract while staying within the contract and length bands.
+- Keep Version C between 240–280 characters using 2–4 tight sentences so you can weave diagnosis → vivid example → imperative if it serves the point.
+
 Self‑check before output
 - If any of the cues above are missing, rewrite to fix VOICE.
 

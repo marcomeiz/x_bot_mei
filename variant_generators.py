@@ -83,6 +83,18 @@ def _comment_generation_prompt():
     return load_prompt(prompts_dir, "comments/generation_v5_1")
 
 
+@lru_cache(maxsize=1)
+def _tail_sampling_prompt():
+    prompts_dir = AppSettings.load().prompts_dir
+    return load_prompt(prompts_dir, "generation/tail_sampling")
+
+
+@lru_cache(maxsize=1)
+def _contrast_analysis_prompt():
+    prompts_dir = AppSettings.load().prompts_dir
+    return load_prompt(prompts_dir, "generation/contrast_analysis")
+
+
 STOPWORDS = {
     "the",
     "and",
@@ -1752,34 +1764,15 @@ def _verbalized_tail_sampling(
         + "\n</FINAL_REVIEW_GUIDELINES>"
     )
 
-    user_prompt = f"""
-We are drafting content for a fractional COO persona. Use verbalized sampling to explore {max_angles} low-probability hooks (p < 0.15) about:
-
-TOPIC: {topic_abstract}
-"""
+    rag_section = ""
     if rag_context:
-        user_prompt += "\\nInspirational Context:\\n" + "\\n".join(f"- {doc}" for doc in rag_context) + "\\n"
-
-    user_prompt += """
-For each hook:
-1. Identify the mainstream narrative you're challenging.
-2. Summarize the contrarian/orthogonal insight (≤ 2 sentences).
-3. Provide a probability string like "0.08" (must be < 0.15).
-4. Explain briefly why this tail angle matters for an overwhelmed day 1–year 1 solopreneur.
-
-Return JSON like:
-{{
-  "angles": [
-    {{
-      "probability": "0.09",
-      "mainstream": "...",
-      "angle": "...",
-      "rationale": "..."
-    }}
-  ]
-}}
-
-Keep each field ≤ 180 characters."""
+        rag_section = "\nInspirational Context:\n" + "\n".join(f"- {doc}" for doc in rag_context) + "\n"
+    prompt_spec = _tail_sampling_prompt()
+    user_prompt = prompt_spec.render(
+        topic=topic_abstract,
+        tail_count=max_angles,
+        rag_section=rag_section,
+    )
 
     try:
         resp = llm.chat_json(
@@ -1829,25 +1822,14 @@ def _generate_contrast_analysis(
         + "\n</FINAL_REVIEW_GUIDELINES>"
     )
 
-    user_prompt = f"""
-Topic: {topic_abstract}
-"""
+    rag_section = ""
     if rag_context:
-        user_prompt += "\nInspirational Context:\n" + "\n".join(f"- {doc}" for doc in rag_context) + "\n"
-        
-    user_prompt += """
-1. Describe the mainstream narrative most creators repeat about this topic (≤160 chars).
-2. Describe a contrarian/orthogonal narrative that a fractional COO should push (≤160 chars).
-3. Decide which narrative hits the ICP harder and explain why in ≤160 chars.
-
-Return strict JSON:
-{{
-  "mainstream": "...",
-  "contrarian": "...",
-  "winner": "mainstream|contrarian",
-  "reason": "..."
-}}
-"""
+        rag_section = "\nInspirational Context:\n" + "\n".join(f"- {doc}" for doc in rag_context) + "\n"
+    prompt_spec = _contrast_analysis_prompt()
+    user_prompt = prompt_spec.render(
+        topic=topic_abstract,
+        rag_section=rag_section,
+    )
 
 
     try:

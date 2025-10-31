@@ -13,6 +13,7 @@ import yaml
 from llm_fallback import llm
 from src.prompt_loader import load_prompt
 from src.settings import AppSettings
+from src.lexicon import get_stopwords
 from logger_config import logger
 from prompt_context import PromptContext
 from style_guard import StyleRejection, improve_style, label_sections, revise_for_style
@@ -204,87 +205,7 @@ WARDEN_MINIMAL = _env_bool_override("WARDEN_MINIMAL", bool(_guardrail_cfg.get("m
 FORBIDDEN_EM_DASH = _env_str_override("FORBIDDEN_EM_DASH", str(_guardrail_cfg.get("forbidden_em_dash", "—")))
 
 
-STOPWORDS = {
-    "the",
-    "and",
-    "that",
-    "with",
-    "this",
-    "from",
-    "they",
-    "have",
-    "will",
-    "your",
-    "their",
-    "about",
-    "there",
-    "what",
-    "when",
-    "where",
-    "while",
-    "would",
-    "could",
-    "should",
-    "might",
-    "into",
-    "over",
-    "under",
-    "only",
-    "just",
-    "been",
-    "being",
-    "once",
-    "also",
-    "more",
-    "less",
-    "than",
-    "then",
-    "such",
-    "even",
-    "some",
-    "most",
-    "much",
-    "very",
-    "like",
-    "felt",
-    "them",
-    "ours",
-    "ourselves",
-    "yours",
-    "yourself",
-    "myself",
-    "hers",
-    "herself",
-    "himself",
-    "itself",
-    "each",
-    "because",
-    "which",
-    "into",
-    "onto",
-    "among",
-    "after",
-    "before",
-    "again",
-    "between",
-    "across",
-    "around",
-    "through",
-    "every",
-}
-
-# --- Warden toggles and ranges (env-configurable)
-ENFORCE_NO_COMMAS = os.getenv("ENFORCE_NO_COMMAS", "1").lower() in {"1", "true", "yes", "y"}
-ENFORCE_NO_AND_OR = os.getenv("ENFORCE_NO_AND_OR", "1").lower() in {"1", "true", "yes", "y"}
-WARDEN_WPL_LO = int(os.getenv("WARDEN_WORDS_PER_LINE_LO", "5") or 5)
-WARDEN_WPL_HI = int(os.getenv("WARDEN_WORDS_PER_LINE_HI", "12") or 12)
-MID_MIN = int(os.getenv("MID_MIN", "180") or 180)
-MID_MAX = int(os.getenv("MID_MAX", "230") or 230)
-LONG_MIN = int(os.getenv("LONG_MIN", "240") or 240)
-LONG_MAX = int(os.getenv("LONG_MAX", "280") or 280)
-SUSPEND_GUARDRAILS = os.getenv("SUSPEND_GUARDRAILS", "0").lower() in {"1", "true", "yes", "y"}
-WARDEN_MINIMAL = os.getenv("WARDEN_MINIMAL", "0").lower() in {"1", "true", "yes", "y"}
-FORBIDDEN_EM_DASH = "—"
+STOPWORDS = get_stopwords()
 
 HEDGING_REGEX = re.compile(
     r"\b(i think|maybe|probably|seems|appears|kind of|sort of|in my opinion|i feel|could|might)\b",

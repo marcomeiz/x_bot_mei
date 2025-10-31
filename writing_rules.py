@@ -5,6 +5,13 @@ import re
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Tuple
 
+from src.lexicon import (
+    get_banned_suffixes,
+    get_banned_words,
+    get_washed_adverbs,
+    get_whitelist_ly,
+)
+
 # --------------------------------------------------------------------------- Hooks
 
 
@@ -132,44 +139,14 @@ def should_allow_analogy(rng: random.Random) -> bool:
     return rng.random() < 0.2
 
 
-# -------------------------------------------------------------------- Banned words
+# -------------------------------------------------------------------- Banned words (configurable)
 
-BANNED_WORDS = {
-    "bueno",
-    "bien",
-    "solo",
-    "entonces",
-    "ya",
-}
-
-BANNED_SUFFIXES = (
-    "mente",
-)
-
+BANNED_WORDS = get_banned_words()
+BANNED_SUFFIXES = get_banned_suffixes()
 # Focused list of washed adverbs that weaken punch. We do NOT ban all *-ly words.
-WASHED_ADVERBS = {
-    "really",
-    "actually",
-    "literally",
-    "basically",
-    "totally",
-    "simply",
-    "clearly",
-    "obviously",
-    "honestly",
-    "quickly",
-    "easily",
-    "probably",
-    "hopefully",
-    "seriously",
-    "highly",
-    "extremely",
-    "definitely",
-    "absolutely",
-}
-
+WASHED_ADVERBS = get_washed_adverbs()
 # Common *-ly words we explicitly allow (to avoid false positives)
-WHITELIST_LY = {"only", "daily", "early", "family", "reply", "supply", "apply", "friendly", "timely"}
+WHITELIST_LY = get_whitelist_ly()
 
 
 def words_blocklist_prompt() -> str:

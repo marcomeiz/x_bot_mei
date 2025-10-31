@@ -47,7 +47,7 @@ La instalación y ejecución no han cambiado, pero se documentan las variables r
 - `POST_PRESET` (`speed|balanced|quality`) y/o `POST_TEMPERATURE`
 - `JOB_MAX_WORKERS` (por defecto `3`), `JOB_QUEUE_MAXSIZE` (por defecto `12`), `JOB_TIMEOUT_SECONDS` (por defecto `35`)
 - `LLM_REQUEST_TIMEOUT_SECONDS` (por defecto `15`), `LLM_MIN_WINDOW_SECONDS` (por defecto `5`)
-3.  **Guardrails (`config/warden.yaml`):** Define los límites duros del Warden (commas, palabras por línea, rangos de caracteres, modo minimal). Usa `WARDEN_CONFIG_PATH` para apuntar a otro YAML o variables (`ENFORCE_NO_COMMAS`, `MID_MIN`, etc.) si necesitas overrides rápidos.
+3.  **Guardrails (`config/warden.yaml` + `config/lexicon.json`):** Define los límites duros del Warden (commas, palabras por línea, rangos de caracteres, modo minimal) y el vocabulario vetado/stopwords. Usa `WARDEN_CONFIG_PATH` o `LEXICON_CONFIG_PATH` para apuntar a otros YAML/JSON, o variables (`ENFORCE_NO_COMMAS`, `MID_MIN`, etc.) si necesitas overrides rápidos.
 4.  **Embeddings (HTTP-first)**
     - `EMBED_MODEL` (por defecto `jinaai/jina-embeddings-v2-base-en`)
     - Llamada HTTP directa con fallback a SDK; circuito de 60s tras errores.

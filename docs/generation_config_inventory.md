@@ -10,7 +10,7 @@ This note tracks every configuration surface that impacts tweet/comment generati
 
 ## 2. Guardrails & Thresholds
 - `config/warden.yaml` define toggles y rangos (commas, words/line, mid/long chars, minimal mode, em dash). ENV (`WARDEN_CONFIG_PATH`, `ENFORCE_NO_COMMAS`, etc.) siguen como overrides.
-- Banned words/suffixes/stopwords codificados en `writing_rules.py` y `variant_generators.py`. Objetivo: `config/lexicon.json`.
+- `config/lexicon.json` provee listas de palabras vetadas/sufijos/stopwords (consumido vía `src/lexicon.py` por `writing_rules` y `variant_generators`).
 - Estilo (`StyleRejection` thresholds) disperso en `style_guard.py` → migrar a `config/style_audit.yaml`.
 
 ## 3. Runtime Messages
@@ -22,9 +22,8 @@ This note tracks every configuration surface that impacts tweet/comment generati
 - Validar en runtime que cada constante se origina del archivo/config esperado (Stage 0.1 – logging de verificación).
 
 ## Próximos pasos
-1. Externalizar léxicos (`BANNED_WORDS`, `BANNED_SUFFIXES`, `STOPWORDS`) a `config/lexicon.json`.
-2. Llevar umbrales de `style_guard`/auditoría a `config/style_audit.yaml`.
-3. Consolidar mensajes de usuario/logs en `config/messages.yaml`.
-4. Añadir logging de verificación (Stage 0.1) y pruebas de carga dinámica.
+1. Llevar umbrales de `style_guard`/auditoría a `config/style_audit.yaml`.
+2. Consolidar mensajes de usuario/logs en `config/messages.yaml`.
+3. Añadir logging de verificación (Stage 0.1) y pruebas de carga dinámica.
 
 Actualizar este documento tras cada etapa para mantener trazabilidad.

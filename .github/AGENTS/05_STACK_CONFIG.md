@@ -24,6 +24,7 @@
 
 ## Configuración clave
 - `config/warden.yaml` — toggles y rangos del Warden (commas, palabras/linea, mid/long chars). Sobrescribe con `WARDEN_CONFIG_PATH` o env específicos si necesitas ajustes rápidos.
+- `config/lexicon.json` — palabras vetadas, sufijos, stopwords. Sobrescribe con `LEXICON_CONFIG_PATH` o env dedicadas.
 
 ## Límites y rutas
 - GCS FUSE para `/mnt/db` en Cloud Run.

@@ -11,7 +11,7 @@ This note tracks every configuration surface that impacts tweet/comment generati
 ## 2. Guardrails & Thresholds
 - `config/warden.yaml` define toggles y rangos (commas, words/line, mid/long chars, minimal mode, em dash). ENV (`WARDEN_CONFIG_PATH`, `ENFORCE_NO_COMMAS`, etc.) siguen como overrides.
 - `config/lexicon.json` provee listas de palabras vetadas/sufijos/stopwords (consumido vía `src/lexicon.py` por `writing_rules` y `variant_generators`).
-- Estilo (`StyleRejection` thresholds) disperso en `style_guard.py` → migrar a `config/style_audit.yaml`.
+- `config/style_audit.yaml` controla enforcement, rondas y umbrales del guardián de estilo (cargado vía `src/style_config.py` con overrides ENV).
 
 ## 3. Runtime Messages
 - Telegram fallbacks/mensajes de error en `proposal_service.py` y `telegram_client.py`.
@@ -22,8 +22,7 @@ This note tracks every configuration surface that impacts tweet/comment generati
 - Validar en runtime que cada constante se origina del archivo/config esperado (Stage 0.1 – logging de verificación).
 
 ## Próximos pasos
-1. Llevar umbrales de `style_guard`/auditoría a `config/style_audit.yaml`.
-2. Consolidar mensajes de usuario/logs en `config/messages.yaml`.
-3. Añadir logging de verificación (Stage 0.1) y pruebas de carga dinámica.
+1. Consolidar mensajes de usuario/logs en `config/messages.yaml`.
+2. Añadir logging de verificación (Stage 0.1) y pruebas de carga dinámica.
 
 Actualizar este documento tras cada etapa para mantener trazabilidad.

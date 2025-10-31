@@ -1,0 +1,8 @@
+style_audit:
+  enforce: true
+  revision_rounds: 2
+  hedging_threshold: 1
+  jargon_block_threshold: 1
+  audit_jargon_score_min: 2
+  audit_cliche_score_min: 2
+  memory_similarity_floor: 0.35

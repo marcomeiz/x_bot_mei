@@ -9,6 +9,7 @@ from embeddings_manager import get_embedding, get_memory_collection
 from persona import get_style_contract_text, get_final_guidelines_text
 from src.prompt_loader import load_prompt
 from src.settings import AppSettings
+from src.style_config import get_style_settings
 
 
 load_dotenv()
@@ -22,18 +23,22 @@ class StyleRejection(Exception):
 
     pass
 
-ENFORCE_STYLE_AUDIT = os.getenv("ENFORCE_STYLE_AUDIT", "1").lower() in ("1", "true", "yes", "y")
+
+_STYLE_SETTINGS = get_style_settings()
+
+ENFORCE_STYLE_AUDIT = bool(_STYLE_SETTINGS["enforce"])
 # Subimos la revisión por defecto para reforzar el tono humano sin cambiar interfaces
-STYLE_REVISION_ROUNDS = int(os.getenv("STYLE_REVISION_ROUNDS", "2"))
+STYLE_REVISION_ROUNDS = int(_STYLE_SETTINGS["revision_rounds"])
 
 # Umbrales configurables (defensas adicionales)
 # Si aparece lenguaje dubitativo (hedging) >= umbral → revisar
-STYLE_HEDGING_THRESHOLD = int(os.getenv("STYLE_HEDGING_THRESHOLD", "1") or 1)
+STYLE_HEDGING_THRESHOLD = int(_STYLE_SETTINGS["hedging_threshold"])
 # Si aparece jerga corporativa detectada localmente >= umbral → revisar
-STYLE_JARGON_BLOCK_THRESHOLD = int(os.getenv("STYLE_JARGON_BLOCK_THRESHOLD", "1") or 1)
+STYLE_JARGON_BLOCK_THRESHOLD = int(_STYLE_SETTINGS["jargon_block_threshold"])
 # Si el auditor LLM marca puntajes altos, gatillar revisión
-STYLE_AUDIT_JARGON_SCORE_MIN = int(os.getenv("STYLE_AUDIT_JARGON_SCORE_MIN", "2") or 2)
-STYLE_AUDIT_CLICHE_SCORE_MIN = int(os.getenv("STYLE_AUDIT_CLICHE_SCORE_MIN", "2") or 2)
+STYLE_AUDIT_JARGON_SCORE_MIN = int(_STYLE_SETTINGS["audit_jargon_score_min"])
+STYLE_AUDIT_CLICHE_SCORE_MIN = int(_STYLE_SETTINGS["audit_cliche_score_min"])
+STYLE_MEMORY_SIMILARITY_FLOOR = float(_STYLE_SETTINGS["memory_similarity_floor"])
 
 
 _JARGON_LIST = {
@@ -326,7 +331,7 @@ def improve_style(text: str, contract_text: str, rounds: int = STYLE_REVISION_RO
         needs = True
 
     # If memory is available and similarity too low, nudge a revision
-    if style_sim < 0.35 and get_memory_collection().count() > 0:
+    if style_sim < STYLE_MEMORY_SIMILARITY_FLOOR and get_memory_collection().count() > 0:
         needs = True
 
     revised = text
@@ -372,7 +377,7 @@ def improve_style(text: str, contract_text: str, rounds: int = STYLE_REVISION_RO
     if memory_available:
         try:
             final_style_sim = _style_similarity_to_memory(revised)
-            if final_style_sim < 0.35:
+            if final_style_sim < STYLE_MEMORY_SIMILARITY_FLOOR:
                 _append_reason(True, "Too dissimilar to approved memory")
         except Exception:
             pass

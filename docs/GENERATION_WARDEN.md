@@ -12,9 +12,11 @@ This document captures the up‑to‑date design and operating parameters for th
 
 ## Guardrails Configuration
 
-- Canonical defaults live in `config/warden.yaml` (`comment_guardrails` section).
-- Each toggle/range still honors environment overrides (`ENFORCE_NO_COMMAS`, `MID_MIN`, etc.) for quick experiments.
-- `WARDEN_CONFIG_PATH` can point to an alternate YAML if you need deployment‑specific values.
+- Canonical defaults live en `config/warden.yaml` (`comment_guardrails`).
+- Léxicos (palabras vetadas, stopwords) residen en `config/lexicon.json`; el loader `src/lexicon.py` permite overrides vía `LEXICON_CONFIG_PATH`.
+- Umbrales del guardián de estilo viven en `config/style_audit.yaml`; `src/style_config.py` respeta `STYLE_AUDIT_CONFIG_PATH` y env (`STYLE_*`).
+- Cada toggle/rango sigue honrando overrides por env (`ENFORCE_NO_COMMAS`, `STYLE_MEMORY_SIMILARITY_FLOOR`, etc.).
+- `WARDEN_CONFIG_PATH` puede apuntar a otro YAML si necesitas valores específicos por entorno.
 
 ## Environment (recommended defaults)
 

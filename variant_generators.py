@@ -2,6 +2,7 @@ import os
 import random
 import re
 import time
+from functools import lru_cache
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
@@ -73,6 +74,13 @@ class CommentAssessment:
 class CommentRelevance:
     is_relevant: bool
     reason: str = ""
+
+
+@lru_cache(maxsize=1)
+def _comment_generation_prompt():
+    """Load and cache the comment generation prompt specification."""
+    prompts_dir = AppSettings.load().prompts_dir
+    return load_prompt(prompts_dir, "comments/generation_v5_1")
 
 
 STOPWORDS = {
@@ -1550,58 +1558,6 @@ def generate_all_variants(
         raise StyleRejection(f"Failed to generate variants: {e}")
 
 
-def _build_synthesis_monologue_prompt_v5_1() -> str:
-    """Builds the v5.1 Synthesis Protocol monologue for the comment prompt."""
-    return """
-**Internal Monologue (Chain of Thought Steps):**
-You must follow this exact logic before generating any output.
-
-1.  **Internal Step 1: Deconstruct the Assertion.**
-    - Identify the author's core term and premise.
-2.  **Internal Step 2: Strategic Filter.**
-    - Assess ICP relevance and doctrinal alignment. If it fails, abort.
-3.  **Internal Step 3: Step-Back Principle Identification.**
-    - Identify the high-level operational principle from our doctrine that governs the author's assertion.
-4.  **Internal Step 4: Generate & Critique Connection Pathways.**
-    - Generate 2-3 potential "bridge" sentences and internally critique them to select the most insightful connection.
-5.  **Internal Step 5: Formulate the Core Synthesized Idea.**
-    - Formulate a complete, polished comment based on the strongest pathway.
-6.  **Internal Step 6: Imperfection Injection (v5.1 Addendum).**
-    - Before final output, rewrite one phrase from the synthesized comment to inject an informal, emotional, or asymmetric rhythm typical of the NYC COO voice (e.g., fragment sentences, omit subject, use conversational compression).
-"""
-
-
-def _build_comment_generation_mandate_v5_1(closing_instruction: str) -> str:
-    """Builds the v5.1 generation mandate and output format instructions."""
-    # Escape braces for the f-string formatting in the main prompt
-    json_no_comment = '{{"status": "NO_COMMENT", "reason": "NOT_RELEVANT_TO_ICP" | "DIRECT_DOCTRINAL_CONFLICT"}}'
-    json_comment = '{{"status": "COMMENT", "comment": "<Your synthesized comment here>"}}'
-    gold_standard_output = '{{"status": "COMMENT", "comment": "100% this. That habit is the foundation of a powerful system. Habits provide the discipline; systems provide the leverage. What\'s the first bottleneck most people face when trying to turn that daily habit into a scalable system?"}}'
-
-    return f"""
-**Generation Mandate & Output Format:**
-Return ONLY a strict JSON object based on the outcome of your internal monologue.
-
-- If you aborted in Step 2 or 3, return:
-  `{json_no_comment}`
-
-- If you successfully reached Step 5, return:
-  `{json_comment}`
-
-**Gold Standard Example (The result of a successful Synthesis):**
-- **Author's Point (Implicit):** "Consistency is a habit."
-- **System's Output:** `{gold_standard_output}`
-
-**Final Output Constraints (for "COMMENT" status):**
-- The entire comment MUST be a single, dense paragraph.
-- The tone must be "Perceptive & Constructive."
-- {closing_instruction}
-- Stay under 140 characters.
-- English only. No emojis or hashtags.
-- Ban these words: {", ".join(sorted(BANNED_WORDS))}.
-"""
-
-
 def generate_comment_reply(
     source_text: str,
     context: PromptContext,
@@ -1622,28 +1578,29 @@ def generate_comment_reply(
     else:
         closing_instruction = "CRITICAL: The comment MUST stand on its own as a complete piece of high-value insight. It should not ask a question."
 
-    monologue_prompt = _build_synthesis_monologue_prompt_v5_1()
-    mandate_prompt = _build_comment_generation_mandate_v5_1(closing_instruction)
-
-    prompt = f"""
-We are replying to the following post. Follow the internal monologue protocol to decide if and what to comment.
-
-POST (raw):
-\"\"\"{excerpt}\"\"\"
-
-{monologue_prompt}
-{mandate_prompt}
-"""
+    key_terms_block = ""
     if key_terms:
-        prompt += (
+        key_terms_block = (
             "\nYou MUST explicitly reference at least one of these terms (quote or clearly paraphrase) to prove we read the post: "
             + ", ".join(key_terms)
             + "."
         )
+    hook_line = ""
     if assessment and assessment.hook:
-        prompt += f"\nFocus your reply on this wedge: {assessment.hook}\n"
+        hook_line = f"\nFocus your reply on this wedge: {assessment.hook}"
+    risk_line = ""
     if assessment and assessment.risk:
-        prompt += f"\nAvoid this pitfall: {assessment.risk}\n"
+        risk_line = f"\nAvoid this pitfall: {assessment.risk}"
+
+    prompt_spec = _comment_generation_prompt()
+    prompt = prompt_spec.render(
+        excerpt=excerpt,
+        closing_instruction=closing_instruction,
+        banned_words=", ".join(sorted(BANNED_WORDS)),
+        key_terms_block=key_terms_block,
+        hook_line=hook_line,
+        risk_line=risk_line,
+    )
 
     system_message = (
         "You are a fractional COO ghostwriter crafting a conversation-driving reply. "

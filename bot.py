@@ -16,6 +16,9 @@ from proposal_service import ProposalService
 from src.messages import get_message
 from telegram_client import TelegramClient
 
+# Warmup/health imports
+from embeddings_manager import get_chroma_client, get_topics_collection, get_embedding
+
 load_dotenv()
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -28,6 +31,10 @@ JOB_MAX_WORKERS = int(os.getenv("JOB_MAX_WORKERS", "3") or 3)
 JOB_QUEUE_MAXSIZE = int(os.getenv("JOB_QUEUE_MAXSIZE", "12") or 12)
 # NOTE: JOB_TIMEOUT_SECONDS intentionally unused while we debug long-running generations.
 
+# Health/warmup envs
+SIM_DIM = int(os.getenv("SIM_DIM", "3072") or 3072)
+WARMUP_ANCHORS = int(os.getenv("WARMUP_ANCHORS", "200") or 200)
+TOPICS_COLLECTION_NAME = os.getenv("TOPICS_COLLECTION", "topics_collection")
 
 app = Flask(__name__)
 telegram_client = TelegramClient(TELEGRAM_BOT_TOKEN, show_topic_id=SHOW_TOPIC_ID)
@@ -43,6 +50,43 @@ _job_executor = ThreadPoolExecutor(max_workers=JOB_MAX_WORKERS)
 _job_queue: "Queue[Dict[str, Any]]" = Queue(maxsize=JOB_QUEUE_MAXSIZE)
 _chat_locks: Dict[int, threading.Lock] = {}
 _chat_lock_guard = threading.Lock()
+
+# Warmup cache
+_ANCHORS_CACHE: list[Dict[str, Any]] = []
+
+
+def _warmup_anchors() -> int:
+    """Carga anclas (goldset y, si falta, topics) y pre-computa embeddings a memoria."""
+    try:
+        client = get_chroma_client()
+        # Goldset primero
+        gold = client.get_or_create_collection("goldset_collection", metadata={"hnsw:space": "cosine"})
+        res = gold.get(include=["documents", "embeddings"]) or {}
+        g_docs = res.get("documents") or []
+        g_vecs = res.get("embeddings") or []
+        for d, e in zip(g_docs, g_vecs):
+            text = d[0] if isinstance(d, list) else d
+            _ANCHORS_CACHE.append({"text": text, "vec": e})
+        # Si faltan, completar con topics
+        if len(_ANCHORS_CACHE) < WARMUP_ANCHORS:
+            topics = get_topics_collection()
+            t_res = topics.get(include=["documents"]) or {}
+            t_docs = t_res.get("documents") or []
+            need = max(0, WARMUP_ANCHORS - len(_ANCHORS_CACHE))
+            for d in t_docs[:need]:
+                text = d[0] if isinstance(d, list) else d
+                vec = get_embedding(text)
+                if vec:
+                    _ANCHORS_CACHE.append({"text": text, "vec": vec})
+        warmed = len(_ANCHORS_CACHE)
+        logger.info("warmup_ok=%s, warmed=%s", warmed >= WARMUP_ANCHORS, warmed)
+        return warmed
+    except Exception as e:
+        logger.error("Warmup failed: %s", e, exc_info=True)
+        return 0
+
+# warmup en background
+threading.Thread(target=_warmup_anchors, daemon=True).start()
 
 
 def _acquire_chat_lock(chat_id: int) -> bool:
@@ -248,6 +292,33 @@ def ingest_topics():
         }, 200
     except Exception as exc:
         logger.error("/ingest_topics failed: %s", exc, exc_info=True)
+        return {"ok": False, "error": "server_error"}, 500
+
+
+@app.route("/health/embeddings")
+def health_embeddings():
+    """Devuelve dims y warmup; ok=true si ambos dims==SIM_DIM y warmed>=WARMUP_ANCHORS."""
+    try:
+        client = get_chroma_client()
+        gold = client.get_or_create_collection("goldset_collection", metadata={"hnsw:space": "cosine"})
+        g_res = gold.get(include=["embeddings"]) or {}
+        g_vecs = g_res.get("embeddings") or []
+        gold_dim = (len(g_vecs[0]) if g_vecs else None)
+
+        topics = client.get_or_create_collection(TOPICS_COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
+        t_res = topics.get(include=["embeddings"]) or {}
+        t_vecs = t_res.get("embeddings") or []
+        topics_dim = (len(t_vecs[0]) if t_vecs else None)
+
+        warmed = len(_ANCHORS_CACHE)
+        ok = (gold_dim == SIM_DIM) and (topics_dim == SIM_DIM) and (warmed >= WARMUP_ANCHORS)
+        return {
+            "goldset_dim": gold_dim,
+            "topics_dim": topics_dim,
+            "warmed": warmed,
+            "ok": ok,
+        }, 200
+    except Exception:
         return {"ok": False, "error": "server_error"}, 500
 
 

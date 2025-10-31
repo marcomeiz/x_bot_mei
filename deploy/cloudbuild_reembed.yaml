@@ -22,18 +22,20 @@ steps:
         set -euo pipefail
         python -V
         pip install --no-cache-dir -r requirements.runtime.txt
-        # 1) Re-embeder colecciones de producción
-        python scripts/reembed_chroma_collections.py --collections topics_collection,memory_collection --chunk 128
-        # 2) Validar dimensión de ejemplo por colección
+        # 1) Re-embeder colecciones; volcar topics a destino 3072 sin borrar origen
+        python scripts/reembed_chroma_collections.py --collections topics_collection,memory_collection --chunk 128 --dest-suffix _3072
+        # 2) Validar dimensiones de destino
         python - << 'PY'
         from embeddings_manager import get_chroma_client
         client = get_chroma_client()
-        for name in ["topics_collection", "memory_collection"]:
+        names = ["topics_collection_3072", "memory_collection_3072"]
+        for name in names:
             coll = client.get_or_create_collection(name=name, metadata={"hnsw:space": "cosine"})
             data = coll.get(include=["embeddings", "documents"]) or {}
             vecs = data.get("embeddings") or []
             docs = data.get("documents") or []
-            print(f"Collection {name}: count={len(docs)} sample_dim={(len(vecs[0]) if vecs else None)}")
+            dim = (len(vecs[0]) if vecs else None)
+            print(f"Collection {name}: count={len(docs)} sample_dim={dim}")
         PY
   - name: python:3.11-slim
     id: calibrate-threshold

@@ -21,6 +21,8 @@ _last_embed_error_ts: float = 0.0
 # Modelo de embeddings efectivo (override dinámico si el default falla)
 _embed_model_override: Optional[str] = None
 _embed_fallback_candidates = (
+    # Prefer stable providers first
+    "jinaai/jina-embeddings-v2-base-en",
     "openai/text-embedding-3-small",
     "thenlper/gte-small",
 )
@@ -41,74 +43,28 @@ def _get_embed_client() -> OpenAI:
     return _embed_client
 
 def get_chroma_client():
-    """
-    Devuelve una instancia única del cliente de ChromaDB.
-    Prioriza la conexión HTTP si CHROMA_DB_URL está definida; de lo contrario,
-    usa un cliente persistente local.
-    """
+    """Inicializa cliente de Chroma (HTTP recomendado, local si no hay URL)."""
     global _chroma_client
-    if _chroma_client is None:
-        with _chroma_lock:
-            if _chroma_client is None:
-                chroma_url = os.getenv("CHROMA_DB_URL")
-                # Si CHROMA_DB_URL está presente, SIEMPRE usamos el cliente HTTP
-                if chroma_url:
-                    # Parse host/port/ssl
-                    raw = chroma_url.strip()
-                    parsed = urlparse(raw if "://" in raw else f"http://{raw}")
-                    host = parsed.hostname or raw
-                    port = parsed.port
-                    use_ssl = (parsed.scheme == "https")
-                    log_target = f"{host}:{port}" if port else host
-                    # Intento API v2 (HttpClient)
-                    try:
-                        logger.info(f"Inicializando cliente HTTP de ChromaDB (host='{log_target}', ssl={use_ssl})…")
-                        _chroma_client = chromadb.HttpClient(host=host, port=port, ssl=use_ssl)
-                        # llamada ligera para forzar handshake y versión
-                        try:
-                            _ = _chroma_client.get_version()  # v2 debería exponer versión
-                        except Exception:
-                            pass
-                    except Exception as e_v2:
-                        logger.warning(f"Chroma v2 HttpClient falló ({e_v2}). Probando modo legacy (v1)…")
-                        # Fallback API v1 (legacy REST)
-                        try:
-                            settings = ChromaSettings(
-                                chroma_api_impl="rest",
-                                chroma_server_host=host,
-                                chroma_server_http_port=port or 80,
-                                chroma_server_ssl_enabled=use_ssl,
-                            )
-                            _chroma_client = chromadb.Client(settings)
-                            # Verificar que responde
-                            try:
-                                _ = _chroma_client.heartbeat()
-                            except Exception:
-                                pass
-                            logger.info("Cliente Chroma legacy (v1) inicializado correctamente.")
-                        except Exception as e_v1:
-                            logger.critical(
-                                f"Fallo conectando con Chroma HTTP (v2) y legacy (v1). v2='{e_v2}' v1='{e_v1}'",
-                                exc_info=True,
-                            )
-                            raise
-                else:
-                    # Entorno local sin URL definida
-                    try:
-                        db_path = os.getenv("CHROMA_DB_PATH", "db")
-                        logger.info(f"Inicializando cliente persistente local de ChromaDB (path='{db_path}')...")
-                        os.makedirs(db_path, exist_ok=True)
-                        _chroma_client = chromadb.PersistentClient(path=db_path)
-                    except Exception as e:
-                        logger.critical(f"Fallo crítico creando cliente ChromaDB local: {e}", exc_info=True)
-                        raise
-    return _chroma_client
+    if _chroma_client is not None:
+        return _chroma_client
+    with _chroma_lock:
+        if _chroma_client is not None:
+            return _chroma_client
+        url = os.getenv("CHROMA_DB_URL")
+        path = os.getenv("CHROMA_DB_PATH")
+        if url:
+            logger.info("Inicializando cliente HTTP de ChromaDB (host='%s', ssl=%s)…", url, False)
+            _chroma_client = chromadb.HttpClient(host=url, settings=ChromaSettings(anonymized_telemetry=False))
+        else:
+            _chroma_client = chromadb.Client(ChromaSettings(chroma_db_impl="duckdb+parquet", persist_directory=path or "/tmp/chroma"))
+        return _chroma_client
 
 
 def get_topics_collection():
-    """Obtiene la colección de temas."""
+    """Obtiene la colección de temas (parametrizable via TOPICS_COLLECTION)."""
     client = get_chroma_client()
-    return client.get_or_create_collection(name="topics_collection", metadata={"hnsw:space": "cosine"})
+    name = os.getenv("TOPICS_COLLECTION", "topics_collection")
+    return client.get_or_create_collection(name=name, metadata={"hnsw:space": "cosine"})
 
 
 def get_memory_collection():

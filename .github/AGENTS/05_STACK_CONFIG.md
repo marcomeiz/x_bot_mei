@@ -1,5 +1,7 @@
 # 05 · Stack y Configuración
 
+**Regla dura:** si un valor puede residir en env vars, YAML, JSON o prompts, no se hardcodea en código. Este archivo es la primera parada antes de introducir cualquier constante nueva.
+
 ## Variables de entorno
 - GOOGLE_API_KEY (obligatoria) — embeddings y Gemini.
 - OPENROUTER_API_KEY (opcional) — fallback OpenRouter.

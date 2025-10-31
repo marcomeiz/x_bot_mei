@@ -11,7 +11,7 @@ La arquitectura actual se basa en los siguientes principios:
 1.  **Eficiencia:** Se ha optimizado el proceso de generación para minimizar la latencia, pasando de ~10 minutos a **~90 segundos** por ejecución completa.
 2.  **Calidad y Variedad:** La generación de contenido se realiza en una única llamada a un LLM, instruyéndole para que produzca múltiples variantes (corta, media, larga) y realice un proceso de auto-crítica interno. Esto mantiene la calidad y variedad sin sacrificar el rendimiento.
 3.  **Evaluación Adaptativa:** Se utiliza un sistema de evaluación de dos jueces (rápido y lento) para auditar la calidad de los borradores de forma eficiente, usando modelos de LLM más potentes solo cuando es necesario.
-4.  **Configuración Externalizada:** Las rúbricas de evaluación y otros parámetros de configuración se gestionan en ficheros YAML dentro de la carpeta `config/`, permitiendo ajustes rápidos sin necesidad de redesplegar el código.
+4.  **Configuración Externalizada (Hard No a hardcode):** Nada que pueda vivir en `config/`, `.env` o prompts se deja incrustado en el código. Cada ajuste pasa por archivos versionables o variables de entorno para mantener el sistema auditable y tunable sin redeploys.
 
 ## Arquitectura Actual
 

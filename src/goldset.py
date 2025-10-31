@@ -37,8 +37,10 @@ def _cosine_similarity(vec_a: Sequence[float], vec_b: Sequence[float]) -> float:
 GOLDSET_MIN_SIMILARITY = float(os.getenv("GOLDSET_MIN_SIMILARITY", "0.82") or 0.82)
 GOLDSET_EMBED_PATH = Path(os.getenv("GOLDSET_EMBED_PATH", "data/gold_posts/goldset_embeddings.npz"))
 GOLDSET_COLLECTION_NAME = os.getenv("GOLDSET_COLLECTION_NAME", "goldset_collection")
+GOLDSET_CLUSTER_COUNT = max(1, int(os.getenv("GOLDSET_CLUSTER_COUNT", "8") or 8))
 GOLDSET_TEXTS_CACHE: Optional[List[str]] = None
 GOLDSET_EMB_CACHE: Optional[List[Sequence[float]]] = None
+GOLDSET_CLUSTER_INFO: Optional[List[Tuple[np.ndarray, str]]] = None  # (centroid, anchor_text)
 
 
 def _load_embeddings_from_npz(path: Path) -> Optional[Tuple[List[str], List[Sequence[float]]]]:
@@ -154,23 +156,89 @@ def max_similarity_to_goldset(text: str) -> Optional[float]:
     return max(similarities) if similarities else None
 
 
-def retrieve_goldset_examples(query: str, k: int = 3) -> List[str]:
-    """Return the top-k goldset texts most similar to the query."""
+def _normalize_vector(arr: np.ndarray) -> np.ndarray:
+    norm = np.linalg.norm(arr)
+    if norm == 0:
+        return arr
+    return arr / norm
+
+
+def _build_cluster_anchors() -> List[Tuple[np.ndarray, str]]:
+    global GOLDSET_CLUSTER_INFO
     texts, embeddings = _get_gold_embeddings()
     if not texts or not embeddings:
-        return []
+        GOLDSET_CLUSTER_INFO = []
+        return GOLDSET_CLUSTER_INFO
+
+    vectors = np.array([_normalize_vector(np.array(vec, dtype=float)) for vec in embeddings])
+    n_samples = vectors.shape[0]
+    k = min(GOLDSET_CLUSTER_COUNT, n_samples)
+    if k <= 0:
+        GOLDSET_CLUSTER_INFO = []
+        return GOLDSET_CLUSTER_INFO
+
+    rng = np.random.default_rng(42)
+    initial_indices = rng.choice(n_samples, size=k, replace=False)
+    centroids = vectors[initial_indices].copy()
+
+    assignments = np.zeros(n_samples, dtype=int)
+    for _ in range(30):
+        similarities = vectors @ centroids.T  # cosine similarity because vectors normalized
+        new_assignments = np.argmax(similarities, axis=1)
+        if np.array_equal(assignments, new_assignments):
+            break
+        assignments = new_assignments
+        for idx in range(k):
+            members = vectors[assignments == idx]
+            if members.size == 0:
+                centroids[idx] = vectors[rng.integers(0, n_samples)].copy()
+            else:
+                centroids[idx] = _normalize_vector(members.mean(axis=0))
+
+    anchors: List[Tuple[np.ndarray, str]] = []
+    for idx in range(k):
+        members_idx = np.where(assignments == idx)[0]
+        if members_idx.size == 0:
+            continue
+        centroid = centroids[idx]
+        member_vectors = vectors[members_idx]
+        sims = member_vectors @ centroid
+        best_local = members_idx[int(np.argmax(sims))]
+        anchors.append((centroid, texts[best_local]))
+
+    GOLDSET_CLUSTER_INFO = anchors
+    return GOLDSET_CLUSTER_INFO
+
+
+def _get_cluster_anchors() -> List[Tuple[np.ndarray, str]]:
+    global GOLDSET_CLUSTER_INFO
+    if GOLDSET_CLUSTER_INFO is not None:
+        return GOLDSET_CLUSTER_INFO
+    return _build_cluster_anchors()
+
+
+def retrieve_goldset_examples(query: str, k: int = 3) -> List[str]:
+    """Return up to k reference posts from goldset aligned with query topic."""
+    anchors = _get_cluster_anchors()
+    if not anchors:
+        texts, _ = _get_gold_embeddings()
+        return texts[:k]
+
     vector = None
     if query and query.strip():
         try:
-            vector = get_embedding(query)
+            vector = np.array(get_embedding(query), dtype=float)
+            vector = _normalize_vector(vector)
         except Exception as exc:
             logger.warning("Could not embed query for goldset retrieval: %s", exc)
-    if not vector:
-        return texts[:k]
+            vector = None
+
+    if vector is None or vector.size == 0:
+        return [text for _, text in anchors[:k]]
+
     scored = [
-        (_cosine_similarity(vector, gold_vec), text)
-        for text, gold_vec in zip(texts, embeddings)
+        (float(vector @ centroid), text)
+        for centroid, text in anchors
     ]
     scored.sort(key=lambda item: item[0], reverse=True)
-    top_texts = [text for _, text in scored[:k]]
-    return top_texts
+    return [text for _, text in scored[:k]]

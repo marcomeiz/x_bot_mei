@@ -24,7 +24,7 @@ class AppSettings(BaseModel):
     comment_rewrite_model: str = Field(default=os.getenv("COMMENT_REWRITE_MODEL", "mistralai/mistral-nemo"))
     topic_extraction_model: str = Field(default=os.getenv("TOPIC_EXTRACTION_MODEL", "mistralai/mistral-nemo"))
     # Use a stable, widely supported default embedding model
-    embed_model: str = Field(default=os.getenv("EMBED_MODEL", "jinaai/jina-embeddings-v2-base-en"))
+    embed_model: str = Field(default=os.getenv("EMBED_MODEL", "openai/text-embedding-3-small"))
 
     # Paths
     prompts_dir: str = Field(default=os.getenv("PROMPTS_DIR", "prompts"))

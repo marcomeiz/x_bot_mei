@@ -21,8 +21,6 @@ _last_embed_error_ts: float = 0.0
 # Modelo de embeddings efectivo (override dinámico si el default falla)
 _embed_model_override: Optional[str] = None
 _embed_fallback_candidates = (
-    # Prefer stable providers first
-    "jinaai/jina-embeddings-v2-base-en",
     "openai/text-embedding-3-small",
     "thenlper/gte-small",
 )

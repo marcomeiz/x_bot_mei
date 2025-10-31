@@ -610,7 +610,7 @@ class ProposalService:
 
             if issues:
                 warnings[label] = " ".join(issues)
-                if any(issue.startswith("Sugerencia: añade") or issue.startswith("Sugerencia: habla") or "em dash" in issue for issue in issues):
+                if not speaks_to_you or "—" in content:
                     blocking = True
         return warnings, blocking
 

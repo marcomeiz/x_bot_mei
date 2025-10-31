@@ -1,0 +1,31 @@
+timeout: "1800s"
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/OPENROUTER_API_KEY/versions/latest
+      env: OPENROUTER_API_KEY
+
+steps:
+  - name: python:3.11-slim
+    id: ingest-goldset
+    entrypoint: bash
+    secretEnv: ["OPENROUTER_API_KEY"]
+    env: ["CHROMA_DB_URL=http://34.14.34.69:8080", "EMBED_MODEL=openai/text-embedding-3-small"]
+    args:
+      - -ceu
+      - |
+        set -euo pipefail
+        python -V
+        pip install --no-cache-dir -r requirements.runtime.txt
+        python - << 'PY'
+        from embeddings_manager import get_chroma_client
+        client = get_chroma_client()
+        try:
+            client.delete_collection(name="goldset_collection")
+            print("Goldset collection deleted")
+        except Exception as e:
+            print("Warning: could not delete collection:", e)
+        PY
+        python scripts/ingest_goldset.py

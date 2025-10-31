@@ -8,13 +8,14 @@ availableSecrets:
       env: TELEGRAM_BOT_TOKEN
     - versionName: projects/$PROJECT_ID/secrets/TELEGRAM_CHAT_ID/versions/latest
       env: TELEGRAM_CHAT_ID
+    - versionName: projects/$PROJECT_ID/secrets/OPENROUTER_API_KEY/versions/latest
+      env: OPENROUTER_API_KEY
 
 substitutions:
   _REGION: europe-west1
   _SERVICE: x-bot-mei
   _REPO: x-bot-mei
   _BUCKET_DB: xbot-473616-x-bot-mei-db
-  _FALLBACK_PROVIDER_ORDER: gemini,openrouter
   _SHORT_SHA: manual
   _BRANCH: main
 
@@ -97,3 +98,25 @@ steps:
           --add-volume-mount=volume=dbvol,mount-path=/mnt/db
 
         bash ./deploy/scripts/notify_success.sh "${_SERVICE}" "${_REGION}"
+
+  # Ingest/re-embed goldset into Chroma with 1536-dim vectors
+  - name: python:3.11-slim
+    id: ingest-goldset
+    entrypoint: bash
+    secretEnv: ["OPENROUTER_API_KEY"]
+    env: ["CHROMA_DB_URL=http://34.14.34.69:8080", "EMBED_MODEL=openai/text-embedding-3-small"]
+    args:
+      - -ceu
+      - |
+        set -euo pipefail
+        pip install -r requirements.runtime.txt
+        python - << 'PY'
+        from embeddings_manager import get_chroma_client
+        client = get_chroma_client()
+        try:
+            client.delete_collection(name="goldset_collection")
+            print("Goldset collection deleted")
+        except Exception as e:
+            print("Warning: could not delete collection:", e)
+        PY
+        python scripts/ingest_goldset.py

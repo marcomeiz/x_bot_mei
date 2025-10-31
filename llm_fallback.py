@@ -11,7 +11,14 @@ from src.settings import AppSettings
 
 load_dotenv()
 
-DEFAULT_TIMEOUT_SECONDS = float(os.getenv("LLM_REQUEST_TIMEOUT_SECONDS", "15") or 15.0)
+# Timeout configurable vía env; si no se define o es <=0, no se aplica.
+_raw_timeout = os.getenv("LLM_REQUEST_TIMEOUT_SECONDS")
+try:
+    DEFAULT_TIMEOUT_SECONDS = float(_raw_timeout) if _raw_timeout is not None else None
+    if DEFAULT_TIMEOUT_SECONDS is not None and DEFAULT_TIMEOUT_SECONDS <= 0:
+        DEFAULT_TIMEOUT_SECONDS = None
+except Exception:
+    DEFAULT_TIMEOUT_SECONDS = None
 
 
 def _parse_json_robust(text: str) -> Any:
@@ -56,8 +63,9 @@ class OpenRouterLLM:
         }
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
-        request_timeout = float(timeout) if timeout is not None else DEFAULT_TIMEOUT_SECONDS
-        kwargs["timeout"] = request_timeout
+        request_timeout = timeout if timeout is not None else DEFAULT_TIMEOUT_SECONDS
+        if request_timeout is not None:
+            kwargs["timeout"] = float(request_timeout)
         try:
             resp = self.client.chat.completions.create(**kwargs)
             return (resp.choices[0].message.content or "").strip()
@@ -69,8 +77,9 @@ class OpenRouterLLM:
                     "model": model,
                     "messages": messages,
                     "temperature": temperature,
-                    "timeout": request_timeout,
                 }
+                if request_timeout is not None:
+                    fallback_kwargs["timeout"] = float(request_timeout)
                 resp = self.client.chat.completions.create(**fallback_kwargs)
                 return (resp.choices[0].message.content or "").strip()
             raise

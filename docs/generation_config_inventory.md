@@ -12,6 +12,7 @@ This note tracks every configuration surface that impacts tweet/comment generati
 - `config/warden.yaml` define toggles y rangos (commas, words/line, mid/long chars, minimal mode, em dash). ENV (`WARDEN_CONFIG_PATH`, `ENFORCE_NO_COMMAS`, etc.) siguen como overrides.
 - `config/lexicon.json` provee listas de palabras vetadas/sufijos/stopwords (consumido vía `src/lexicon.py` por `writing_rules` y `variant_generators`).
 - `config/style_audit.yaml` controla enforcement, rondas y umbrales del guardián de estilo (cargado vía `src/style_config.py` con overrides ENV).
+- `src/goldset.py` + `GOLDSET_MIN_SIMILARITY` verifican que cada borrador mantenga similitud mínima con el gold set.
 
 ## 3. Runtime Messages
 - `config/messages.yaml` centraliza mensajes de usuario para bot/propuesta/avisos (cargado vía `src/messages.py`).

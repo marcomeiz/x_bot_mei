@@ -26,6 +26,7 @@
 - `config/warden.yaml` — toggles y rangos del Warden (commas, palabras/linea, mid/long chars). Sobrescribe con `WARDEN_CONFIG_PATH` o env específicos si necesitas ajustes rápidos.
 - `config/lexicon.json` — palabras vetadas, sufijos, stopwords. Sobrescribe con `LEXICON_CONFIG_PATH` o env dedicadas.
 - `config/style_audit.yaml` — umbrales del guardián de estilo (enforce, rondas, hedging/jargon scores, memoria). Sobrescribe con `STYLE_AUDIT_CONFIG_PATH` o env (`STYLE_*`).
+- Gold set: `data/gold_posts/` + `GOLDSET_MIN_SIMILARITY` controlan la proximidad mínima a la voz. Usa `GOLDSET_DATA_PATH`/`GOLDSET_COLLECTION_NAME` si necesitas rutas propias.
 
 ## Límites y rutas
 - GCS FUSE para `/mnt/db` en Cloud Run.

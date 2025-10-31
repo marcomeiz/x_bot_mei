@@ -23,6 +23,7 @@ from style_guard import StyleRejection
 from telegram_client import TelegramClient
 from llm_fallback import llm
 from src.messages import get_message
+from src.goldset import GOLDSET_MIN_SIMILARITY, max_similarity_to_goldset
 from src.settings import AppSettings
 
 
@@ -601,17 +602,22 @@ class ProposalService:
             )
 
             issues = []
+            similarity = max_similarity_to_goldset(content)
+            if similarity is not None:
+                issues.append(f"Sugerencia: refuerza la voz (similitud {similarity:.2f}).")
+                if similarity < GOLDSET_MIN_SIMILARITY:
+                    blocking = True
             if not has_number:
                 issues.append("Sugerencia: añade un número o threshold claro.")
             if not speaks_to_you:
                 issues.append("Sugerencia: habla en segunda persona ('you').")
+                blocking = True
             if "—" in content:
                 issues.append("Sugerencia: reemplaza el em dash (—).")
+                blocking = True
 
             if issues:
                 warnings[label] = " ".join(issues)
-                if not speaks_to_you or "—" in content:
-                    blocking = True
         return warnings, blocking
 
     def _should_refine_variant(self, evaluation: Optional[Dict[str, object]], text: str) -> bool:

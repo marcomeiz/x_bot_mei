@@ -1,0 +1,47 @@
+timeout: "1800s"
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/OPENROUTER_API_KEY/versions/latest
+      env: OPENROUTER_API_KEY
+
+steps:
+  - name: python:3.11-slim
+    id: gen-and-upsert-goldset-npz
+    entrypoint: bash
+    secretEnv: ["OPENROUTER_API_KEY"]
+    env:
+      - "CHROMA_DB_URL=http://34.14.34.69:8080"
+      - "EMBED_MODEL=openai/text-embedding-3-small"
+      - "EMBED_DISABLE_CIRCUIT=1"
+    args:
+      - -ceu
+      - |
+        set -euo pipefail
+        python -V
+        pip install --no-cache-dir -r requirements.runtime.txt
+        # 1) Generar NPZ con embeddings 1536-dim
+        python scripts/gen_goldset_npz.py --output data/gold_posts/goldset_embeddings_2025.npz
+        # Validar dimensión del NPZ generado
+        python - << 'PY'
+        import numpy as np
+        data = np.load('data/gold_posts/goldset_embeddings_2025.npz', allow_pickle=True)
+        vecs = data['vectors']
+        print('NPZ vectors shape:', vecs.shape)
+        print('Sample vector length:', len(vecs[0]))
+        PY
+        # 2) Upsert a Chroma desde el NPZ
+        python scripts/upsert_goldset_from_npz.py --npz data/gold_posts/goldset_embeddings_2025.npz || \
+          GOLDSET_NPZ_PATH=data/gold_posts/goldset_embeddings_2025.npz python scripts/upsert_goldset_from_npz.py
+        # 3) Copiar NPZ a ruta por defecto local
+        cp data/gold_posts/goldset_embeddings_2025.npz data/gold_posts/goldset_embeddings.npz || true
+        # 4) Subir NPZ al bucket de DB (para respaldo y fallback)
+        pip install --no-cache-dir gsutil || true
+        if command -v gsutil >/dev/null 2>&1; then
+          gsutil cp data/gold_posts/goldset_embeddings_2025.npz gs://xbot-473616-x-bot-mei-db/gold_posts/goldset_embeddings_2025.npz || true
+          gsutil cp data/gold_posts/goldset_embeddings.npz gs://xbot-473616-x-bot-mei-db/gold_posts/goldset_embeddings.npz || true
+        else
+          echo "gsutil no disponible; omito copia a GCS"
+        fi

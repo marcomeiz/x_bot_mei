@@ -12,7 +12,7 @@ steps:
     id: ingest-goldset
     entrypoint: bash
     secretEnv: ["OPENROUTER_API_KEY"]
-    env: ["CHROMA_DB_URL=http://34.14.34.69:8080", "EMBED_MODEL=openai/text-embedding-3-small"]
+    env: ["CHROMA_DB_URL=http://34.14.34.69:8080", "EMBED_MODEL=openai/text-embedding-3-small", "EMBED_DISABLE_CIRCUIT=1"]
     args:
       - -ceu
       - |

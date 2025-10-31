@@ -42,7 +42,7 @@ La instalación y ejecución no han cambiado, pero se documentan las variables r
 2.  **Variables (.env) — claves y modelos**
     - `OPENROUTER_API_KEY` (obligatoria)
 - `OPENROUTER_BASE_URL` (por defecto `https://openrouter.ai/api/v1`)
-- `POST_MODEL` (por defecto `x-ai/grok-3`), `EVAL_FAST_MODEL`, `EVAL_SLOW_MODEL`
+- `POST_MODEL` (por defecto `x-ai/grok-4-fast`), `EVAL_FAST_MODEL`, `EVAL_SLOW_MODEL`
 - `POST_REFINER_MODEL` (por defecto reaprovecha `POST_MODEL`)
 - `POST_PRESET` (`speed|balanced|quality`) y/o `POST_TEMPERATURE`
 - `JOB_MAX_WORKERS` (por defecto `3`), `JOB_QUEUE_MAXSIZE` (por defecto `12`), `JOB_TIMEOUT_SECONDS` (por defecto `35`)

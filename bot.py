@@ -35,6 +35,10 @@ JOB_QUEUE_MAXSIZE = int(os.getenv("JOB_QUEUE_MAXSIZE", "12") or 12)
 SIM_DIM = int(os.getenv("SIM_DIM", "3072") or 3072)
 WARMUP_ANCHORS = int(os.getenv("WARMUP_ANCHORS", "200") or 200)
 TOPICS_COLLECTION_NAME = os.getenv("TOPICS_COLLECTION", "topics_collection")
+UMBRAL_SIMILITUD_LINE = float(os.getenv("UMBRAL_SIMILITUD_LINE", "0.52") or 0.52)
+NOVELTY_JACCARD_MAX = float(os.getenv("NOVELTY_JACCARD_MAX", "0.28") or 0.28)
+NOVELTY_COS_CEILING = float(os.getenv("NOVELTY_COS_CEILING", "0.84") or 0.84)
+STYLE_MIN = float(os.getenv("STYLE_MIN", "0.90") or 0.90)
 
 app = Flask(__name__)
 telegram_client = TelegramClient(TELEGRAM_BOT_TOKEN, show_topic_id=SHOW_TOPIC_ID)
@@ -334,6 +338,263 @@ def health_embeddings():
         return {"ok": False, "error": "server_error"}, 500
 
 
+@app.route("/eval/score_line", methods=["POST"])
+def eval_score_line():
+    try:
+        payload = request.get_json(force=True, silent=False) or {}
+        draft = str(payload.get("draft") or "")
+        anchor_ids = list(payload.get("anchor_ids") or [])
+        lines = _split_lines(draft)
+        if not lines or not anchor_ids:
+            return {"ok": False, "error": "invalid_input"}, 400
+        anchors = _fetch_anchors_by_ids(anchor_ids)
+        if not anchors:
+            return {"ok": False, "error": "anchors_not_found"}, 404
+        # embed lines
+        line_vecs = []
+        for l in lines:
+            v = _embed_line(l)
+            if not v:
+                return {"ok": False, "error": "embedding_failed"}, 500
+            line_vecs.append(v)
+        # compute s1/s2
+        s_per_anchor = []
+        for a in anchors[:2]:
+            av = _l2_normalize(a["vec"]) if isinstance(a.get("vec"), list) else None
+            if not av or len(av) != SIM_DIM:
+                return {"ok": False, "error": "anchor_dim_mismatch"}, 500
+            s_max = max(_cos(lv, av) for lv in line_vecs)
+            s_per_anchor.append(s_max)
+        s1 = (s_per_anchor[0] if len(s_per_anchor) > 0 else 0.0)
+        s2 = (s_per_anchor[1] if len(s_per_anchor) > 1 else 0.0)
+        score_line = max(s1, s2)
+        return {"ok": True, "score_line": float(score_line), "s1": float(s1), "s2": float(s2), "lines_draft": len(lines)}, 200
+    except Exception as exc:
+        logger.error("/eval/score_line failed: %s", exc, exc_info=True)
+        return {"ok": False, "error": "server_error"}, 500
+
+
+@app.route("/eval/full_gate", methods=["POST"])
+def eval_full_gate():
+    try:
+        payload = request.get_json(force=True, silent=False) or {}
+        draft = str(payload.get("draft") or "")
+        topic = str(payload.get("topic") or "").strip()
+        pattern_hint = payload.get("pattern_hint")
+        lines = _split_lines(draft)
+        if not lines:
+            return {"ok": False, "error": "invalid_draft"}, 400
+        # Style
+        style_score = _style_score(lines)
+        # Embed for retrieval/query
+        # Average of line embeddings as query vector
+        line_vecs = []
+        for l in lines:
+            v = _embed_line(l)
+            if not v:
+                return {"ok": False, "error": "embedding_failed"}, 500
+            line_vecs.append(v)
+        avg_vec = [sum(vals)/len(vals) for vals in zip(*line_vecs)] if line_vecs else None
+        # Pattern selection
+        pattern_selected = (str(pattern_hint).strip() if isinstance(pattern_hint, str) and pattern_hint.strip() else "diagnostico")
+        # Retrieve top-2 anchors by topic+pattern
+        anchors = []
+        try:
+            client = get_chroma_client()
+            coll = client.get_or_create_collection(TOPICS_COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
+            where = {"pattern": pattern_selected}
+            if topic:
+                where["topic"] = topic
+            q = coll.query(query_embeddings=[avg_vec], where=where, n_results=2, include=["documents", "embeddings", "metadatas", "ids"]) if avg_vec else {}
+            ids = (q.get("ids") or [[]])[0]
+            docs = (q.get("documents") or [[]])[0]
+            embs = (q.get("embeddings") or [[]])[0]
+            for id_, d, e in zip(ids or [], docs or [], embs or []):
+                text = d[0] if isinstance(d, list) else d
+                anchors.append({"id": id_, "text": text, "vec": e})
+            # Fallbacks
+            if len(anchors) < 2:
+                # Try only pattern
+                q2 = coll.query(query_embeddings=[avg_vec], where={"pattern": pattern_selected}, n_results=2, include=["documents", "embeddings", "metadatas", "ids"]) if avg_vec else {}
+                ids2 = (q2.get("ids") or [[]])[0]
+                docs2 = (q2.get("documents") or [[]])[0]
+                embs2 = (q2.get("embeddings") or [[]])[0]
+                for id_, d, e in zip(ids2 or [], docs2 or [], embs2 or []):
+                    text = d[0] if isinstance(d, list) else d
+                    anchors.append({"id": id_, "text": text, "vec": e})
+            if len(anchors) < 2:
+                # No filter
+                q3 = coll.query(query_embeddings=[avg_vec], n_results=2, include=["documents", "embeddings", "metadatas", "ids"]) if avg_vec else {}
+                ids3 = (q3.get("ids") or [[]])[0]
+                docs3 = (q3.get("documents") or [[]])[0]
+                embs3 = (q3.get("embeddings") or [[]])[0]
+                for id_, d, e in zip(ids3 or [], docs3 or [], embs3 or []):
+                    text = d[0] if isinstance(d, list) else d
+                    anchors.append({"id": id_, "text": text, "vec": e})
+        except Exception:
+            anchors = anchors
+        anchors = anchors[:2]
+        # Score_line
+        s_per_anchor = []
+        for a in anchors:
+            av = _l2_normalize(a["vec"]) if isinstance(a.get("vec"), list) else None
+            if not av or len(av) != SIM_DIM:
+                continue
+            s_max = max(_cos(lv, av) for lv in line_vecs)
+            s_per_anchor.append(s_max)
+        s1 = (s_per_anchor[0] if len(s_per_anchor) > 0 else 0.0)
+        s2 = (s_per_anchor[1] if len(s_per_anchor) > 1 else 0.0)
+        score_line = max(s1, s2)
+        # Novelty
+        jaccs = []
+        cos_ceiling_hit = False
+        for a in anchors:
+            a_tri = _trigrams(a.get("text") or "")
+            d_tri = _trigrams("\n".join(lines))
+            jaccs.append(_jaccard(a_tri, d_tri))
+            av = _l2_normalize(a["vec"]) if isinstance(a.get("vec"), list) else None
+            if av:
+                for lv in line_vecs:
+                    if _cos(lv, av) > NOVELTY_COS_CEILING:
+                        cos_ceiling_hit = True
+                        break
+        jaccard_max = max(jaccs) if jaccs else 0.0
+        near_dup = None
+        # Gate decisions
+        blocked = False
+        reasons = []
+        if style_score < STYLE_MIN:
+            blocked = True
+            reasons.append("style")
+        if score_line < UMBRAL_SIMILITUD_LINE:
+            blocked = True
+            reasons.append("similarity")
+        if jaccard_max > NOVELTY_JACCARD_MAX or cos_ceiling_hit:
+            blocked = True
+            reasons.append("novelty")
+        after_rewrite = False
+        draft_final = "\n".join(lines)
+        # Rewrite 1-pass if blocked
+        if blocked:
+            after_rewrite = True
+            draft_final = _one_pass_rewrite(draft_final)
+            # Re-eval once
+            lines2 = _split_lines(draft_final)
+            style_score2 = _style_score(lines2)
+            # embed again
+            line_vecs2 = []
+            ok_embed = True
+            for l in lines2:
+                v = _embed_line(l)
+                if not v:
+                    ok_embed = False
+                    break
+                line_vecs2.append(v)
+            if ok_embed and anchors:
+                s_per_anchor2 = []
+                for a in anchors:
+                    av = _l2_normalize(a["vec"]) if isinstance(a.get("vec"), list) else None
+                    if not av or len(av) != SIM_DIM:
+                        continue
+                    s_max2 = max(_cos(lv, av) for lv in line_vecs2)
+                    s_per_anchor2.append(s_max2)
+                s1_2 = (s_per_anchor2[0] if len(s_per_anchor2) > 0 else 0.0)
+                s2_2 = (s_per_anchor2[1] if len(s_per_anchor2) > 1 else 0.0)
+                score_line2 = max(s1_2, s2_2)
+                # novelty again
+                d_tri2 = _trigrams("\n".join(lines2))
+                jaccs2 = []
+                cos_ceiling_hit2 = False
+                for a in anchors:
+                    a_tri = _trigrams(a.get("text") or "")
+                    jaccs2.append(_jaccard(a_tri, d_tri2))
+                    av = _l2_normalize(a["vec"]) if isinstance(a.get("vec"), list) else None
+                    if av:
+                        for lv in line_vecs2:
+                            if _cos(lv, av) > NOVELTY_COS_CEILING:
+                                cos_ceiling_hit2 = True
+                                break
+                jaccard_max2 = max(jaccs2) if jaccs2 else 0.0
+                # Update decisions
+                style_score = style_score2
+                score_line = score_line2
+                jaccard_max = jaccard_max2
+                cos_ceiling_hit = cos_ceiling_hit2
+                blocked = (style_score < STYLE_MIN) or (score_line < UMBRAL_SIMILITUD_LINE) or (jaccard_max > NOVELTY_JACCARD_MAX) or cos_ceiling_hit
+            else:
+                blocked = True
+        # Telemetry
+        logger.info(
+            "gate_telemetry pattern_selected=%s anchors=%s style_score=%.3f score_line=%.3f jaccard_max=%.3f near_dup=%s cos_ceiling_hit=%s after_rewrite=%s blocked=%s",
+            pattern_selected,
+            [a.get("id") for a in anchors],
+            style_score,
+            score_line,
+            jaccard_max,
+            near_dup,
+            cos_ceiling_hit,
+            after_rewrite,
+            blocked,
+        )
+        return {
+            "style_score": float(style_score),
+            "score_line": float(score_line),
+            "jaccard_max": float(jaccard_max),
+            "near_dup": near_dup,
+            "cos_ceiling_hit": bool(cos_ceiling_hit),
+            "blocked": bool(blocked),
+            "pattern_selected": pattern_selected,
+            "anchors": [a.get("id") for a in anchors],
+            "after_rewrite": bool(after_rewrite),
+            "draft_final": draft_final,
+        }, 200
+    except Exception as exc:
+        logger.error("/eval/full_gate failed: %s", exc, exc_info=True)
+        return {"ok": False, "error": "server_error"}, 500
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "8080")))
 # Force re-deploy
+
+
+def _tighten(text: str) -> str:
+    # Quita conectores/adverbios comunes y relleno ligero
+    patterns = [r"\bpero\b", r"\bsin\s+embargo\b", r"\bademás\b", r"\brealmente\b", r"\bclaramente\b", r"\bquizá\b", r"\bquizás\b", r"\bmuy\b"]
+    out = text
+    for p in patterns:
+        out = re.sub(p, "", out, flags=re.IGNORECASE)
+    out = re.sub(r"\s{2,}", " ", out)
+    return out.strip()
+
+
+def _reframe(text: str) -> str:
+    # Sinónimos simples y reordenado ligero por comas/puntos
+    out = text
+    synonyms = [(r"\bproblema\b", "caos"), (r"\bmejora\b", "avance"), (r"\bempezar\b", "comenzar"), (r"\bcrear\b", "definir")]
+    for src, tgt in synonyms:
+        out = re.sub(src, tgt, out, flags=re.IGNORECASE)
+    # Permuta el orden de oraciones si hay 3 o más
+    parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", out) if p.strip()]
+    if len(parts) >= 3:
+        parts = [parts[1], parts[0], parts[2]] + parts[3:]
+        out = " ".join(parts)
+    return out
+
+
+def _punch(text: str) -> str:
+    # Refuerza imperativos y cierre
+    lines = _split_lines(text)
+    if not lines:
+        lines = [text]
+    verbs = ["define", "corrige", "aplica", "cierra", "prioriza", "avanza"]
+    if lines:
+        last = lines[-1].strip()
+        if not last.endswith("!"):
+            last = last + "!"
+        lines[-1] = last
+    return "\n".join(lines)
+
+
+def _one_pass_rewrite(text: str) -> str:
+    return _punch(_reframe(_tighten(text)))

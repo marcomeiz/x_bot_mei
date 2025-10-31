@@ -47,6 +47,8 @@ DEFAULT_MESSAGES: Dict[str, Any] = {
     "publish_prompt": "Usa el siguiente botón para publicar:",
     "memory_added": "✅ Añadido a la memoria. Ya hay {total} publicaciones.",
     "ready_for_next": "Listo para el siguiente.",
+    "contract_retry": "⚠️ Variantes no cumplen el contrato. Reintentando…",
+    "contract_failure": "❌ No pude generar variantes que cumplan el contrato. Intenta de nuevo más tarde.",
     "chroma_missing": "❌ CHROMA_DB_URL no está configurada.",
     "ping_success": "✅ Ping exitoso. Respuesta: {response}",
     "ping_failure": "❌ Ping fallido: {error}",

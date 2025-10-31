@@ -278,11 +278,21 @@ class ProposalService:
             self.telegram.send_message(chat_id, get_message("variants_similar_initial"))
             return False
 
-        compliance_warnings = self._check_contract_requirements({
+        compliance_warnings, blocking_contract = self._check_contract_requirements({
             "short": draft_a,
             "mid": draft_b,
             "long": draft_c,
         })
+        if blocking_contract:
+            if ignore_similarity:
+                self.telegram.send_message(
+                    chat_id,
+                    get_message("contract_failure"),
+                    reply_markup=self.telegram.get_new_tweet_keyboard(),
+                )
+                return False
+            self.telegram.send_message(chat_id, get_message("contract_retry"))
+            return False
         if compliance_warnings:
             logger.info(
                 "[CHAT_ID: %s] Variantes con avisos de contrato: %s",
@@ -388,7 +398,17 @@ class ProposalService:
                 self.telegram.send_message(chat_id, get_message("variants_similar_after"))
                 return False
 
-        compliance_warnings = self._check_contract_requirements(draft_map)
+        compliance_warnings, blocking_contract = self._check_contract_requirements(draft_map)
+        if blocking_contract:
+            if ignore_similarity:
+                self.telegram.send_message(
+                    chat_id,
+                    get_message("contract_failure"),
+                    reply_markup=self.telegram.get_new_tweet_keyboard(),
+                )
+                return False
+            self.telegram.send_message(chat_id, get_message("contract_retry"))
+            return False
         if compliance_warnings:
             logger.info(
                 "[CHAT_ID: %s] Variantes con avisos de contrato: %s",
@@ -540,8 +560,9 @@ class ProposalService:
                 best_pair = (label_a, label_b, similarity)
         return False, best_pair
 
-    def _check_contract_requirements(self, drafts: Dict[str, str]) -> Dict[str, str]:
+    def _check_contract_requirements(self, drafts: Dict[str, str]) -> Tuple[Dict[str, str], bool]:
         warnings: Dict[str, str] = {}
+        blocking = False
         spelled_numbers = {
             "one",
             "two",
@@ -589,7 +610,9 @@ class ProposalService:
 
             if issues:
                 warnings[label] = " ".join(issues)
-        return warnings
+                if any(issue.startswith("Sugerencia: añade") or issue.startswith("Sugerencia: habla") or "em dash" in issue for issue in issues):
+                    blocking = True
+        return warnings, blocking
 
     def _should_refine_variant(self, evaluation: Optional[Dict[str, object]], text: str) -> bool:
         if not evaluation or not isinstance(evaluation, dict):

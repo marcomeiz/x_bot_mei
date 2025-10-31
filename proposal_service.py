@@ -285,6 +285,11 @@ class ProposalService:
             "mid": draft_b,
             "long": draft_c,
         })
+        if LOG_GENERATED_VARIANTS:
+            for label, text in draft_map.items():
+                logger.info("[CHAT_ID: %s] Draft %s generated (%s chars):\n%s", chat_id, label, len((text or "") ), text or "<vacío>")
+            for label, warning in compliance_warnings.items():
+                logger.warning("[CHAT_ID: %s] Draft %s contract check: %s", chat_id, label, warning)
         if blocking_contract:
             if ignore_similarity:
                 self.telegram.send_message(
@@ -401,6 +406,11 @@ class ProposalService:
                 return False
 
         compliance_warnings, blocking_contract = self._check_contract_requirements(draft_map)
+        if LOG_GENERATED_VARIANTS:
+            for label, text in draft_map.items():
+                logger.info("[CHAT_ID: %s] Draft %s generated (%s chars):\n%s", chat_id, label, len((text or "")), text or "<vacío>")
+            for label, warning in compliance_warnings.items():
+                logger.warning("[CHAT_ID: %s] Draft %s contract check: %s", chat_id, label, warning)
         if blocking_contract:
             if ignore_similarity:
                 self.telegram.send_message(

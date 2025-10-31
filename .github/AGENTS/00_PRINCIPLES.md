@@ -3,6 +3,7 @@
 ## Principios No Negociables
 - No destruyas datos ni reescribas historial sin confirmación explícita.
 - Cambios pequeños, enfocados y reversibles. No refactorices por deporte.
+- HARD NO: nada hardcodeado. Si una constante puede ir a config, env var, prompt o storage externo, se mueve allí primero.
 - Invariantes de negocio:
   - Tweets ≤ 280 sin recorte local (lo corrige el LLM, no el código local).
   - Mensajes de Telegram: tema (abstract), origen (PDF si existe) y contadores `(N/280)`.
@@ -31,4 +32,3 @@ Ningún cambio se aprueba sin:
 - [ ] Metadatos `pdf` preservados.
 - [ ] Probado con `FALLBACK_PROVIDER_ORDER` actual.
 - [ ] README/docs actualizadas si aplica.
-

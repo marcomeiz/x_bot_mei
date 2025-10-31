@@ -44,7 +44,7 @@ GOLDSET_EMB_CACHE: Optional[List[Sequence[float]]] = None
 def _load_embeddings_from_npz(path: Path) -> Optional[Tuple[List[str], List[Sequence[float]]]]:
     if not path.exists():
         return None
-    data = np.load(path)
+    data = np.load(path, allow_pickle=True)
     texts = data.get("texts")
     vectors = data.get("embeddings")
     if texts is None or vectors is None:

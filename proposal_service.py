@@ -34,6 +34,7 @@ class ProviderGenerationError(Exception):
 MIN_LLM_WINDOW_SECONDS = float(os.getenv("LLM_MIN_WINDOW_SECONDS", "5") or 5.0)
 JOB_TIMEOUT_MESSAGE = get_message("job_timeout")
 VARIANT_SIMILARITY_THRESHOLD = float(os.getenv("VARIANT_SIMILARITY_THRESHOLD", "0.78") or 0.78)
+LOG_GENERATED_VARIANTS = os.getenv("LOG_GENERATED_VARIANTS", "1").lower() in {"1", "true", "yes"}
 
 
 class ProposalService:
@@ -417,6 +418,10 @@ class ProposalService:
                 compliance_warnings,
             )
             variant_errors.update(compliance_warnings)
+
+        if LOG_GENERATED_VARIANTS:
+            for label, text in draft_map.items():
+                logger.info("[CHAT_ID: %s] Draft %s generated:\n%s", chat_id, label, text or "<vacío>")
 
         message_text = self.telegram.format_proposal_message(
             topic_id,

@@ -106,21 +106,25 @@ def get_chroma_client():
                         raise
     return _chroma_client
 
+
 def get_topics_collection():
     """Obtiene la colección de temas."""
     client = get_chroma_client()
     return client.get_or_create_collection(name="topics_collection", metadata={"hnsw:space": "cosine"})
+
 
 def get_memory_collection():
     """Obtiene la colección de memoria."""
     client = get_chroma_client()
     return client.get_or_create_collection(name="memory_collection", metadata={"hnsw:space": "cosine"})
 
+
 def get_embedding(text: str):
     """Genera el embedding para un texto dado usando el SDK OpenAI contra OpenRouter."""
     global _last_embed_error_ts, _embed_model_override
-    # Circuit breaker: evita timeouts repetidos durante 60s tras fallo
-    if _last_embed_error_ts and (time.time() - _last_embed_error_ts) < 60:
+    # Circuit breaker: evita timeouts repetidos durante 60s tras fallo (se puede desactivar por env)
+    circuit_disabled = os.getenv("EMBED_DISABLE_CIRCUIT", "0").lower() in {"1", "true", "yes"}
+    if (not circuit_disabled) and _last_embed_error_ts and (time.time() - _last_embed_error_ts) < 60:
         logger.warning("Embedding circuit open (recent failures); skipping embedding generation.")
         return None
     s = AppSettings.load()

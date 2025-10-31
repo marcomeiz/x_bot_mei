@@ -15,7 +15,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 if str(BASE_DIR) not in sys.path:
     sys.path.append(str(BASE_DIR))
 
-from embeddings_manager import get_chroma_client  # noqa: E402
+from embeddings_manager import get_chroma_client, get_embedding  # noqa: E402
 from logger_config import logger  # noqa: E402
 
 
@@ -45,11 +45,27 @@ def ingest_gold_posts() -> None:
     collection = client.get_or_create_collection(GOLDSET_COLLECTION_NAME)
 
     ids = []
+    docs = []
+    embeds = []
     for idx, text in enumerate(posts, start=1):
+        vec = get_embedding(text)
+        if not vec:
+            logger.warning("Skipping post without embedding (index=%s)", idx)
+            continue
         ids.append(f"{ID_PREFIX}{idx:04d}")
+        docs.append(text)
+        embeds.append(vec)
 
-    collection.upsert(ids=ids, documents=posts)
-    logger.info("Gold set ingest completed: %s posts upserted into %s.", len(posts), GOLDSET_COLLECTION_NAME)
+    if not ids:
+        logger.error("No valid embeddings to upsert; aborting.")
+        return
+
+    collection.upsert(ids=ids, documents=docs, embeddings=embeds)
+    logger.info(
+        "Gold set ingest completed: %s posts upserted into %s (with embeddings).",
+        len(ids),
+        GOLDSET_COLLECTION_NAME,
+    )
 
 
 if __name__ == "__main__":

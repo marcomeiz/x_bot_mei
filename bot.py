@@ -2,7 +2,6 @@ print("---- ESTA ES LA PUTA VERSIÓN NUEVA DEL CÓDIGO: v_FINAL ----", flush=Tru
 
 import os
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor
 from queue import Full, Queue
 from typing import Any, Callable, Dict, Optional
@@ -27,7 +26,7 @@ SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.20") or 0.20)
 TEMP_DIR = os.getenv("BOT_TEMP_DIR", "/tmp")
 JOB_MAX_WORKERS = int(os.getenv("JOB_MAX_WORKERS", "3") or 3)
 JOB_QUEUE_MAXSIZE = int(os.getenv("JOB_QUEUE_MAXSIZE", "12") or 12)
-JOB_TIMEOUT_SECONDS = float(os.getenv("JOB_TIMEOUT_SECONDS", "35") or 35.0)
+# NOTE: JOB_TIMEOUT_SECONDS intentionally unused while we debug long-running generations.
 
 
 app = Flask(__name__)
@@ -104,7 +103,6 @@ def _schedule_generation(chat_id: int) -> None:
         "chat_id": chat_id,
         "func": proposal_service.do_the_work,
         "args": (chat_id,),
-        "kwargs": {"deadline": time.monotonic() + JOB_TIMEOUT_SECONDS},
     }
     try:
         _job_queue.put_nowait(job)

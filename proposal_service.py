@@ -263,6 +263,18 @@ class ProposalService:
                 self.telegram.send_message(chat_id, get_message("unexpected_error", error=e))
                 return False
 
+        if LOG_GENERATED_VARIANTS:
+            preview_map = {"A": draft_a, "B": draft_b, "C": draft_c}
+            for label, text in preview_map.items():
+                cleaned = (text or "").strip()
+                logger.info(
+                    "[CHAT_ID: %s] Draft %s pre-check (%s chars):\n%s",
+                    chat_id,
+                    label,
+                    len(cleaned),
+                    cleaned or "<vacío>",
+                )
+
         similar, pair_info = self._check_variant_similarity({
             "A": draft_a,
             "B": draft_b,

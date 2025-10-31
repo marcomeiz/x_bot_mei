@@ -10,7 +10,7 @@ from embeddings_manager import get_embedding, get_chroma_client
 from logger_config import logger
 
 DEFAULT_GOLDSET_PATH = Path("data/gold_posts/hormozi_master.json")
-GOLDSET_MIN_SIMILARITY = float(os.getenv("GOLDSET_MIN_SIMILARITY", "0.82") or 0.82)
+GOLDSET_MIN_SIMILARITY = float(os.getenv("UMBRAL_SIMILITUD", os.getenv("GOLDSET_MIN_SIMILITUD", "0.75")) or 0.75)
 
 
 @lru_cache(maxsize=1)
@@ -34,7 +34,7 @@ def _cosine_similarity(vec_a: Sequence[float], vec_b: Sequence[float]) -> float:
     return dot / (norm_a * norm_b)
 
 
-GOLDSET_MIN_SIMILARITY = float(os.getenv("GOLDSET_MIN_SIMILARITY", "0.82") or 0.82)
+GOLDSET_MIN_SIMILARITY = float(os.getenv("UMBRAL_SIMILITUD", os.getenv("GOLDSET_MIN_SIMILITUD", "0.75")) or 0.75)
 GOLDSET_EMBED_PATH = Path(os.getenv("GOLDSET_EMBED_PATH", "data/gold_posts/goldset_embeddings.npz"))
 GOLDSET_COLLECTION_NAME = os.getenv("GOLDSET_COLLECTION_NAME", "goldset_collection")
 GOLDSET_CLUSTER_COUNT = max(1, int(os.getenv("GOLDSET_CLUSTER_COUNT", "8") or 8))

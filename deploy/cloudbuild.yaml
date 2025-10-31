@@ -85,7 +85,7 @@ steps:
           SECRET_LIST="$$SECRET_LIST,OPENROUTER_API_KEY=OPENROUTER_API_KEY:latest"
         fi
 
-        ENV_VARS="^~^CHROMA_DB_URL=http://34.14.34.69:8080~CHROMA_DB_PATH=/mnt/db~SHOW_TOPIC_ID=0~SUSPEND_GUARDRAILS=1~WARDEN_MINIMAL=0~POST_MODEL=x-ai/grok-4-fast"
+        ENV_VARS="^~^CHROMA_DB_URL=http://34.14.34.69:8080~CHROMA_DB_PATH=/mnt/db~SHOW_TOPIC_ID=0~SUSPEND_GUARDRAILS=1~WARDEN_MINIMAL=0~POST_MODEL=x-ai/grok-4-fast~EMBED_MODEL=openai/text-embedding-3-large~UMBRAL_SIMILITUD=0.75"
 
         gcloud run deploy "${_SERVICE}" \
           --region "${_REGION}" --allow-unauthenticated \
@@ -99,12 +99,12 @@ steps:
 
         bash ./deploy/scripts/notify_success.sh "${_SERVICE}" "${_REGION}"
 
-  # Ingest/re-embed goldset into Chroma with 1536-dim vectors
+  # Ingest/re-embed goldset into Chroma with 3072-dim vectors
   - name: python:3.11-slim
     id: ingest-goldset
     entrypoint: bash
     secretEnv: ["OPENROUTER_API_KEY"]
-    env: ["CHROMA_DB_URL=http://34.14.34.69:8080", "EMBED_MODEL=openai/text-embedding-3-small"]
+    env: ["CHROMA_DB_URL=http://34.14.34.69:8080", "EMBED_MODEL=openai/text-embedding-3-large", "EMBED_DISABLE_CIRCUIT=1"]
     args:
       - -ceu
       - |

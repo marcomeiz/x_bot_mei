@@ -1,0 +1,52 @@
+timeout: "3600s"
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/OPENROUTER_API_KEY/versions/latest
+      env: OPENROUTER_API_KEY
+
+steps:
+  - name: python:3.11-slim
+    id: reembed-topics-and-memory
+    entrypoint: bash
+    secretEnv: ["OPENROUTER_API_KEY"]
+    env:
+      - "CHROMA_DB_URL=http://34.14.34.69:8080"
+      - "EMBED_MODEL=openai/text-embedding-3-large"
+      - "EMBED_DISABLE_CIRCUIT=1"
+    args:
+      - -ceu
+      - |
+        set -euo pipefail
+        python -V
+        pip install --no-cache-dir -r requirements.runtime.txt
+        # 1) Re-embeder colecciones de producción
+        python scripts/reembed_chroma_collections.py --collections topics_collection,memory_collection --chunk 128
+        # 2) Validar dimensión de ejemplo por colección
+        python - << 'PY'
+        from embeddings_manager import get_chroma_client
+        client = get_chroma_client()
+        for name in ["topics_collection", "memory_collection"]:
+            coll = client.get_or_create_collection(name=name, metadata={"hnsw:space": "cosine"})
+            data = coll.get(include=["embeddings", "documents"]) or {}
+            vecs = data.get("embeddings") or []
+            docs = data.get("documents") or []
+            print(f"Collection {name}: count={len(docs)} sample_dim={(len(vecs[0]) if vecs else None)}")
+        PY
+  - name: python:3.11-slim
+    id: calibrate-threshold
+    entrypoint: bash
+    secretEnv: ["OPENROUTER_API_KEY"]
+    env:
+      - "CHROMA_DB_URL=http://34.14.34.69:8080"
+      - "EMBED_MODEL=openai/text-embedding-3-large"
+      - "EMBED_DISABLE_CIRCUIT=1"
+    args:
+      - -ceu
+      - |
+        set -euo pipefail
+        pip install --no-cache-dir -r requirements.runtime.txt
+        # Calibrar distribución de cosenos del goldset para verificar umbral inicial
+        python scripts/calibrate_similarity.py --collection goldset_collection --thres-init 0.75 --samples 5000

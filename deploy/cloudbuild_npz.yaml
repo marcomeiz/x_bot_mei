@@ -14,7 +14,7 @@ steps:
     secretEnv: ["OPENROUTER_API_KEY"]
     env:
       - "CHROMA_DB_URL=http://34.14.34.69:8080"
-      - "EMBED_MODEL=openai/text-embedding-3-small"
+      - "EMBED_MODEL=openai/text-embedding-3-large"
       - "EMBED_DISABLE_CIRCUIT=1"
     args:
       - -ceu
@@ -22,13 +22,13 @@ steps:
         set -euo pipefail
         python -V
         pip install --no-cache-dir -r requirements.runtime.txt
-        # 1) Generar NPZ con embeddings 1536-dim
+        # 1) Generar NPZ con embeddings 3072-dim
         python scripts/gen_goldset_npz.py --output data/gold_posts/goldset_embeddings_2025.npz
         # Validar dimensión del NPZ generado
         python - << 'PY'
         import numpy as np
         data = np.load('data/gold_posts/goldset_embeddings_2025.npz', allow_pickle=True)
-        vecs = data['vectors']
+        vecs = data['vectors'] if 'vectors' in data else data['embeddings']
         print('NPZ vectors shape:', vecs.shape)
         print('Sample vector length:', len(vecs[0]))
         PY

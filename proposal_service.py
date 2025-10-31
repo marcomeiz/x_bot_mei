@@ -1,5 +1,6 @@
 import os
 import re
+import unicodedata
 import threading
 import time
 from itertools import combinations
@@ -217,9 +218,9 @@ class ProposalService:
                 raise Exception(gen_result["error"])
 
             variant_errors = dict(gen_result.get("variant_errors", {}))
-            draft_a = (gen_result.get("short") or "").strip()
-            draft_b = (gen_result.get("mid") or "").strip()
-            draft_c = (gen_result.get("long") or "").strip()
+            draft_a = self._normalize_draft_text((gen_result.get("short") or "").strip())
+            draft_b = self._normalize_draft_text((gen_result.get("mid") or "").strip())
+            draft_c = self._normalize_draft_text((gen_result.get("long") or "").strip())
 
         if _deadline_reached():
             self.telegram.send_message(chat_id, JOB_TIMEOUT_MESSAGE)
@@ -589,39 +590,22 @@ class ProposalService:
                 best_pair = (label_a, label_b, similarity)
         return False, best_pair
 
+    def _normalize_draft_text(self, text: str) -> str:
+        if not text:
+            return text
+        normalized = unicodedata.normalize("NFKC", text)
+        normalized = "".join("-" if unicodedata.category(ch) == "Pd" else ch for ch in normalized)
+        return normalized
+
     def _check_contract_requirements(self, drafts: Dict[str, str]) -> Tuple[Dict[str, str], bool]:
         warnings: Dict[str, str] = {}
         blocking = False
-        spelled_numbers = {
-            "one",
-            "two",
-            "three",
-            "four",
-            "five",
-            "six",
-            "seven",
-            "eight",
-            "nine",
-            "ten",
-            "eleven",
-            "twelve",
-            "hundred",
-            "thousand",
-            "million",
-            "billion",
-            "percent",
-            "quarter",
-            "half",
-            "double",
-            "triple",
-        }
         for label, text in drafts.items():
             content = (text or "").strip()
             if not content:
                 continue
             lower = content.lower()
             tokens = set(re.findall(r"\b[\w']+\b", lower))
-            has_number = bool(re.search(r"\d", content)) or bool(tokens & spelled_numbers) or "k" in tokens or "m" in tokens or "%" in content or "$" in content
             speaks_to_you = bool(
                 re.search(r"\byou\b", lower)
                 or re.search(r"\byou['’]re\b", lower)
@@ -635,13 +619,8 @@ class ProposalService:
                 issues.append(f"Sugerencia: refuerza la voz (similitud {similarity:.2f}).")
                 if similarity < GOLDSET_MIN_SIMILARITY:
                     blocking = True
-            if not has_number:
-                issues.append("Sugerencia: añade un número o threshold claro.")
             if not speaks_to_you:
                 issues.append("Sugerencia: habla en segunda persona ('you').")
-                blocking = True
-            if "—" in content:
-                issues.append("Sugerencia: reemplaza el em dash (—).")
                 blocking = True
 
             if issues:

@@ -1,6 +1,5 @@
 import os
 import re
-import unicodedata
 import threading
 import time
 from itertools import combinations
@@ -218,9 +217,9 @@ class ProposalService:
                 raise Exception(gen_result["error"])
 
             variant_errors = dict(gen_result.get("variant_errors", {}))
-            draft_a = self._normalize_draft_text((gen_result.get("short") or "").strip())
-            draft_b = self._normalize_draft_text((gen_result.get("mid") or "").strip())
-            draft_c = self._normalize_draft_text((gen_result.get("long") or "").strip())
+            draft_a = (gen_result.get("short") or "").strip()
+            draft_b = (gen_result.get("mid") or "").strip()
+            draft_c = (gen_result.get("long") or "").strip()
 
         if _deadline_reached():
             self.telegram.send_message(chat_id, JOB_TIMEOUT_MESSAGE)
@@ -589,13 +588,6 @@ class ProposalService:
             if similarity > best_pair[2]:
                 best_pair = (label_a, label_b, similarity)
         return False, best_pair
-
-    def _normalize_draft_text(self, text: str) -> str:
-        if not text:
-            return text
-        normalized = unicodedata.normalize("NFKC", text)
-        normalized = "".join("-" if unicodedata.category(ch) == "Pd" else ch for ch in normalized)
-        return normalized
 
     def _check_contract_requirements(self, drafts: Dict[str, str]) -> Tuple[Dict[str, str], bool]:
         warnings: Dict[str, str] = {}

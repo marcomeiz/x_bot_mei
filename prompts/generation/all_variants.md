@@ -19,6 +19,7 @@ Voice & Audience (apply ONLY these cues)
 - Start from pain + identity shift.
 - No hype, no corporate jargon.
 - Short, punchy lines.
+- ASCII punctuation only; never use em dashes (—) or fancy separators.
 No other mandates right now.
 
 Session override (ignore in the contract for this task):

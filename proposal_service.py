@@ -285,11 +285,6 @@ class ProposalService:
             "mid": draft_b,
             "long": draft_c,
         })
-        if LOG_GENERATED_VARIANTS:
-            for label, text in draft_map.items():
-                logger.info("[CHAT_ID: %s] Draft %s generated (%s chars):\n%s", chat_id, label, len((text or "") ), text or "<vacío>")
-            for label, warning in compliance_warnings.items():
-                logger.warning("[CHAT_ID: %s] Draft %s contract check: %s", chat_id, label, warning)
         if blocking_contract:
             if ignore_similarity:
                 self.telegram.send_message(
@@ -306,6 +301,9 @@ class ProposalService:
                 chat_id,
                 compliance_warnings,
             )
+            if LOG_GENERATED_VARIANTS:
+                for label, warning in compliance_warnings.items():
+                    logger.warning("[CHAT_ID: %s] Draft %s contract check: %s", chat_id, label, warning)
             for key, warning in compliance_warnings.items():
                 variant_errors[key] = (
                     f"{warning} " + variant_errors[key]
@@ -365,6 +363,9 @@ class ProposalService:
         context = build_prompt_context()
         label_map = {0: "A", 1: "B", 2: "C"}
         draft_map = {"A": draft_a, "B": draft_b, "C": draft_c}
+        if LOG_GENERATED_VARIANTS:
+            for label, text_variant in draft_map.items():
+                logger.info("[CHAT_ID: %s] Draft %s generated (%s chars):\n%s", chat_id, label, len(text_variant or ""), text_variant or "<vacío>")
         evaluations: Dict[str, Dict[str, object]] = {}
         for idx, draft in enumerate([draft_a, draft_b, draft_c]):
             label = label_map[idx]

@@ -10,13 +10,19 @@ This document captures the up‑to‑date design and operating parameters for th
 - Presets/temperature are configurable via ENV.
 - ChromaDB over HTTP with v2→v1 fallback; embeddings via OpenRouter (SDK+HTTP) with robust parsing.
 
+## Guardrails Configuration
+
+- Canonical defaults live in `config/warden.yaml` (`comment_guardrails` section).
+- Each toggle/range still honors environment overrides (`ENFORCE_NO_COMMAS`, `MID_MIN`, etc.) for quick experiments.
+- `WARDEN_CONFIG_PATH` can point to an alternate YAML if you need deployment‑specific values.
+
 ## Environment (recommended defaults)
 
 ```
 POST_PRESET=balanced
 POST_TEMPERATURE=0.6
 
-# Guardrails
+# Guardrails are sourced from config/warden.yaml; override only if needed
 ENFORCE_NO_COMMAS=true
 ENFORCE_NO_AND_OR=true
 WARDEN_WORDS_PER_LINE_LO=5
@@ -81,8 +87,9 @@ LOG_WARDEN_FAILURE_REASON=true
   - 5–12 words per line (configurable with `WARDEN_WORDS_PER_LINE_LO/HI`).
   - Character ranges per variant: `short ≤160`, `mid 180–230`, `long 240–280` (configurable).
   - If fails: try compaction ≤280 with `ensure_under_limit_via_llm`; re‑validate; otherwise `StyleRejection`.
-- Toggles:
-  - `ENFORCE_NO_COMMAS`, `ENFORCE_NO_AND_OR` (can relax later for CTR testing).
+- Toggles & ranges:
+  - Default source `config/warden.yaml` with optional ENV overrides (`ENFORCE_NO_COMMAS`, etc.).
+  - `ENFORCE_NO_COMMAS`, `ENFORCE_NO_AND_OR` (relaxable for CTR testing).
 - Logging:
   - When rejecting, logs `WARDEN_FAIL_REASON=<reason>`.
 
@@ -152,4 +159,3 @@ Validation for each: `short ≤160`, `mid 180–230`, `long 240–280`; one sent
 - `[PERF] Single‑call` in 20–45 s (balanced) or 15–30 s (speed).
 - No embedding errors; similarity working after a few approvals.
 - Outputs are human, imperative, tactical, ready to publish.
-

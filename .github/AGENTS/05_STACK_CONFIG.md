@@ -22,6 +22,9 @@
 - Telegram — parse HTML con fallback a texto plano.
 - Notion / HF — sincronización opcional de candidatos.
 
+## Configuración clave
+- `config/warden.yaml` — toggles y rangos del Warden (commas, palabras/linea, mid/long chars). Sobrescribe con `WARDEN_CONFIG_PATH` o env específicos si necesitas ajustes rápidos.
+
 ## Límites y rutas
 - GCS FUSE para `/mnt/db` en Cloud Run.
 - Watcher escribe JSON en `json/` y mueve PDFs a `processed_pdfs/`.

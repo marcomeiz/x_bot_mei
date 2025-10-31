@@ -1,10 +1,14 @@
+import copy
 import os
 import random
 import re
 import time
+from pathlib import Path
 from functools import lru_cache
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
+
+import yaml
 
 from llm_fallback import llm
 from src.prompt_loader import load_prompt
@@ -93,6 +97,111 @@ def _tail_sampling_prompt():
 def _contrast_analysis_prompt():
     prompts_dir = AppSettings.load().prompts_dir
     return load_prompt(prompts_dir, "generation/contrast_analysis")
+
+
+DEFAULT_WARDEN_GUARDRAILS = {
+    "enforce_no_commas": True,
+    "enforce_no_and_or": True,
+    "words_per_line": {"min": 5, "max": 12},
+    "mid_chars": {"min": 180, "max": 230},
+    "long_chars": {"min": 240, "max": 280},
+    "suspend_guardrails": False,
+    "minimal_mode": False,
+    "forbidden_em_dash": "—",
+}
+
+
+def _merge_guardrail_defaults(target: Dict[str, object], source: Dict[str, object]) -> None:
+    for key, value in source.items():
+        if isinstance(value, dict) and isinstance(target.get(key), dict):
+            _merge_guardrail_defaults(target[key], value)  # type: ignore[arg-type]
+        else:
+            target[key] = value
+
+
+def _default_warden_config_path() -> Path:
+    env_path = os.getenv("WARDEN_CONFIG_PATH")
+    if env_path:
+        return Path(env_path)
+    return Path(__file__).resolve().parent / "config" / "warden.yaml"
+
+
+@lru_cache(maxsize=1)
+def _load_guardrail_config() -> Dict[str, object]:
+    config = copy.deepcopy(DEFAULT_WARDEN_GUARDRAILS)
+    path = _default_warden_config_path()
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            raw = yaml.safe_load(fh) or {}
+        if isinstance(raw, dict):
+            payload = raw.get("comment_guardrails") if "comment_guardrails" in raw else raw
+            if isinstance(payload, dict):
+                _merge_guardrail_defaults(config, payload)
+            else:
+                logger.warning("Warden config at %s must map keys to values; ignoring custom section.", path)
+        else:
+            logger.warning("Warden config at %s must be a mapping; using defaults.", path)
+    except FileNotFoundError:
+        logger.info("Warden config not found at %s. Using defaults.", path)
+    except Exception as exc:
+        logger.warning("Failed to load warden config from %s: %s. Using defaults.", path, exc)
+    return config
+
+
+def _env_bool_override(var_name: str, current: bool) -> bool:
+    value = os.getenv(var_name)
+    if value is None:
+        return current
+    normalized = value.strip().lower()
+    if not normalized:
+        return current
+    return normalized in {"1", "true", "yes", "y"}
+
+
+def _env_int_override(var_name: str, current: int) -> int:
+    value = os.getenv(var_name)
+    if value is None:
+        return current
+    try:
+        return int(value)
+    except ValueError:
+        logger.warning("Invalid integer for %s=%s. Keeping %s.", var_name, value, current)
+        return current
+
+
+def _env_str_override(var_name: str, current: str) -> str:
+    value = os.getenv(var_name)
+    if value is None or value == "":
+        return current
+    return value
+
+
+def _cfg_int(value: object, default: int) -> int:
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+
+
+_guardrail_cfg = _load_guardrail_config()
+
+ENFORCE_NO_COMMAS = _env_bool_override("ENFORCE_NO_COMMAS", bool(_guardrail_cfg.get("enforce_no_commas", True)))
+ENFORCE_NO_AND_OR = _env_bool_override("ENFORCE_NO_AND_OR", bool(_guardrail_cfg.get("enforce_no_and_or", True)))
+
+words_cfg = _guardrail_cfg.get("words_per_line", {}) if isinstance(_guardrail_cfg.get("words_per_line"), dict) else {}
+mid_cfg = _guardrail_cfg.get("mid_chars", {}) if isinstance(_guardrail_cfg.get("mid_chars"), dict) else {}
+long_cfg = _guardrail_cfg.get("long_chars", {}) if isinstance(_guardrail_cfg.get("long_chars"), dict) else {}
+
+WARDEN_WPL_LO = _env_int_override("WARDEN_WORDS_PER_LINE_LO", _cfg_int(words_cfg.get("min"), 5))
+WARDEN_WPL_HI = _env_int_override("WARDEN_WORDS_PER_LINE_HI", _cfg_int(words_cfg.get("max"), 12))
+MID_MIN = _env_int_override("MID_MIN", _cfg_int(mid_cfg.get("min"), 180))
+MID_MAX = _env_int_override("MID_MAX", _cfg_int(mid_cfg.get("max"), 230))
+LONG_MIN = _env_int_override("LONG_MIN", _cfg_int(long_cfg.get("min"), 240))
+LONG_MAX = _env_int_override("LONG_MAX", _cfg_int(long_cfg.get("max"), 280))
+
+SUSPEND_GUARDRAILS = _env_bool_override("SUSPEND_GUARDRAILS", bool(_guardrail_cfg.get("suspend_guardrails", False)))
+WARDEN_MINIMAL = _env_bool_override("WARDEN_MINIMAL", bool(_guardrail_cfg.get("minimal_mode", False)))
+FORBIDDEN_EM_DASH = _env_str_override("FORBIDDEN_EM_DASH", str(_guardrail_cfg.get("forbidden_em_dash", "—")))
 
 
 STOPWORDS = {

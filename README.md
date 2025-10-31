@@ -47,11 +47,12 @@ La instalación y ejecución no han cambiado, pero se documentan las variables r
 - `POST_PRESET` (`speed|balanced|quality`) y/o `POST_TEMPERATURE`
 - `JOB_MAX_WORKERS` (por defecto `3`), `JOB_QUEUE_MAXSIZE` (por defecto `12`), `JOB_TIMEOUT_SECONDS` (por defecto `35`)
 - `LLM_REQUEST_TIMEOUT_SECONDS` (por defecto `15`), `LLM_MIN_WINDOW_SECONDS` (por defecto `5`)
-3.  **Embeddings (HTTP-first)**
+3.  **Guardrails (`config/warden.yaml`):** Define los límites duros del Warden (commas, palabras por línea, rangos de caracteres, modo minimal). Usa `WARDEN_CONFIG_PATH` para apuntar a otro YAML o variables (`ENFORCE_NO_COMMAS`, `MID_MIN`, etc.) si necesitas overrides rápidos.
+4.  **Embeddings (HTTP-first)**
     - `EMBED_MODEL` (por defecto `jinaai/jina-embeddings-v2-base-en`)
     - Llamada HTTP directa con fallback a SDK; circuito de 60s tras errores.
-4.  **ChromaDB**
+5.  **ChromaDB**
     - `CHROMA_DB_URL` para cliente HTTP (recomendado) o `CHROMA_DB_PATH` para local.
-5.  **Ingesta local:** `python run_watcher.py` y copiar PDFs a `uploads/`.
-6.  **Bot:** `/g` para propuestas (A/B/C) y `/c <texto>` para comentar.
-7.  **Generación manual (debug):** `python -i core_generator.py` y ejecutar `generate_tweet_from_topic("<abstract>")`.
+6.  **Ingesta local:** `python run_watcher.py` y copiar PDFs a `uploads/`.
+7.  **Bot:** `/g` para propuestas (A/B/C) y `/c <texto>` para comentar.
+8.  **Generación manual (debug):** `python -i core_generator.py` y ejecutar `generate_tweet_from_topic("<abstract>")`.

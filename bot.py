@@ -14,6 +14,7 @@ from admin_service import AdminService
 from draft_repository import DraftRepository
 from logger_config import logger
 from proposal_service import ProposalService
+from src.messages import get_message
 from telegram_client import TelegramClient
 
 load_dotenv()
@@ -74,7 +75,7 @@ def _run_job(job: Dict[str, Any]) -> None:
     except Exception as exc:
         logger.error("[CHAT_ID: %s] Error ejecutando job: %s", chat_id, exc, exc_info=True)
         try:
-            telegram_client.send_message(chat_id, "❌ Ocurrió un error inesperado al generar la propuesta.")
+            telegram_client.send_message(chat_id, get_message("generate_error"))
         except Exception:
             logger.exception("[CHAT_ID: %s] No se pudo notificar el error al usuario.", chat_id)
     finally:
@@ -97,7 +98,7 @@ _dispatcher_thread.start()
 
 def _schedule_generation(chat_id: int) -> None:
     if not _acquire_chat_lock(chat_id):
-        telegram_client.send_message(chat_id, "⚠️ Ya estoy trabajando en tu última solicitud. Dame unos segundos.")
+        telegram_client.send_message(chat_id, get_message("queue_busy"))
         return
     job = {
         "chat_id": chat_id,
@@ -116,7 +117,7 @@ def _schedule_generation(chat_id: int) -> None:
     except Full:
         _release_chat_lock(chat_id)
         logger.warning("[CHAT_ID: %s] Cola de trabajos llena. Rechazando solicitud.", chat_id)
-        telegram_client.send_message(chat_id, "⌛ Estoy al máximo ahora mismo. Intenta en breve.")
+        telegram_client.send_message(chat_id, get_message("queue_full"))
 
 
 proposal_service.job_scheduler = _schedule_generation
@@ -147,7 +148,7 @@ def _process_update(update: Dict) -> None:
                 import requests
                 url = os.getenv("CHROMA_DB_URL")
                 if not url:
-                    telegram_client.send_message(chat_id, "❌ CHROMA_DB_URL no está configurada.")
+                    telegram_client.send_message(chat_id, get_message("chroma_missing"))
                     return
                 
                 # Asegurarse de que la URL tiene el endpoint correcto
@@ -158,12 +159,12 @@ def _process_update(update: Dict) -> None:
                 logger.info(f"Haciendo ping a la base de datos en: {heartbeat_url}")
                 response = requests.get(heartbeat_url, timeout=10)
                 response.raise_for_status()
-                telegram_client.send_message(chat_id, f"✅ Ping exitoso. Respuesta: {response.json()}")
+                telegram_client.send_message(chat_id, get_message("ping_success", response=response.json()))
             except Exception as e:
                 logger.error(f"[CHAT_ID: {chat_id}] Error en /ping: {e}", exc_info=True)
-                telegram_client.send_message(chat_id, f"❌ Ping fallido: {e}")
+                telegram_client.send_message(chat_id, get_message("ping_failure", error=e))
         else:
-            telegram_client.send_message(chat_id, "Comando no reconocido. Usa /generate para obtener propuestas.")
+            telegram_client.send_message(chat_id, get_message("unknown_command"))
     elif "callback_query" in update:
         proposal_service.handle_callback_query(update)
 
@@ -175,7 +176,7 @@ def _send_pdf_summary(chat_id: int) -> None:
         telegram_client.send_message(chat_id, message, as_html=True)
     except Exception as exc:
         logger.error("[CHAT_ID: %s] Error en /pdfs: %s", chat_id, exc, exc_info=True)
-        telegram_client.send_message(chat_id, "❌ No pude consultar la base de datos.")
+        telegram_client.send_message(chat_id, get_message("db_query_error"))
 
 
 def _chat_has_token(token: Optional[str]) -> bool:

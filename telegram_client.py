@@ -3,6 +3,7 @@ import re
 from typing import Dict, Optional
 
 import requests
+from src.messages import get_message
 
 from logger_config import logger
 
@@ -135,7 +136,7 @@ class TelegramClient:
             safe_text = self.escape(text)
             block = [" ".join(title_parts), f"<pre><code>{safe_text}</code></pre>"]
         else:
-            note = error or "No se pudo generar esta variante."
+            note = error or get_message("variant_missing_note")
             block = [" ".join(title_parts), f"⚠️ {self.escape(note)}"]
 
         if text and evaluations and label in evaluations:

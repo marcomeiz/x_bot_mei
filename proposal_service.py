@@ -22,6 +22,7 @@ from prompt_context import build_prompt_context
 from style_guard import StyleRejection
 from telegram_client import TelegramClient
 from llm_fallback import llm
+from src.messages import get_message
 from src.settings import AppSettings
 
 
@@ -30,7 +31,7 @@ class ProviderGenerationError(Exception):
 
 
 MIN_LLM_WINDOW_SECONDS = float(os.getenv("LLM_MIN_WINDOW_SECONDS", "5") or 5.0)
-JOB_TIMEOUT_MESSAGE = "⌛ Estoy al máximo ahora mismo. Intenta nuevamente en unos segundos."
+JOB_TIMEOUT_MESSAGE = get_message("job_timeout")
 VARIANT_SIMILARITY_THRESHOLD = float(os.getenv("VARIANT_SIMILARITY_THRESHOLD", "0.78") or 0.78)
 
 
@@ -71,7 +72,7 @@ class ProposalService:
             logger.warning("[CHAT_ID: %s] No hay temas disponibles para generar.", chat_id)
             self.telegram.send_message(
                 chat_id,
-                "❌ No encontré temas disponibles para generar en este momento.",
+                get_message("no_topics_available"),
                 reply_markup=self.telegram.get_new_tweet_keyboard(),
             )
             return
@@ -108,20 +109,20 @@ class ProposalService:
 
         self.telegram.send_message(
             chat_id,
-            "❌ No pude generar propuesta para este tema. Inténtalo nuevamente en unos minutos.",
+            get_message("proposal_generation_failed"),
             reply_markup=self.telegram.get_new_tweet_keyboard(),
         )
 
     def generate_comment(self, chat_id: int, source_text: str) -> None:
         cleaned = (source_text or "").strip()
         if not cleaned:
-            self.telegram.send_message(chat_id, "Necesito que pegues el texto de la publicación después de /comentar.")
+            self.telegram.send_message(chat_id, get_message("comment_missing_text"))
             return
 
         snippet = self.telegram.clean_abstract(cleaned, max_len=180)
         pre_lines = [
-            "💬 Preparando respuesta…",
-            f"🗞️ Post: {snippet}",
+            get_message("comment_preparing"),
+            get_message("comment_post_snippet", snippet=snippet),
         ]
         self.telegram.send_message(chat_id, "\n".join(pre_lines))
 
@@ -129,11 +130,11 @@ class ProposalService:
             comment_result = generate_comment_from_text(cleaned)
         except CommentSkip as skip_reason:
             extracted_reason = str(skip_reason).strip()
-            reason = extracted_reason or getattr(skip_reason, "message", "") or "Sin ángulo claro para aportar valor."
+            reason = extracted_reason or getattr(skip_reason, "message", "") or get_message("comment_skip_default_reason")
             logger.info("[CHAT_ID: %s] Comentario omitido: %s", chat_id, reason)
             self.telegram.send_message(
                 chat_id,
-                f"🙅‍♂️ Mejor no comentar: {reason}",
+                get_message("comment_skip", reason=reason),
             )
             return
         except StyleRejection as rejection:
@@ -141,14 +142,14 @@ class ProposalService:
             logger.warning("[CHAT_ID: %s] Comentario rechazado por estilo: %s", chat_id, feedback)
             self.telegram.send_message(
                 chat_id,
-                "⚠️ El validador externo rechazó el comentario. Ajusta el texto o intenta de nuevo.",
+                get_message("comment_style_rejected"),
             )
             return
         except Exception as exc:
             logger.error("[CHAT_ID: %s] Error generando comentario: %s", chat_id, exc, exc_info=True)
             self.telegram.send_message(
                 chat_id,
-                "❌ No pude generar un comentario ahora mismo. Inténtalo nuevamente en unos minutos.",
+                get_message("comment_error"),
             )
             return
 
@@ -180,13 +181,13 @@ class ProposalService:
             (topic_abstract or "")[:80],
         )
 
-        pre_lines = [
-            "🧠 Seleccionando tema…",
-            f"✍️ Tema: {self.telegram.clean_abstract(topic_abstract)[:80]}…",
-        ]
+        abstract_clean = self.telegram.clean_abstract(topic_abstract) if topic_abstract else ""
+        abstract_display = f"{abstract_clean[:80]}…" if abstract_clean else ""
+        pre_lines = [get_message("selecting_topic")]
+        pre_lines.append(get_message("topic_label", abstract=abstract_display))
         if source_pdf:
-            pre_lines.append(f"📄 Origen: {source_pdf}")
-        pre_lines.append("Generando 3 alternativas de longitud variable…")
+            pre_lines.append(get_message("topic_origin", source=source_pdf))
+        pre_lines.append(get_message("generating_variants"))
         self.telegram.send_message(chat_id, "\n".join(pre_lines))
 
         def _deadline_reached() -> bool:
@@ -200,10 +201,10 @@ class ProposalService:
         def _process_generation_result(gen_result: Dict[str, object]) -> None:
             nonlocal draft_a, draft_b, draft_c, variant_errors
             if gen_result.get("provider_error"):
-                reason = str(gen_result.get("error") or "El proveedor LLM devolvió un error.")
+                reason = str(gen_result.get("error") or "")
                 self.telegram.send_message(
                     chat_id,
-                    f"❌ Error del proveedor LLM: {reason}",
+                    get_message("provider_error", reason=reason or "Error desconocido."),
                     reply_markup=self.telegram.get_new_tweet_keyboard(),
                 )
                 raise ProviderGenerationError(reason)
@@ -253,11 +254,11 @@ class ProposalService:
                     raise
                 except Exception as e2:
                     logger.error(f"[CHAT_ID: {chat_id}] Error after retry: {e2}", exc_info=True)
-                    self.telegram.send_message(chat_id, f"❌ Ocurrió un error inesperado: {e2}")
+                    self.telegram.send_message(chat_id, get_message("unexpected_error", error=e2))
                     return False
             else:
                 logger.error(f"[CHAT_ID: {chat_id}] Error generating tweet from topic: {e}", exc_info=True)
-                self.telegram.send_message(chat_id, f"❌ Ocurrió un error inesperado: {e}")
+                self.telegram.send_message(chat_id, get_message("unexpected_error", error=e))
                 return False
 
         similar, pair_info = self._check_variant_similarity({
@@ -274,7 +275,7 @@ class ProposalService:
                 labels,
                 sim_value,
             )
-            self.telegram.send_message(chat_id, "⚠️ Variantes muy similares. Buscando otros ángulos…")
+            self.telegram.send_message(chat_id, get_message("variants_similar_initial"))
             return False
 
         compliance_warnings = self._check_contract_requirements({
@@ -298,10 +299,10 @@ class ProposalService:
         available_c = bool(draft_c)
 
         if not (available_a or available_b or available_c):
-            error_summary = variant_errors or {"all": "No se generaron variantes utilizables."}
+            error_summary = variant_errors or {"all": get_message("variant_error_default")}
             label_lookup = {"short": "A", "mid": "B", "long": "C", "all": "Todas"}
             summary_lines = [
-                "❌ No pude generar variantes publicables para este tema."
+                get_message("variant_failure_header")
             ] + [
                 f"- {label_lookup.get(label, label.upper())}: {reason}"
                 for label, reason in error_summary.items()
@@ -384,7 +385,7 @@ class ProposalService:
                     labels,
                     sim_value,
                 )
-                self.telegram.send_message(chat_id, "⚠️ Variantes todavía similares. Intento de nuevo…")
+                self.telegram.send_message(chat_id, get_message("variants_similar_after"))
                 return False
 
         compliance_warnings = self._check_contract_requirements(draft_map)
@@ -432,7 +433,7 @@ class ProposalService:
             self._handle_confirm(chat_id, action)
         elif action.type == CallbackType.CANCEL:
             logger.info("[CHAT_ID: %s] Confirmación cancelada.", chat_id)
-            self.telegram.send_message(chat_id, "Operación cancelada.", reply_markup=self.telegram.get_new_tweet_keyboard())
+            self.telegram.send_message(chat_id, get_message("operation_cancelled"), reply_markup=self.telegram.get_new_tweet_keyboard())
             if action.topic_id:
                 self.drafts.delete(chat_id, action.topic_id)
         elif action.type == CallbackType.REJECT:
@@ -677,7 +678,7 @@ class ProposalService:
     ) -> None:
         if not action.topic_id or not action.option:
             logger.warning("[CHAT_ID: %s] Callback approve incompleto: %s", chat_id, action.raw)
-            self.telegram.send_message(chat_id, "⚠️ No pude localizar el borrador aprobado.")
+            self.telegram.send_message(chat_id, get_message("draft_not_found"))
             return
 
         appended = f"✅ <b>{self.telegram.escape(f'¡Aprobada Opción {action.option}!')}</b>"
@@ -690,7 +691,7 @@ class ProposalService:
             logger.error("[CHAT_ID: %s] No se encontró draft para %s.", chat_id, action.topic_id)
             self.telegram.send_message(
                 chat_id,
-                "⚠️ No pude recuperar el borrador aprobado (quizá expiró). Genera uno nuevo con el botón.",
+                get_message("draft_storage_missing"),
                 reply_markup=self.telegram.get_new_tweet_keyboard(),
             )
             return
@@ -698,7 +699,7 @@ class ProposalService:
         chosen_tweet = payload.get_variant(action.option)
         if not chosen_tweet:
             logger.error("[CHAT_ID: %s] Opción %s no encontrada en draft %s.", chat_id, action.option, action.topic_id)
-            self.telegram.send_message(chat_id, "⚠️ La opción elegida no está disponible.")
+            self.telegram.send_message(chat_id, get_message("option_not_available"))
             return
 
         memory_collection = get_memory_collection()
@@ -717,10 +718,10 @@ class ProposalService:
                     distance_value,
                     self.similarity_threshold,
                 )
-                warn = (
-                    "⚠️ El borrador elegido parece muy similar a una publicación previa.\n"
-                    f"Distancia: {distance_value:.4f} (umbral {self.similarity_threshold}).\n"
-                    "¿Confirmas guardarlo igualmente?"
+                warn = get_message(
+                    "similarity_warning",
+                    distance=distance_value,
+                    threshold=self.similarity_threshold,
                 )
                 keyboard = {
                     "inline_keyboard": [
@@ -738,7 +739,7 @@ class ProposalService:
     def _handle_confirm(self, chat_id: int, action: CallbackAction) -> None:
         if not action.topic_id or not action.option:
             logger.warning("[CHAT_ID: %s] Callback confirm incompleto: %s", chat_id, action.raw)
-            self.telegram.send_message(chat_id, "⚠️ No pude completar la confirmación. Genera uno nuevo.")
+            self.telegram.send_message(chat_id, get_message("confirm_failure"))
             return
         try:
             payload = self.drafts.load(chat_id, action.topic_id)
@@ -750,13 +751,13 @@ class ProposalService:
                 action.option,
                 action.topic_id,
                 chosen_tweet,
-                message_prefix="Guardado pese a similitud.",
+                message_prefix=get_message("manual_confirmation_prefix"),
             )
         except Exception as exc:
             logger.error("[CHAT_ID: %s] Error en confirmación: %s", chat_id, exc, exc_info=True)
             self.telegram.send_message(
                 chat_id,
-                "⚠️ No pude completar la confirmación. Genera uno nuevo.",
+                get_message("confirm_failure"),
                 reply_markup=self.telegram.get_new_tweet_keyboard(),
             )
 
@@ -782,8 +783,8 @@ class ProposalService:
         keyboard = {"inline_keyboard": [[{"text": f"🚀 Publicar Opción {option}", "url": intent_url}]]}
         if message_prefix:
             self.telegram.send_message(chat_id, message_prefix)
-        self.telegram.send_message(chat_id, "Usa el siguiente botón para publicar:", reply_markup=keyboard)
+        self.telegram.send_message(chat_id, get_message("publish_prompt"), reply_markup=keyboard)
         if total_memory is not None:
-            self.telegram.send_message(chat_id, f"✅ Añadido a la memoria. Ya hay {total_memory} publicaciones.")
-        self.telegram.send_message(chat_id, "Listo para el siguiente.", reply_markup=self.telegram.get_new_tweet_keyboard())
+            self.telegram.send_message(chat_id, get_message("memory_added", total=total_memory))
+        self.telegram.send_message(chat_id, get_message("ready_for_next"), reply_markup=self.telegram.get_new_tweet_keyboard())
         self.drafts.delete(chat_id, topic_id)

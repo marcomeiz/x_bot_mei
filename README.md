@@ -48,11 +48,12 @@ La instalación y ejecución no han cambiado, pero se documentan las variables r
 - `JOB_MAX_WORKERS` (por defecto `3`), `JOB_QUEUE_MAXSIZE` (por defecto `12`), `JOB_TIMEOUT_SECONDS` (por defecto `35`)
 - `LLM_REQUEST_TIMEOUT_SECONDS` (por defecto `15`), `LLM_MIN_WINDOW_SECONDS` (por defecto `5`)
 3.  **Guardrails (`config/warden.yaml`, `config/lexicon.json`, `config/style_audit.yaml`):** Define los límites duros del Warden (commas, palabras por línea, rangos de caracteres, modo minimal), el vocabulario vetado/stopwords y los umbrales del guardián de estilo. Usa `WARDEN_CONFIG_PATH`, `LEXICON_CONFIG_PATH` o `STYLE_AUDIT_CONFIG_PATH` para apuntar a otras rutas, o variables (`ENFORCE_NO_COMMAS`, `STYLE_MEMORY_SIMILARITY_FLOOR`, etc.) si necesitas overrides rápidos.
-4.  **Embeddings (HTTP-first)**
+4.  **Mensajes (`config/messages.yaml`):** Copys para Telegram (bot, propuestas, avisos). Usa `MESSAGES_CONFIG_PATH` o overrides puntuales por env si hace falta.
+5.  **Embeddings (HTTP-first)**
     - `EMBED_MODEL` (por defecto `jinaai/jina-embeddings-v2-base-en`)
     - Llamada HTTP directa con fallback a SDK; circuito de 60s tras errores.
-5.  **ChromaDB**
+6.  **ChromaDB**
     - `CHROMA_DB_URL` para cliente HTTP (recomendado) o `CHROMA_DB_PATH` para local.
-6.  **Ingesta local:** `python run_watcher.py` y copiar PDFs a `uploads/`.
-7.  **Bot:** `/g` para propuestas (A/B/C) y `/c <texto>` para comentar.
-8.  **Generación manual (debug):** `python -i core_generator.py` y ejecutar `generate_tweet_from_topic("<abstract>")`.
+7.  **Ingesta local:** `python run_watcher.py` y copiar PDFs a `uploads/`.
+8.  **Bot:** `/g` para propuestas (A/B/C) y `/c <texto>` para comentar.
+9.  **Generación manual (debug):** `python -i core_generator.py` y ejecutar `generate_tweet_from_topic("<abstract>")`.

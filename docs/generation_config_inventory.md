@@ -14,8 +14,9 @@ This note tracks every configuration surface that impacts tweet/comment generati
 - `config/style_audit.yaml` controla enforcement, rondas y umbrales del guardián de estilo (cargado vía `src/style_config.py` con overrides ENV).
 
 ## 3. Runtime Messages
+- `config/messages.yaml` centraliza mensajes de usuario para bot/propuesta/avisos (cargado vía `src/messages.py`).
 - Telegram fallbacks/mensajes de error en `proposal_service.py` y `telegram_client.py`.
-- Logs de guardian (`style_guard`, `proposal_service`) tienen textos fijos → mover a `config/messages.yaml`.
+- Logs de guardian (`style_guard`, `proposal_service`) tienen textos fijos pendientes de migrar si aplica.
 
 ## 4. Environment Switches
 - Variables `.env` críticas documentadas en `README.md` y `AGENTS/05_STACK_CONFIG.md`.

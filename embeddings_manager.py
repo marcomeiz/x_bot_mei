@@ -75,11 +75,14 @@ def get_chroma_client():
             except Exception as http_exc:
                 logger.error("No se pudo conectar a ChromaDB HTTP (%s). Fallback a cliente local.", http_exc, exc_info=True)
                 # Continuar al fallback local
-        # Fallback local (persistente)
-        logger.info("Inicializando cliente local de ChromaDB (persist_directory='%s')…", path or "/tmp/chroma")
-        _chroma_client = chromadb.Client(
-            ChromaSettings(chroma_db_impl="duckdb+parquet", persist_directory=path or "/tmp/chroma")
-        )
+        # Fallback local (persistente) usando nueva API de Chroma (PersistentClient)
+        persist_dir = path or "/tmp/chroma"
+        logger.info("Inicializando cliente local de ChromaDB (persist_directory='%s')…", persist_dir)
+        try:
+            _chroma_client = chromadb.PersistentClient(path=persist_dir, settings=ChromaSettings(anonymized_telemetry=False))
+        except Exception:
+            # Compatibilidad con versiones que usan 'persist_directory' como nombre de parámetro
+            _chroma_client = chromadb.PersistentClient(persist_directory=persist_dir, settings=ChromaSettings(anonymized_telemetry=False))
         return _chroma_client
 
 

@@ -43,7 +43,13 @@ def _get_embed_client() -> OpenAI:
     return _embed_client
 
 def get_chroma_client():
-    """Inicializa cliente de Chroma (HTTP recomendado, local si no hay URL)."""
+    """Inicializa cliente de Chroma.
+
+    Preferencia:
+    - Si CHROMA_DB_URL está definido, usar HttpClient con parseo correcto de host/puerto/ssl.
+    - Si falla la conexión HTTP, hacer fallback automático a cliente local persistente (CHROMA_DB_PATH).
+    - Si no hay URL, usar directamente cliente local.
+    """
     global _chroma_client
     if _chroma_client is not None:
         return _chroma_client
@@ -53,10 +59,27 @@ def get_chroma_client():
         url = os.getenv("CHROMA_DB_URL")
         path = os.getenv("CHROMA_DB_PATH")
         if url:
-            logger.info("Inicializando cliente HTTP de ChromaDB (host='%s', ssl=%s)…", url, False)
-            _chroma_client = chromadb.HttpClient(host=url, settings=ChromaSettings(anonymized_telemetry=False))
-        else:
-            _chroma_client = chromadb.Client(ChromaSettings(chroma_db_impl="duckdb+parquet", persist_directory=path or "/tmp/chroma"))
+            try:
+                parsed = urlparse(url)
+                host = parsed.hostname or url
+                port = parsed.port or (443 if (parsed.scheme or "http").lower() == "https" else 80)
+                ssl = (parsed.scheme or "http").lower() == "https"
+                logger.info(
+                    "Inicializando cliente HTTP de ChromaDB (host='%s', port=%s, ssl=%s)…",
+                    host,
+                    port,
+                    ssl,
+                )
+                _chroma_client = chromadb.HttpClient(host=host, port=port, ssl=ssl, settings=ChromaSettings(anonymized_telemetry=False))
+                return _chroma_client
+            except Exception as http_exc:
+                logger.error("No se pudo conectar a ChromaDB HTTP (%s). Fallback a cliente local.", http_exc, exc_info=True)
+                # Continuar al fallback local
+        # Fallback local (persistente)
+        logger.info("Inicializando cliente local de ChromaDB (persist_directory='%s')…", path or "/tmp/chroma")
+        _chroma_client = chromadb.Client(
+            ChromaSettings(chroma_db_impl="duckdb+parquet", persist_directory=path or "/tmp/chroma")
+        )
         return _chroma_client
 
 
@@ -64,6 +87,7 @@ def get_topics_collection():
     """Obtiene la colección de temas (parametrizable via TOPICS_COLLECTION)."""
     client = get_chroma_client()
     name = os.getenv("TOPICS_COLLECTION", "topics_collection")
+    logger.info("Usando colección de tópicos: '%s'", name)
     return client.get_or_create_collection(name=name, metadata={"hnsw:space": "cosine"})
 
 

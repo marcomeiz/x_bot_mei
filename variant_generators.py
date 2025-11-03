@@ -35,6 +35,7 @@ from writing_rules import (
     _WORD_REGEX,
     BANNED_SUFFIXES,
 )
+from src.goldset import retrieve_goldset_examples
 
 
 @dataclass(frozen=True)
@@ -1607,6 +1608,16 @@ def generate_comment_reply(
     rng = random.Random(hash(source_text) & 0xFFFFFFFF)
     excerpt = _compact_text(source_text, limit=1200)
     key_terms = _extract_key_terms(excerpt)
+    gold_examples = retrieve_goldset_examples(excerpt, k=3)
+    tail_angles = _verbalized_tail_sampling(
+        topic_abstract=excerpt,
+        context=context,
+        model=settings.generation_model,
+        rag_context=gold_examples,
+        max_angles=TAIL_SAMPLING_COUNT,
+    )
+    tail_block = _format_tail_angles_for_prompt(tail_angles) or "No tail angles surfaced; rely on doctrinal instincts."
+    gold_block = _format_gold_examples_for_prompt(gold_examples) or "Anchors unavailable. Mirror the contract tone precisely."
 
     use_question = rng.random() < 0.5
     if use_question:
@@ -1636,6 +1647,8 @@ def generate_comment_reply(
         key_terms_block=key_terms_block,
         hook_line=hook_line,
         risk_line=risk_line,
+        tail_block=tail_block,
+        gold_block=gold_block,
     )
 
     system_message = (
@@ -1652,6 +1665,7 @@ def generate_comment_reply(
 
     comment = ""
     insight = None
+    internal_feedback = ""
     try:
         data = llm.chat_json(
             model=settings.generation_model,
@@ -1692,6 +1706,19 @@ def generate_comment_reply(
 
     if not comment:
         raise StyleRejection("LLM did not generate a valid comment.")
+
+    revised_comment, feedback = _apply_internal_debate(
+        "COMMENT",
+        comment,
+        excerpt,
+        context,
+        tail_angles,
+        settings.validation_model,
+    )
+    if revised_comment and revised_comment.strip():
+        comment = revised_comment.strip()
+    if feedback:
+        internal_feedback = feedback
 
     # --- NEW POST-PROCESSING FOR FLEXIBLE COMMENTS ---
     # Goal: Preserve human-like structure (1-3 sentences) while enforcing key constraints.
@@ -1755,6 +1782,13 @@ def generate_comment_reply(
     if key_terms:
         metadata["key_terms"] = key_terms
     metadata["relevance_reason"] = relevance.reason
+    metadata["tail_angles"] = tail_angles
+    if gold_examples:
+        metadata["gold_examples"] = gold_examples
+    metadata["tail_block"] = tail_block
+    metadata["style_anchors_block"] = gold_block
+    if internal_feedback:
+        metadata["internal_feedback"] = internal_feedback
     
     # Since the hook is no longer part of the prompt, we remove it from metadata.
     # metadata["hook"] = hook.name
@@ -1896,6 +1930,16 @@ def _format_tail_angles_for_prompt(tail_angles: List[Dict[str, str]]) -> str:
     return "\n".join(formatted)
 
 
+def _format_gold_examples_for_prompt(examples: List[str], limit: int = 3) -> str:
+    if not examples:
+        return ""
+    lines: List[str] = []
+    for idx, example in enumerate(examples[:limit], 1):
+        snippet = _compact_text(example, limit=140)
+        lines.append(f"{idx}. {snippet}")
+    return "\n".join(lines)
+
+
 def _run_internal_reviews(
     variant_label: str,
     draft: str,
@@ -1983,6 +2027,7 @@ def _revise_with_reviews(
         "A": "Stay under 280 characters. One punchy paragraph or 1–2 short sentences.",
         "B": "Exactly two sentences. No filler. ≤280 characters.",
         "C": "Exactly one sentence. Ruthless. ≤280 characters.",
+        "COMMENT": "≤140 characters. One tight paragraph. Tie back to the author's core term and advance the conversation.",
     }
     variant_instruction = variant_rules.get(variant_label.upper(), "Stay under 280 characters.")
 

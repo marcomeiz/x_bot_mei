@@ -8,6 +8,8 @@ inputs:
   - key_terms_block
   - hook_line
   - risk_line
+  - tail_block
+  - gold_block
 constraints:
   - json_only
 ---
@@ -40,6 +42,12 @@ Return ONLY a strict JSON object based on the outcome of your internal monologue
 
 - If you successfully reached Step 5, return:
   {"status": "COMMENT", "comment": "<Your synthesized comment here>"}
+
+Tail sampling signals (respect their spirit when crafting the bridge):
+{{tail_block}}
+
+Style anchors to stay in voice:
+{{gold_block}}
 
 **Gold Standard Example (The result of a successful Synthesis):**
 - **Author's Point (Implicit):** "Consistency is a habit."

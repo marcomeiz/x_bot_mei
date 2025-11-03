@@ -591,14 +591,23 @@ class ProposalService:
         return False, best_pair
 
     def _check_contract_requirements(self, drafts: Dict[str, str]) -> Tuple[Dict[str, str], bool]:
+        """
+        Evalúa requisitos del contrato para cada variante y decide si se debe bloquear.
+
+        Nuevo comportamiento: solo bloqueamos si TODAS las variantes presentes no cumplen
+        los requisitos mínimos (segunda persona y similitud mínima con goldset). Si al menos
+        una variante es válida, no bloqueamos y dejamos que se envíen las disponibles.
+        """
         warnings: Dict[str, str] = {}
-        blocking = False
+        any_valid = False
+
         for label, text in drafts.items():
             content = (text or "").strip()
             if not content:
+                # Variante no presente; no aporta a validez ni genera aviso
                 continue
+
             lower = content.lower()
-            tokens = set(re.findall(r"\b[\w']+\b", lower))
             speaks_to_you = bool(
                 re.search(r"\byou\b", lower)
                 or re.search(r"\byou['’]re\b", lower)
@@ -608,17 +617,28 @@ class ProposalService:
 
             issues = []
             similarity = max_similarity_to_goldset(content)
+            # Mantener sugerencia de voz aunque similitud sea None
             if similarity is not None:
                 issues.append(f"Sugerencia: refuerza la voz (similitud {similarity:.2f}).")
-                if similarity < GOLDSET_MIN_SIMILARITY:
-                    logger.warning("[CONTRACT] Draft %s blocked: similarity %.3f under %.3f.", label, similarity, GOLDSET_MIN_SIMILARITY)
-                    blocking = True
+            if similarity is not None and similarity < GOLDSET_MIN_SIMILARITY:
+                logger.warning(
+                    "[CONTRACT] Draft %s flagged: similarity %.3f under %.3f.",
+                    label,
+                    similarity,
+                    GOLDSET_MIN_SIMILARITY,
+                )
             if not speaks_to_you:
                 issues.append("Sugerencia: habla en segunda persona ('you').")
-                blocking = True
+
+            # Consideramos válida si cumple los dos criterios clave
+            is_valid = speaks_to_you and (similarity is None or similarity >= GOLDSET_MIN_SIMILARITY)
+            any_valid = any_valid or is_valid
 
             if issues:
                 warnings[label] = " ".join(issues)
+
+        # Bloqueamos solo si ninguna variante válida está disponible
+        blocking = not any_valid
         return warnings, blocking
 
     def _should_refine_variant(self, evaluation: Optional[Dict[str, object]], text: str) -> bool:

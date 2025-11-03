@@ -221,6 +221,15 @@ HYPE_REGEX = re.compile(
     re.I,
 )
 NON_ENGLISH_CHARS = re.compile(r"[áéíóúñüÁÉÍÓÚÑÜ]")
+# Heurística adicional para detectar español sin acentos (casos ASCII)
+SPANISH_HINTS = {
+    # Stopwords y partículas comunes
+    "de", "la", "el", "y", "que", "en", "no", "se", "los", "por", "un", "una",
+    "para", "con", "del", "las", "como", "le", "lo", "su", "al", "más", "si", "ya",
+    "muy", "pero", "porque", "cuando", "donde", "sobre",
+    # Palabras de uso frecuente en nuestros ejemplos
+    "tiempo", "bloquea", "trabajo", "reuniones", "haz", "ahora",
+}
 END_PUNCT = re.compile(r"[.!?]$")
 
 def _one_sentence_per_line(text: str) -> bool:
@@ -245,7 +254,14 @@ def _avg_words_per_line_between(text: str, lo: int = WARDEN_WPL_LO, hi: int = WA
     return True
 
 def _english_only(text: str) -> bool:
-    return NON_ENGLISH_CHARS.search(text) is None
+    # Si hay caracteres claramente no ingleses (acentos/ñ), no es inglés
+    if NON_ENGLISH_CHARS.search(text):
+        return False
+    # Heurística: si aparecen tokens comunes del español aun sin acentos, considerar no inglés
+    tokens = re.findall(r"\b[\w']+\b", text.lower())
+    if any(tok in SPANISH_HINTS for tok in tokens):
+        return False
+    return True
 
 def _no_banned_language(text: str) -> Optional[str]:
     if HEDGING_REGEX.search(text):

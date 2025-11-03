@@ -83,7 +83,9 @@ class AdminService:
             pdf = str(item.get("pdf") or item.get("source_pdf") or "").strip() or None
             if not tid or not abstract:
                 continue
-            normalized.append((tid, abstract, {"pdf": pdf} if pdf else {}))
+            # Chroma requiere metadatos no vacíos; si no hay PDF, establecemos una fuente genérica
+            md = {"pdf": pdf} if pdf else {"source": "topics"}
+            normalized.append((tid, abstract, md))
 
         if not normalized:
             return 0, 0, 0

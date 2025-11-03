@@ -132,8 +132,9 @@ class ProposalService:
             comment_result = generate_comment_from_text(cleaned)
         except CommentSkip as skip_reason:
             extracted_reason = str(skip_reason).strip()
-            reason = extracted_reason or getattr(skip_reason, "message", "") or get_message("comment_skip_default_reason")
-            logger.info("[CHAT_ID: %s] Comentario omitido: %s", chat_id, reason)
+            raw_reason = extracted_reason or getattr(skip_reason, "message", "") or get_message("comment_skip_default_reason")
+            reason = raw_reason.replace("{", "{{").replace("}", "}}")
+            logger.info("[CHAT_ID: %s] Comentario omitido: %s", chat_id, raw_reason)
             self.telegram.send_message(
                 chat_id,
                 get_message("comment_skip", reason=reason),

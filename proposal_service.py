@@ -25,6 +25,7 @@ from llm_fallback import llm
 from src.messages import get_message
 from src.goldset import GOLDSET_MIN_SIMILARITY, max_similarity_to_goldset
 from src.settings import AppSettings
+from diagnostics_logger import log_post_metrics
 
 
 class ProviderGenerationError(Exception):
@@ -389,6 +390,25 @@ class ProposalService:
                 evaluations[label] = {}
 
         normalized_evals = self._normalize_evaluations(evaluations)
+        # Log initial metrics for all variants before refinement
+        try:
+            initial_similar, initial_pair = self._check_variant_similarity(draft_map)
+            pair_similarity_payload = None
+            if initial_pair and (initial_pair[0] and initial_pair[1]):
+                pair_similarity_payload = {
+                    "labels": f"{initial_pair[0]}-{initial_pair[1]}",
+                    "similarity": float(initial_pair[2] or 0.0),
+                }
+            log_post_metrics(
+                chat_id=chat_id,
+                topic=topic,
+                drafts=draft_map,
+                evaluations=normalized_evals,
+                pair_similarity=pair_similarity_payload,
+                blocked=False,
+            )
+        except Exception:
+            logger.debug("Diag logging (initial) skipped due to an error.")
         updated_variants = False
         for label in ("A", "B", "C"):
             eval_data = normalized_evals.get(label)
@@ -416,6 +436,18 @@ class ProposalService:
                     labels,
                     sim_value,
                 )
+                try:
+                    log_post_metrics(
+                        chat_id=chat_id,
+                        topic=topic,
+                        drafts=draft_map,
+                        evaluations=normalized_evals,
+                        pair_similarity={"labels": labels.replace(" y ", "-"), "similarity": float(sim_value)},
+                        blocked=True,
+                        blocking_reason=f"variant_similarity>=threshold ({sim_value:.2f} >= {VARIANT_SIMILARITY_THRESHOLD})",
+                    )
+                except Exception:
+                    logger.debug("Diag logging (similarity block) skipped due to an error.")
                 self.telegram.send_message(chat_id, get_message("variants_similar_after"))
                 return False
 
@@ -432,8 +464,30 @@ class ProposalService:
                     get_message("contract_failure"),
                     reply_markup=self.telegram.get_new_tweet_keyboard(),
                 )
+                try:
+                    log_post_metrics(
+                        chat_id=chat_id,
+                        topic=topic,
+                        drafts=draft_map,
+                        evaluations=normalized_evals,
+                        blocked=True,
+                        blocking_reason="contract_requirements_failed (no valid variants)",
+                    )
+                except Exception:
+                    logger.debug("Diag logging (contract block) skipped due to an error.")
                 return False
             self.telegram.send_message(chat_id, get_message("contract_retry"))
+            try:
+                log_post_metrics(
+                    chat_id=chat_id,
+                    topic=topic,
+                    drafts=draft_map,
+                    evaluations=normalized_evals,
+                    blocked=True,
+                    blocking_reason="contract_requirements_failed (retry requested)",
+                )
+            except Exception:
+                logger.debug("Diag logging (contract retry) skipped due to an error.")
             return False
         if compliance_warnings:
             logger.info(
@@ -463,8 +517,30 @@ class ProposalService:
         logger.info("[CHAT_ID: %s] Intentando enviar propuesta a Telegram.", chat_id)
         if self.telegram.send_message(chat_id, message_text, reply_markup=keyboard, as_html=True):
             logger.info("[CHAT_ID: %s] Propuesta enviada correctamente a Telegram.", chat_id)
+            try:
+                # Successful send: log final metrics snapshot
+                log_post_metrics(
+                    chat_id=chat_id,
+                    topic=topic,
+                    drafts=draft_map,
+                    evaluations=normalized_evals,
+                    blocked=False,
+                )
+            except Exception:
+                logger.debug("Diag logging (success snapshot) skipped due to an error.")
             return True
         logger.error("[CHAT_ID: %s] Falló el envío de propuestas para topic %s.", chat_id, topic_id)
+        try:
+            log_post_metrics(
+                chat_id=chat_id,
+                topic=topic,
+                drafts=draft_map,
+                evaluations=normalized_evals,
+                blocked=True,
+                blocking_reason="telegram_send_failed",
+            )
+        except Exception:
+            logger.debug("Diag logging (send failure) skipped due to an error.")
         return False
 
     def handle_callback_query(self, update: Dict) -> None:

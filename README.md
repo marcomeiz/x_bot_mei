@@ -72,3 +72,38 @@ La instalación y ejecución no han cambiado, pero se documentan las variables r
 Las semillas incluidas (`data/seeds/topics_sample.jsonl`, `data/seeds/text_sample.txt`) permiten smoke tests sin depender de PDFs reales.
 
 > Consulta `docs/workspace_bootstrap.md` para un desglose paso a paso del bootstrap e higiene.
+
+## Diagnóstico de propuestas que no cumplen umbrales
+
+Para observar y analizar por qué ciertos borradores no alcanzan los criterios, el servicio emite logs estructurados (JSON) con eventos `EVAL_METRICS` y `EVAL_FAILURE`.
+
+Qué se registra:
+- Contenido completo de cada variante (A/B/C)
+- Métricas por variante: longitud, palabras, comas, voz en 2ª persona, similitud al goldset
+- Resultados de evaluación rápida/lenta (style_score, clarity_score, contrarian_score, etc.)
+- Umbrales vigentes (p. ej., `GOLDSET_MIN_SIMILARITY`, `VARIANT_SIMILARITY_THRESHOLD`, `STYLE_*`)
+- Bloqueos y motivo (`blocking_reason`), incluyendo similitud entre variantes
+
+Filtros útiles (Cloud Logging):
+```
+resource.type="cloud_run_revision" AND 
+resource.labels.service_name="x-bot-mei" AND 
+timestamp>="-PT30M" AND 
+textPayload:"\"event\": \"EVAL_"
+```
+
+Script de análisis:
+```
+python scripts/analyze_failure_logs.py --use-gcloud --project xbot-473616 --service x-bot-mei --minutes 60
+```
+O bien pasar logs por stdin:
+```
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=x-bot-mei AND timestamp>=-PT60M AND textPayload:\"\\\"event\\\": \\\"EVAL_\\\"" --project xbot-473616 --format value(textPayload) | \
+python scripts/analyze_failure_logs.py
+```
+
+Configuración por entorno (calibración):
+- `VARIANT_SIMILARITY_THRESHOLD` (por defecto 0.78)
+- `UMBRAL_SIMILITUD` / `GOLDSET_MIN_SIMILITUD` (por defecto 0.75)
+- `ENFORCE_NO_COMMAS` (`1`/`0`)
+- `STYLE_MEMORY_SIMILARITY_FLOOR`, `STYLE_HEDGING_THRESHOLD`, `STYLE_JARGON_BLOCK_THRESHOLD`

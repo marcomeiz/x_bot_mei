@@ -1,0 +1,17 @@
+# Default developer-friendly configuration.
+# Secrets (API keys, tokens) stay in environment variables or Secret Manager.
+openrouter_base_url: https://openrouter.ai/api/v1
+post_model: x-ai/grok-4-fast
+post_refiner_model: x-ai/grok-4-fast
+post_temperature: 0.6
+post_preset: balanced
+eval_fast_model: qwen/qwen-2.5-7b-instruct
+eval_slow_model: mistralai/mistral-nemo
+comment_audit_model: qwen/qwen-2.5-7b-instruct
+comment_rewrite_model: mistralai/mistral-nemo
+topic_extraction_model: mistralai/mistral-nemo
+embed_model: openai/text-embedding-3-small
+prompts_dir: prompts
+log_prompts: false
+log_prompts_full: false
+log_provider_decisions: false

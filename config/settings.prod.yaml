@@ -1,0 +1,16 @@
+# Production-leaning defaults. Override via environment or Secret Manager.
+openrouter_base_url: https://openrouter.ai/api/v1
+post_model: x-ai/grok-4
+post_refiner_model: x-ai/grok-4
+post_temperature: 0.55
+post_preset: quality
+eval_fast_model: x-ai/grok-4-fast
+eval_slow_model: x-ai/grok-4
+comment_audit_model: x-ai/grok-4-fast
+comment_rewrite_model: x-ai/grok-4
+topic_extraction_model: anthropic/claude-3.5-sonnet
+embed_model: openai/text-embedding-3-small
+prompts_dir: prompts
+log_prompts: false
+log_prompts_full: false
+log_provider_decisions: true

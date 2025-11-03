@@ -35,10 +35,11 @@ Consulta:
 - Python 3.10+.
 - Instala con: `python -m venv venv && source venv/bin/activate && pip install -r requirements.txt`.
 - Variables de entorno (.env, no subir nunca):
-  - `GOOGLE_API_KEY` (obligatoria para embeddings y Gemini)
-  - `OPENROUTER_API_KEY` (opcional; si falta, se usa Gemini)
-  - `FALLBACK_PROVIDER_ORDER` (por defecto `gemini,openrouter`)
-  - `GEMINI_MODEL` (por defecto `gemini-2.5-pro`)
+  - `OPENROUTER_API_KEY` (obligatoria; OpenRouter es el único proveedor permitido).
+  - `OPENROUTER_BASE_URL` (por defecto `https://openrouter.ai/api/v1`).
+  - `APP_CONFIG_ENV` (`dev|staging|prod`) para resolver automáticamente `config/settings.<env>.yaml`, o `APP_CONFIG_PATH` si quieres apuntar a un YAML personalizado.
+  - `POST_MODEL`, `POST_REFINER_MODEL`, `POST_PRESET`, `POST_TEMPERATURE` para ajustar generación; `EVAL_FAST_MODEL`, `EVAL_SLOW_MODEL` para la evaluación adaptativa.
+  - `EMBED_MODEL` si necesitas embeddings distintos (`openai/text-embedding-3-small` por defecto).
   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (si usas el bot)
   - `NOTION_API_TOKEN`, `NOTION_DATABASE_ID` (si sincronizas curación con Notion)
   - `HF_SOURCES_PATH`, `HF_CANDIDATE_DIR`, `HF_CANDIDATE_INDEX`, `HF_STATE_PATH` (override opcional de rutas del pipeline Hugging Face)
@@ -132,6 +133,8 @@ Acceso y despliegue (referencia)
 - Antes de cambiar código:
   - Lee este AGENTS.md y el README.
   - Levanta un plan por pasos (qué, dónde, por qué). Consulta al usuario en cambios sensibles.
+  - Ejecuta `python scripts/bootstrap_workspace.py --clean` si necesitas resetear `json/`, `texts/` u `uploads/` antes de pruebas locales.
+  - Antes de hacer push, corre `python scripts/check_repo_hygiene.py` para asegurarte de que no versionas logs, caches ni credenciales accidentales.
 - Al tocar prompts:
   - Mantén instrucciones claras (JSON-only cuando se espera), prohíbe comillas si luego molestan, pide concisión antes que densidad.
 - Al tocar el bot:

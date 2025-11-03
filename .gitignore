@@ -3,6 +3,7 @@ venv/
 .venv/
 .env
 .env.*
+.admin_token_generated
 
 # Python caches & artifacts
 __pycache__/
@@ -26,6 +27,8 @@ watcher_v2.log
 *.sqlite3
 db/
 db_local/
+local_topics_db/
+config/local_topics_db/
 
 # Generated data dumps
 json/

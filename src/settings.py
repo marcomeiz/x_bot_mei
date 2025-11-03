@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import Optional
 
 import yaml
@@ -37,7 +38,7 @@ class AppSettings(BaseModel):
 
     @classmethod
     def load(cls) -> "AppSettings":
-        path = os.getenv("APP_CONFIG_PATH")
+        path = os.getenv("APP_CONFIG_PATH") or _resolve_default_config_path()
         base = cls()
         # Apply preset mapping before loading file overrides
         base = _apply_post_preset(base)
@@ -77,6 +78,21 @@ class AppSettings(BaseModel):
             return _apply_post_preset(obj)
         except Exception:
             return base
+
+
+def _resolve_default_config_path() -> Optional[str]:
+    """Infer a config file path when APP_CONFIG_PATH is unset."""
+    repo_root = Path(__file__).resolve().parent.parent
+    config_dir = repo_root / "config"
+    env_key = os.getenv("APP_CONFIG_ENV", "dev").strip().lower()
+    candidates = []
+    if env_key:
+        candidates.append(config_dir / f"settings.{env_key}.yaml")
+    candidates.append(config_dir / "settings.yaml")
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+    return None
 
 
 def _apply_post_preset(settings: AppSettings) -> AppSettings:

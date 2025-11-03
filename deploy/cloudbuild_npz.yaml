@@ -13,7 +13,7 @@ steps:
     entrypoint: bash
     secretEnv: ["OPENROUTER_API_KEY"]
     env:
-      - "CHROMA_DB_URL=http://34.14.34.69:8080"
+      - "CHROMA_DB_URL=https://x-chroma-295511624125.europe-west1.run.app"
       - "EMBED_MODEL=openai/text-embedding-3-large"
       - "EMBED_DISABLE_CIRCUIT=1"
     args:
@@ -32,9 +32,28 @@ steps:
         print('NPZ vectors shape:', vecs.shape)
         print('Sample vector length:', len(vecs[0]))
         PY
-        # 2) Upsert a Chroma desde el NPZ
-        python scripts/upsert_goldset_from_npz.py --npz data/gold_posts/goldset_embeddings_2025.npz || \
-          GOLDSET_NPZ_PATH=data/gold_posts/goldset_embeddings_2025.npz python scripts/upsert_goldset_from_npz.py
+        # 1.5) Resetear colección goldset (dim=1536) para permitir nueva dimensión 3072
+        python - << 'PY'
+        from embeddings_manager import get_chroma_client
+        client = get_chroma_client()
+        try:
+            client.delete_collection('goldset_collection')
+            print('Deleted existing goldset_collection')
+        except Exception as e:
+            print('goldset_collection delete skipped:', e)
+        PY
+        # 2) Upsert a Chroma desde el NPZ (usar env GOLDSET_NPZ_PATH explícitamente)
+        GOLDSET_NPZ_PATH=data/gold_posts/goldset_embeddings_2025.npz python scripts/upsert_goldset_from_npz.py
+        # Verificación rápida de dimensión en Chroma
+        python - << 'PY'
+        from embeddings_manager import get_chroma_client
+        client = get_chroma_client()
+        coll = client.get_or_create_collection('goldset_collection', metadata={'hnsw:space': 'cosine'})
+        data = coll.get(include=['embeddings']) or {}
+        vecs = data.get('embeddings') or []
+        dim = (len(vecs[0]) if vecs else None)
+        print('goldset_collection sample_dim:', dim, 'count:', (len(vecs) if vecs else 0))
+        PY
         # 3) Copiar NPZ a ruta por defecto local
         cp data/gold_posts/goldset_embeddings_2025.npz data/gold_posts/goldset_embeddings.npz || true
         # 4) Subir NPZ al bucket de DB (para respaldo y fallback)

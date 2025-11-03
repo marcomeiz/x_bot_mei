@@ -41,19 +41,34 @@ La instalación y ejecución no han cambiado, pero se documentan las variables r
 1.  **Instalar:** `python -m venv venv && source venv/bin/activate && pip install -r requirements.txt`.
 2.  **Variables (.env) — claves y modelos**
     - `OPENROUTER_API_KEY` (obligatoria)
-- `OPENROUTER_BASE_URL` (por defecto `https://openrouter.ai/api/v1`)
+    - `OPENROUTER_BASE_URL` (por defecto `https://openrouter.ai/api/v1`)
 - `POST_MODEL` (por defecto `x-ai/grok-4-fast`), `EVAL_FAST_MODEL`, `EVAL_SLOW_MODEL`
 - `POST_REFINER_MODEL` (por defecto reaprovecha `POST_MODEL`)
 - `POST_PRESET` (`speed|balanced|quality`) y/o `POST_TEMPERATURE`
 - `JOB_MAX_WORKERS` (por defecto `3`), `JOB_QUEUE_MAXSIZE` (por defecto `12`), `JOB_TIMEOUT_SECONDS` (por defecto `35`)
 - `LLM_REQUEST_TIMEOUT_SECONDS` (por defecto `15`), `LLM_MIN_WINDOW_SECONDS` (por defecto `5`)
-3.  **Guardrails (`config/warden.yaml`, `config/lexicon.json`, `config/style_audit.yaml`):** Define los límites duros del Warden (commas, palabras por línea, rangos de caracteres, modo minimal), el vocabulario vetado/stopwords y los umbrales del guardián de estilo. Usa `WARDEN_CONFIG_PATH`, `LEXICON_CONFIG_PATH` o `STYLE_AUDIT_CONFIG_PATH` para apuntar a otras rutas, o variables (`ENFORCE_NO_COMMAS`, `STYLE_MEMORY_SIMILARITY_FLOOR`, etc.) si necesitas overrides rápidos.
-4.  **Mensajes (`config/messages.yaml`):** Copys para Telegram (bot, propuestas, avisos). Usa `MESSAGES_CONFIG_PATH` o overrides puntuales por env si hace falta.
-5.  **Embeddings (HTTP-first)**
+3.  **Bootstrap local:** `python scripts/bootstrap_workspace.py --clean` para regenerar `json/`, `texts/` y `uploads/` con semillas reproducibles.
+4.  **Selección de configuración (`config/settings.<env>.yaml`):**
+    - `APP_CONFIG_ENV=dev|prod` (por defecto `dev`) selecciona el YAML bajo `config/`.
+    - `APP_CONFIG_PATH=/ruta/personalizada/settings.yaml` sobrescribe el archivo directamente.
+    - Variables de entorno individuales siguen teniendo prioridad sobre lo que declare el YAML.
+4.  **Guardrails (`config/warden.yaml`, `config/lexicon.json`, `config/style_audit.yaml`):** Define los límites duros del Warden (commas, palabras por línea, rangos de caracteres, modo minimal), el vocabulario vetado/stopwords y los umbrales del guardián de estilo. Usa `WARDEN_CONFIG_PATH`, `LEXICON_CONFIG_PATH` o `STYLE_AUDIT_CONFIG_PATH` para apuntar a otras rutas, o variables (`ENFORCE_NO_COMMAS`, `STYLE_MEMORY_SIMILARITY_FLOOR`, etc.) si necesitas overrides rápidos.
+5.  **Mensajes (`config/messages.yaml`):** Copys para Telegram (bot, propuestas, avisos). Usa `MESSAGES_CONFIG_PATH` o overrides puntuales por env si hace falta.
+6.  **Embeddings (HTTP-first)**
     - `EMBED_MODEL` (por defecto `jinaai/jina-embeddings-v2-base-en`)
     - Llamada HTTP directa con fallback a SDK; circuito de 60s tras errores.
-6.  **ChromaDB**
+7.  **ChromaDB**
     - `CHROMA_DB_URL` para cliente HTTP (recomendado) o `CHROMA_DB_PATH` para local.
-7.  **Ingesta local:** `python run_watcher.py` y copiar PDFs a `uploads/`.
-8.  **Bot:** `/g` para propuestas (A/B/C) y `/c <texto>` para comentar.
-9.  **Generación manual (debug):** `python -i core_generator.py` y ejecutar `generate_tweet_from_topic("<abstract>")`.
+8.  **Ingesta local:** `python run_watcher.py` y copiar PDFs a `uploads/`.
+9.  **Bot:** `/g` para propuestas (A/B/C) y `/c <texto>` para comentar.
+10. **Generación manual (debug):** `python -i core_generator.py` y ejecutar `generate_tweet_from_topic("<abstract>")`.
+11. **Higiene del repo:** `python scripts/check_repo_hygiene.py` valida que no se hayan versionado logs, caches o secretos antes de hacer push.
+
+## Scripts Utilitarios Nuevos
+
+- `scripts/bootstrap_workspace.py`: prepara carpetas ignoradas (`json/`, `texts/`, `uploads/`) y copia semillas deterministas desde `data/seeds/`. Útil al clonar o reiniciar el entorno local.
+- `scripts/check_repo_hygiene.py`: bloquea la versión accidental de artefactos temporales. Está integrado en CI (`.github/workflows/hygiene.yml`) y puede ejecutarse localmente antes de cada commit.
+
+Las semillas incluidas (`data/seeds/topics_sample.jsonl`, `data/seeds/text_sample.txt`) permiten smoke tests sin depender de PDFs reales.
+
+> Consulta `docs/workspace_bootstrap.md` para un desglose paso a paso del bootstrap e higiene.

@@ -12,7 +12,7 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
   - Tweets deben ser ≤ 280 caracteres sin recorte local: solo mediante LLM.
   - Mensajes de Telegram incluyen: tema (abstract), nombre del PDF origen si existe, y contadores `(N/280)` por opción.
 - Los temas en ChromaDB incluyen metadatos `{"pdf": <nombre>}` cuando provienen del pipeline de ingestión (`watcher_app.py` + módulos auxiliares).
-- Fallback LLM: intentar OpenRouter y, si falla (402/401/403/429/insufficient), pasar a Gemini sin interrumpir el flujo.
+- LLM: uso exclusivo de OpenRouter. No hay fallback a otros proveedores.
 - Preferir seguridad y claridad sobre “optimización prematura”.
 
 ## Arquitectura (vista de 10.000 ft)
@@ -28,7 +28,7 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 - `persistence_service.py`
   - Inserta tópicos en Chroma, sincroniza con endpoints remotos y genera resúmenes JSON.
 - `embeddings_manager.py`
-  - Cliente único de ChromaDB (persistente) con lock de inicialización; funciones para colecciones y embeddings (Google `models/embedding-001`).
+  - Cliente único de ChromaDB (persistente) con lock de inicialización; funciones para colecciones y embeddings vía OpenRouter (modelo por defecto `openai/text-embedding-3-small`).
 - `core_generator.py`
   - Selecciona un tema de `topics_collection`, comprueba similitud contra `memory_collection` y genera A/B bajo contrato de estilo.
   - Refinado de estilo + “acortado iterativo” vía LLM hasta ≤ 280 (sin truncar localmente).
@@ -55,7 +55,7 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 - `callback_parser.py`
   - Tipifica y parsea los datos de los botones inline de Telegram.
 - `llm_fallback.py`
-  - Capa común de LLM: intenta OpenRouter → Gemini, con manejo de JSON robusto y detección de errores para fallback.
+  - Capa común de LLM: OpenRouter con manejo de JSON robusto y detección de errores (sin fallback a otros proveedores).
 - `bot.py`
   - Webhook de Telegram: `/generate` para proponer A/B y callbacks para aprobar/rechazar.
   - Envía mensajes con comprobación de errores Telegram (Markdown → plano si falla).
@@ -81,12 +81,15 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 ## Configuración y Entorno
 
 - Python 3.10+.
-- Instala con: `python -m venv venv && source venv/bin/activate && pip install -r requirements.txt`.
+- Instalación (runtime): `python -m venv venv && source venv/bin/activate && pip install -r requirements.runtime.txt`.
+- Extras de desarrollo: `pip install -r requirements.dev.txt`.
+- Flujos programados/CI: `pip install -r requirements.workflow.txt`.
 - Variables de entorno (.env, no subir nunca):
-  - `GOOGLE_API_KEY` (obligatoria para embeddings y Gemini)
-  - `OPENROUTER_API_KEY` (opcional; si falta, se usa Gemini)
-  - `FALLBACK_PROVIDER_ORDER` (por defecto `gemini,openrouter`)
-  - `GEMINI_MODEL` (por defecto `gemini-2.5-pro`)
+  - `OPENROUTER_API_KEY` (obligatoria)
+  - `FALLBACK_PROVIDER_ORDER` (por defecto `openrouter`)
+  - `GENERATION_MODEL` (por defecto `x-ai/grok-4`)
+  - `VALIDATION_MODEL` (por defecto `x-ai/grok-4-fast`)
+  - `EMBED_MODEL` (por defecto `openai/text-embedding-3-small`)
   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (si usas el bot)
   - `NOTION_API_TOKEN`, `NOTION_DATABASE_ID` (si sincronizas curación con Notion)
   - `HF_SOURCES_PATH`, `HF_CANDIDATE_DIR`, `HF_CANDIDATE_INDEX`, `HF_STATE_PATH` (override opcional de rutas del pipeline Hugging Face)
@@ -104,7 +107,7 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 - **Principio de Inferencia Única:** Se debe priorizar la consolidación de múltiples pasos de razonamiento (ej. `tail-sampling`, `debate interno`, refinado) en una única llamada al LLM con un prompt de "Chain of Thought" bien estructurado. El objetivo es mover la complejidad del *proceso* (múltiples llamadas secuenciales) a la *instrucción* (un prompt más inteligente).
 - **Evaluación Adaptativa:** Para tareas de auditoría, se debe usar un sistema de dos jueces. Un modelo rápido y barato (`flash`) para criterios objetivos y cuantificables, y un modelo potente (`pro`) solo si es necesario para el juicio subjetivo, basándose en un umbral de confianza.
 - **Configuración Externalizada:** Las rúbricas y prompts complejos deben vivir en ficheros de configuración (`.yaml`) para facilitar su modificación sin tocar el código de la aplicación.
-- **Orden de proveedores:** `FALLBACK_PROVIDER_ORDER` (por defecto `gemini,openrouter`).
+- **Orden de proveedores:** `FALLBACK_PROVIDER_ORDER` (por defecto `openrouter`).
 - **JSON estricto:** Forzar siempre la salida en formato JSON para facilitar el parseo y la fiabilidad.
 
 ## Telegram: Mensajería y Callbacks
@@ -149,17 +152,14 @@ Su alcance aplica a TODO el árbol bajo esta carpeta.
 
 ## Patrones de Error y Diagnóstico
 
-- OpenRouter 402/ratelimits → verás logs “Falló OpenRouter… fallback a Gemini: …”. No fuerces reintentos inmediatos; deja al fallback trabajar.
-- Gemini 404 model not found → usa `genai.list_models()` y ajusta `GEMINI_MODEL`.
+- OpenRouter: si hay errores 401/403/402/429, se registra el error y se aborta. No hay fallback a otros proveedores.
 - Telegram 400 “can’t parse entities” → ocurre por Markdown; ya hay fallback a texto plano. Considera escape MarkdownV2 si se requiere formato estable.
 - Chroma “Could not connect to tenant …” → carrera en init; ya mitigado con lock. Si persiste, verifica permisos y la existencia de `db/`.
 
 ## Pruebas y Validación (rápido y seguro)
 
 - Smoke tests sin red:
-  - Monkeypatch `llm._openrouter_chat` para lanzar 402 y validar fallback a Gemini (stub) → ya existen ejemplos en desarrollo.
-- Listing de modelos Gemini (real):
-  - `import google.generativeai as genai; genai.configure(api_key=...); list(genai.list_models())`.
+  - Monkeypatch `llm._openrouter_chat` para probar manejo de errores y robustez de parseo JSON.
 - Watcher local:
   - Ejecuta `python watcher_app.py`, copia un PDF pequeño a `uploads/` y verifica `json/` + `db/` + notificación.
 - Bot:

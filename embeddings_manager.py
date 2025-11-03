@@ -1,27 +1,22 @@
 import os
-import google.generativeai as genai
 import threading
 import chromadb
 from dotenv import load_dotenv
-from typing import List
+from typing import List, Optional
+from openai import OpenAI  # OpenRouter vía API OpenAI
 
 # --- NUEVO: Importar el logger configurado ---
 from logger_config import logger
 
 load_dotenv()
 
-# La configuración de la API puede ser global
-try:
-    genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-except Exception as e:
-    # --- MODIFICADO: Usar el logger para registrar el error ---
-    logger.critical(f"No se pudo configurar la API de Google. El programa no puede continuar. Error: {e}", exc_info=True)
-    # Considera salir del programa si esta configuración es crítica
-    # exit(1)
-
 # Patrón para asegurar una única instancia del cliente por proceso
 _chroma_client = None
 _chroma_lock = threading.Lock()
+_embed_client: Optional[OpenAI] = None
+_embed_lock = threading.Lock()
+EMBED_MODEL = os.getenv("EMBED_MODEL", "openai/text-embedding-3-small")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 def get_chroma_client():
     """
@@ -55,6 +50,23 @@ def get_chroma_client():
                         raise
     return _chroma_client
 
+def _ensure_embed_client() -> bool:
+    """Inicializa cliente de embeddings en OpenRouter (protocolo OpenAI)."""
+    global _embed_client
+    if not OPENROUTER_API_KEY:
+        logger.error("OPENROUTER_API_KEY no configurada; no se pueden generar embeddings.")
+        return False
+    if _embed_client is None:
+        with _embed_lock:
+            if _embed_client is None:
+                try:
+                    _embed_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY)
+                    logger.info("Cliente de OpenRouter (embeddings) inicializado.")
+                except Exception as e:
+                    logger.critical(f"Fallo crítico inicializando cliente de OpenRouter para embeddings: {e}", exc_info=True)
+                    return False
+    return True
+
 def get_topics_collection():
     """Obtiene la colección de temas."""
     client = get_chroma_client()
@@ -66,15 +78,22 @@ def get_memory_collection():
     return client.get_or_create_collection(name="memory_collection", metadata={"hnsw:space": "cosine"})
 
 def get_embedding(text: str):
-    """Genera el embedding para un texto dado."""
+    """Genera el embedding para un texto dado usando OpenRouter (endpoint OpenAI)."""
+    if not text:
+        return None
+    if not _ensure_embed_client():
+        return None
     try:
-        # --- NUEVO: Registrar la llamada a la API ---
-        logger.info(f"Generando embedding para texto: '{text[:50]}...'")
-        result = genai.embed_content(model="models/embedding-001", content=text, task_type="RETRIEVAL_DOCUMENT")
-        return result['embedding']
+        logger.info(f"Generando embedding (model={EMBED_MODEL}) para texto: '{text[:50]}...'")
+        resp = _embed_client.embeddings.create(model=EMBED_MODEL, input=text)
+        # OpenAI compatible: resp.data[0].embedding
+        vec = resp.data[0].embedding if getattr(resp, "data", None) else None
+        if not vec:
+            logger.error("Respuesta de embeddings sin 'data' o 'embedding'.")
+            return None
+        return vec
     except Exception as e:
-        # --- NUEVO: Registrar el error específico de la API ---
-        logger.error(f"Error al llamar a la API de Google para generar embedding: {e}", exc_info=True)
+        logger.error(f"Error al generar embedding (OpenRouter): {e}", exc_info=True)
         return None
 
 def find_similar_topics(topic_text: str, n_results: int = 4) -> List[str]:

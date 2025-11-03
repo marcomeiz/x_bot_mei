@@ -1,5 +1,5 @@
 name: Fast Evaluation
-model: gemini-1.5-flash
+model: x-ai/grok-4-fast
 rubric:
   - dimension: style_sharpness
     description: "Voz directa, ritmo ágil, cero hedging/corporativismo. One sentence per line. No commas."

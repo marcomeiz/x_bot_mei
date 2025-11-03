@@ -32,7 +32,7 @@ def _run_evaluation(text: str, context: PromptContext, rubric: Dict[str, Any]) -
     if not rubric or not text:
         return None
 
-    model = rubric.get("model", "gemini-1.5-flash")
+    model = rubric.get("model", "x-ai/grok-4-fast")
     rubric_text = yaml.dump(rubric.get("rubric", {}))
     output_format_text = yaml.dump(rubric.get("output_format", {}))
 

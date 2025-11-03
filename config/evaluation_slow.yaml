@@ -1,5 +1,5 @@
 name: Slow Evaluation
-model: gemini-1.5-pro
+model: x-ai/grok-4
 rubric:
   - dimension: contrarian_signal
     description: "¿Abre con un ángulo incómodo, no obvio, que desafía la narrativa mainstream?"

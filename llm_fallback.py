@@ -1,6 +1,11 @@
 import os
 import json
-import instructor
+try:
+    import instructor  # optional; only needed for structured outputs
+    _INSTRUCTOR_AVAILABLE = True
+except ImportError:
+    instructor = None  # type: ignore
+    _INSTRUCTOR_AVAILABLE = False
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional, Union, Type
 
@@ -9,7 +14,7 @@ from dotenv import load_dotenv
 
 # Proveedores
 from openai import OpenAI  # OpenRouter vía API OpenAI
-import google.generativeai as genai  # Gemini
+# Eliminado: dependencia de Gemini. Solo OpenRouter.
 
 from logger_config import logger
 
@@ -70,17 +75,12 @@ def _parse_json_robust(text: str) -> Any:
 
 class LLMFallback:
     def __init__(self) -> None:
-        self.provider_order = [p.strip() for p in os.getenv("FALLBACK_PROVIDER_ORDER", "gemini,openrouter").split(",") if p.strip()]
+        # Fuerza proveedor único OpenRouter independientemente del entorno
+        self.provider_order = ["openrouter"]
 
         # OpenRouter
         self._openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
         self._openrouter_client: Optional[OpenAI] = None
-
-        # Gemini
-        self._google_api_key = os.getenv("GOOGLE_API_KEY")
-        # Always prefer the most advanced non-Flash Gemini by default.
-        self._gemini_model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
-        self._gemini_model: Optional[Any] = None
 
     # --- Inicializadores perezosos ---
     def _ensure_openrouter(self) -> bool:
@@ -89,22 +89,13 @@ class LLMFallback:
             return False
         if self._openrouter_client is None:
             self._openrouter_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=self._openrouter_api_key)
-            self._openrouter_client = instructor.patch(self._openrouter_client, mode=instructor.Mode.TOOLS)
-            logger.info("Instructor patch applied to OpenRouter client.")
+            if _INSTRUCTOR_AVAILABLE:
+                try:
+                    self._openrouter_client = instructor.patch(self._openrouter_client, mode=instructor.Mode.TOOLS)
+                    logger.info("Instructor patch applied to OpenRouter client.")
+                except Exception as exc:
+                    logger.warning(f"No se pudo aplicar patch de instructor: {exc}")
         return True
-
-    def _ensure_gemini(self) -> bool:
-        if not self._google_api_key:
-            logger.warning("GOOGLE_API_KEY no configurada; no se puede usar Gemini.")
-            return False
-        try:
-            genai.configure(api_key=self._google_api_key)
-            if self._gemini_model is None:
-                self._gemini_model = genai.GenerativeModel(self._gemini_model_name)
-            return True
-        except Exception as e:
-            logger.error(f"Error configurando Gemini: {e}")
-            return False
 
     # --- Proveedores ---
     def _create_chat_completion(self, client: OpenAI, model: str, messages: List[Dict[str, str]], temperature: float, json_mode: bool) -> str:
@@ -118,49 +109,6 @@ class LLMFallback:
         response = client.chat.completions.create(**kwargs)
         return response.choices[0].message.content.strip()
 
-    def _gemini_chat(self, *, messages: List[Dict[str, str]], temperature: float, json_mode: bool) -> str:
-        assert self._gemini_model is not None
-        prompt = _messages_to_prompt(messages)
-
-        if json_mode:
-            prompt = (
-                prompt
-                + "\n\nYou must respond ONLY with strict JSON. No prose, no markdown."
-            )
-
-        gen_cfg: Dict[str, Any] = {"temperature": temperature}
-        if json_mode:
-            gen_cfg["response_mime_type"] = "application/json"
-
-        try:
-            resp = self._gemini_model.generate_content(prompt, generation_config=gen_cfg)
-            return (getattr(resp, "text", None) or "").strip()
-        except Exception as e:
-            msg = str(e).lower()
-            needs_alt = any(t in msg for t in [
-                "not found",
-                "is not supported for generatecontent",
-                "404",
-                "listmodels",
-            ])
-            if not needs_alt:
-                raise
-            # Try stable non-Flash variants only. Avoid deprecated 'gemini-pro'.
-            alt_names = [
-                os.getenv("GEMINI_MODEL", "gemini-2.5-pro"),
-                "gemini-2.5-pro",
-                "gemini-1.5-pro-latest",
-            ]
-            for name in alt_names:
-                try:
-                    logger.warning(f"Modelo Gemini '{self._gemini_model_name}' no disponible; probando alternativo '{name}'.")
-                    self._gemini_model = genai.GenerativeModel(name)
-                    self._gemini_model_name = name
-                    resp = self._gemini_model.generate_content(prompt, generation_config=gen_cfg)
-                    return (getattr(resp, "text", None) or "").strip()
-                except Exception:
-                    continue
-            raise e
 
     # --- API pública ---
     def chat_text(self, *, model: str, messages: List[Dict[str, str]], temperature: float = 0.7) -> str:
@@ -172,15 +120,8 @@ class LLMFallback:
                     return self._create_chat_completion(self._openrouter_client, model, messages, temperature, False)
                 except Exception as e:
                     last_err = e
-                    if _should_fallback_for_error(e):
-                        logger.warning(f"Falló OpenRouter, aplicando fallback: {e}")
-                    else:
-                        logger.error(f"Error no recuperable en OpenRouter: {e}")
-                        raise
-
-            if provider == "gemini" and self._ensure_gemini():
-                logger.info(f"LLM provider: Gemini ({self._gemini_model_name})")
-                return self._gemini_chat(messages=messages, temperature=temperature, json_mode=False)
+                    logger.error(f"Error no recuperable en OpenRouter: {e}")
+                    raise
 
         if last_err:
             raise last_err
@@ -196,27 +137,16 @@ class LLMFallback:
                     return _parse_json_robust(text)
                 except Exception as e:
                     last_err = e
-                    if _should_fallback_for_error(e):
-                        logger.warning(f"Falló OpenRouter (JSON), fallback a Gemini: {e}")
-                    else:
-                        logger.error(f"Error no recuperable en OpenRouter (JSON): {e}")
-                        raise
-
-            if provider == "gemini" and self._ensure_gemini():
-                try:
-                    logger.info(f"LLM provider (JSON): Gemini ({self._gemini_model_name})")
-                    text = self._gemini_chat(messages=messages, temperature=temperature, json_mode=True)
-                    return _parse_json_robust(text)
-                except Exception as e:
-                    last_err = e
-                    logger.warning(f"Falló Gemini (JSON), aplicando fallback: {e}")
-                    continue
+                    logger.error(f"Error no recuperable en OpenRouter (JSON): {e}")
+                    raise
 
         if last_err:
             raise last_err
         raise RuntimeError("No hay proveedor LLM disponible para salida JSON")
 
     def chat_structured(self, *, model: str, messages: List[Dict[str, str]], response_model: Type[BaseModel], temperature: float = 0.7) -> BaseModel:
+        if not _INSTRUCTOR_AVAILABLE:
+            raise RuntimeError("Structured outputs no disponibles: instala 'instructor' si necesitas esta funcionalidad.")
         last_err: Optional[Exception] = None
         for provider in self.provider_order:
             client: Optional[OpenAI] = None
@@ -236,12 +166,10 @@ class LLMFallback:
                     )
                 except Exception as e:
                     last_err = e
-                    if provider == "openrouter" and not _should_fallback_for_error(e):
-                        logger.error(f"Error no recuperable en OpenRouter (Structured): {e}")
-                        raise
-                    logger.warning(f"Falló el proveedor '{provider}' (Structured), aplicando fallback: {e}")
+                    logger.error(f"Error no recuperable en OpenRouter (Structured): {e}")
+                    raise
 
-        # Add Gemini fallback for structured data here in the future if needed.
+        # Sin fallback adicional: solo OpenRouter.
 
         if last_err:
             raise last_err

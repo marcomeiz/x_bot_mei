@@ -1,8 +1,6 @@
 PyMuPDF
-watchdog
-desktop-notifier
 llama-index
 llama-index-llms-openai
-llama-index-embeddings-google
 numpy
 datasets
+PyYAML

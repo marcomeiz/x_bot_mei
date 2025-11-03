@@ -16,8 +16,7 @@ Quick Start
 2) Export secrets (or let the script prompt):
    - export TELEGRAM_BOT_TOKEN="..."
    - export TELEGRAM_CHAT_ID="..."     # chat or group id for build/deploy notifications
-   - export GOOGLE_API_KEY="..."
-   - export OPENROUTER_API_KEY="..."   # optional
+   - export OPENROUTER_API_KEY="..."   # requerido para LLM y embeddings vía OpenRouter
    - export ADMIN_API_TOKEN="choose-a-strong-token"
 
 3) Run the deploy script from the repo root:
@@ -48,7 +47,7 @@ Recommended: GitHub Actions + Workload Identity Federation (WIF) calling Cloud B
 
 1) Prepare once (project‑level):
    - Ensure APIs are enabled (already done by the script): Run, Artifact Registry, Cloud Build, Secret Manager, Cloud Storage.
-   - Create secrets: TELEGRAM_BOT_TOKEN, GOOGLE_API_KEY, optional OPENROUTER_API_KEY, ADMIN_API_TOKEN.
+   - Create secrets: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, OPENROUTER_API_KEY, ADMIN_API_TOKEN.
    - Grant roles to the Cloud Build SA (PROJECT_NUMBER@cloudbuild.gserviceaccount.com):
      - roles/run.admin
      - roles/artifactregistry.writer

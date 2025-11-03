@@ -1,7 +1,5 @@
 python-dotenv
 requests
 datasets
-huggingface_hub
-google-generativeai
 chromadb
-instructor
+openai

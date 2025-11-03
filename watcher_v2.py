@@ -20,7 +20,7 @@ TOPIC_EXTRACTION_MODEL = "anthropic/claude-3.5-sonnet"
 
 async def generate_embeddings(topics: List[str]) -> List[List[float]]:
     """Generates embeddings for a list of topics."""
-    print(f"Generating {len(topics)} embeddings using Google API...")
+    print(f"Generating {len(topics)} embeddings via OpenRouter API...")
     embeddings = []
     for topic in topics:
         # Since get_embedding is synchronous, we run it in a thread pool

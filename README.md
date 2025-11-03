@@ -19,8 +19,8 @@ La arquitectura actual se basa en los siguientes principios:
     -   La función `generate_all_variants` es ahora el corazón del sistema. Utiliza un único prompt de "Chain of Thought" para instruir al LLM a realizar el `tail-sampling`, el `debate interno` y la generación de 3 variantes de distinta longitud en una sola llamada.
 -   **Evaluación (`evaluation.py`):**
     -   El sistema utiliza un flujo de dos pasos:
-        1.  **Juez Rápido:** Un modelo de LLM rápido (`gemini-1.5-flash`) evalúa criterios cuantificables definidos en `config/evaluation_fast.yaml`.
-        2.  **Juez Sabio:** Si la puntuación del juez rápido no supera un umbral de confianza (`EVAL_CONFIDENCE_THRESHOLD`), un modelo más potente (`gemini-1.5-pro`) evalúa los criterios subjetivos definidos en `config/evaluation_slow.yaml`.
+1.  **Juez Rápido:** Un modelo de LLM rápido (`x-ai/grok-4-fast`) evalúa criterios cuantificables definidos en `config/evaluation_fast.yaml`.
+2.  **Juez Sabio:** Si la puntuación del juez rápido no supera un umbral de confianza (`EVAL_CONFIDENCE_THRESHOLD`), un modelo más potente (`x-ai/grok-4`) evalúa los criterios subjetivos definidos en `config/evaluation_slow.yaml`.
 -   **Orquestación (`core_generator.py` y `proposal_service.py`):**
     -   Estos módulos han sido actualizados para llamar a la nueva función de generación unificada y manejar la nueva estructura de datos.
 
@@ -32,9 +32,24 @@ La arquitectura actual se basa en los siguientes principios:
 
 ## Instalación y Ejecución
 
-La instalación y ejecución no han cambiado.
+### Entorno base (runtime)
 
-1.  **Instalar:** `python -m venv venv && source venv/bin/activate && pip install -r requirements.txt`.
-2.  **Configurar `.env`:** Definir `GOOGLE_API_KEY` y otras variables necesarias.
+1.  **Instalar dependencias de ejecución:** `python -m venv venv && source venv/bin/activate && pip install -r requirements.runtime.txt`.
+2.  **Configurar `.env`:** Definir `OPENROUTER_API_KEY` (requerida). Los modelos ya tienen valores por defecto:
+    - `GENERATION_MODEL = x-ai/grok-4`
+    - `VALIDATION_MODEL = x-ai/grok-4-fast`
+    - `EMBED_MODEL = openai/text-embedding-3-small`
 3.  **Ingesta local:** `python run_watcher.py` y copiar PDFs a `uploads/`.
 4.  **Generación manual:** `python -i core_generator.py` y ejecutar `generate_tweet_from_topic("<abstract>")`.
+
+### Entorno de desarrollo
+
+Si vas a ejecutar tests, utilidades locales (PyMuPDF) o flujos opcionales, instala además:
+
+- `pip install -r requirements.dev.txt`
+
+### Entorno de workflow/CI
+
+Los flujos programados (GitHub Actions) usan un set mínimo de dependencias:
+
+- `pip install -r requirements.workflow.txt`

@@ -25,7 +25,6 @@ BUCKET_DB=${BUCKET_DB:-x-bot-mei-db}
 BUCKET_BACKUP=${BUCKET_BACKUP:-x-bot-mei-backups}
 
 TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
-GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
 OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
 ADMIN_API_TOKEN=${ADMIN_API_TOKEN:-}
 TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
@@ -76,7 +75,6 @@ gcloud artifacts repositories create "$REPO" --repository-format=docker --locati
 
 echo "Preparing secrets..."
 read_secret TELEGRAM_BOT_TOKEN
-read_secret GOOGLE_API_KEY
 read_secret ADMIN_API_TOKEN
 read_secret TELEGRAM_CHAT_ID
 
@@ -91,7 +89,6 @@ ensure_secret() {
 }
 
 ensure_secret TELEGRAM_BOT_TOKEN "$TELEGRAM_BOT_TOKEN"
-ensure_secret GOOGLE_API_KEY "$GOOGLE_API_KEY"
 if [[ -n "${OPENROUTER_API_KEY:-}" ]]; then
   ensure_secret OPENROUTER_API_KEY "$OPENROUTER_API_KEY"
 fi
@@ -135,7 +132,6 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
 # Build secret flags dynamically (OPENROUTER only if present)
 SECRET_FLAGS=(
   "TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN:latest"
-  "GOOGLE_API_KEY=GOOGLE_API_KEY:latest"
   "ADMIN_API_TOKEN=ADMIN_API_TOKEN:latest"
 )
 if gcloud secrets describe OPENROUTER_API_KEY >/dev/null 2>&1; then
@@ -146,7 +142,7 @@ SECRET_LIST=$(IFS=, ; echo "${SECRET_FLAGS[*]}")
 
 # Build env var string with custom item delimiter to allow comma in values
 # Using gcloud's escaping feature: ^:<delim>^
-ENV_VARS='^~^FALLBACK_PROVIDER_ORDER=gemini,openrouter~CHROMA_DB_PATH=/mnt/db~GEMINI_MODEL=gemini-2.5-pro~SHOW_TOPIC_ID=0'
+ENV_VARS='^~^FALLBACK_PROVIDER_ORDER=openrouter~CHROMA_DB_PATH=/mnt/db~GENERATION_MODEL=x-ai/grok-4~VALIDATION_MODEL=x-ai/grok-4-fast~EMBED_MODEL=openai/text-embedding-3-small~SHOW_TOPIC_ID=0'
 
 gcloud run deploy "$SERVICE" \
   --image "$IMG" \

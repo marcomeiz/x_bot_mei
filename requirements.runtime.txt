@@ -1,11 +1,7 @@
 Flask
 gunicorn
 requests
-google-generativeai
 chromadb
 pydantic
-instructor
 openai
-tenacity
 python-dotenv
-PyYAML

@@ -49,24 +49,23 @@ Infra y despliegue (gcloud)
 Secrets (GCP Secret Manager)
 - TELEGRAM_BOT_TOKEN (requiere para notificaciones y webhook)
 - TELEGRAM_CHAT_ID
-- GOOGLE_API_KEY (obligatoria para embeddings y Gemini)
-- ADMIN_API_TOKEN (obligatoria para /stats y endpoints admin)
-- OPENROUTER_API_KEY (opcional; fallback)
-- Acceso (si tienes permisos):
-  - gcloud secrets versions access latest --secret=TELEGRAM_BOT_TOKEN --project=xbot-473616
-  - gcloud secrets versions access latest --secret=TELEGRAM_CHAT_ID --project=xbot-473616
-  - gcloud secrets versions access latest --secret=GOOGLE_API_KEY --project=xbot-473616
-  - gcloud secrets versions access latest --secret=ADMIN_API_TOKEN --project=xbot-473616
-  - gcloud secrets versions access latest --secret=OPENROUTER_API_KEY --project=xbot-473616
+ - OPENROUTER_API_KEY (obligatoria; se usa para todas las llamadas LLM y embeddings vía OpenRouter)
+ - ADMIN_API_TOKEN (obligatoria para /stats y endpoints admin)
+  - Acceso (si tienes permisos):
+    - gcloud secrets versions access latest --secret=TELEGRAM_BOT_TOKEN --project=xbot-473616
+    - gcloud secrets versions access latest --secret=TELEGRAM_CHAT_ID --project=xbot-473616
+    - gcloud secrets versions access latest --secret=ADMIN_API_TOKEN --project=xbot-473616
+    - gcloud secrets versions access latest --secret=OPENROUTER_API_KEY --project=xbot-473616
 
 Runtime (Cloud Run)
 - Variables de entorno (configuradas en el despliegue):
   - CHROMA_DB_PATH = /mnt/db
-  - GEMINI_MODEL = gemini-2.5-pro
-  - FALLBACK_PROVIDER_ORDER = gemini,openrouter
+- GENERATION_MODEL = x-ai/grok-4
+- VALIDATION_MODEL = x-ai/grok-4-fast
+- FALLBACK_PROVIDER_ORDER = openrouter
   - SHOW_TOPIC_ID = 0
-- Secretos inyectados (como variables):
-  - TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, GOOGLE_API_KEY, ADMIN_API_TOKEN, (OPENROUTER_API_KEY si existe)
+  - Secretos inyectados (como variables):
+    - TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, ADMIN_API_TOKEN, OPENROUTER_API_KEY
 - Volumen: GCS FUSE /mnt/db ⇒ bucket xbot-473616-x-bot-mei-db
 
 Endpoints de la app
@@ -83,5 +82,5 @@ Logs (CLI)
 Notas de operación
 - Push a main ⇒ despliega automáticamente (Actions → Cloud Build → Cloud Run).
 - Telegram formateado en HTML (parse_mode=HTML) para evitar errores 400 y texto con barras invertidas.
-- Generación LLM: Gemini 2.5 Pro para A/B/C; fallback robusto si falla el JSON.
+- Generación LLM: OpenRouter (Grok-4/Grok-4-fast) para A/B/C; salida JSON robusta.
 - Similitud: no bloquea en generación; se valida al aprobar con confirmación si es muy parecido.

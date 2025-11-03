@@ -49,7 +49,7 @@ def evaluate_signal(
     )
     try:
         raw = llm.chat_json(
-            model=os.getenv("GEMINI_MODEL", "gemini-2.5-pro"),
+            model=os.getenv("GENERATION_MODEL", "x-ai/grok-4"),
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -115,7 +115,7 @@ def craft_topic_from_signal(
         user_prompt += f"\nPreferred tags: {tag_str}\n"
     try:
         raw = llm.chat_json(
-            model=os.getenv("GEMINI_MODEL", "gemini-2.5-pro"),
+            model=os.getenv("GENERATION_MODEL", "x-ai/grok-4"),
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},

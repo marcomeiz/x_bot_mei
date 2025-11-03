@@ -6,3 +6,8 @@ uploads/
 texts/
 db/
 json/
+# Ignore log artifacts and generated logs
+*.log
+logs*.json
+bot.log
+watcher_v2.log

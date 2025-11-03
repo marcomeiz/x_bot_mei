@@ -50,8 +50,8 @@ class CommentSkip(Exception):
 
 load_dotenv()
 
-GENERATION_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
-VALIDATION_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+GENERATION_MODEL = os.getenv("GENERATION_MODEL", "x-ai/grok-4")
+VALIDATION_MODEL = os.getenv("VALIDATION_MODEL", "x-ai/grok-4-fast")
 SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.20") or 0.20)
 MAX_GENERATION_ATTEMPTS = 3
 

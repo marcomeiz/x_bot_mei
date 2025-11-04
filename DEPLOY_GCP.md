@@ -93,6 +93,7 @@ Recommended: GitHub Actions + Workload Identity Federation (WIF) calling Cloud B
      - Env vars, including a comma value via gcloud escaping
      - Secret references from Secret Manager (including TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID for Telegram notifications)
      - Notifications to Telegram at start and success with branch, short SHA and commit subject
+      - On‑demand goldset ingest: step `ingest-goldset` is skipped by default; enable by passing substitution `_INGEST_GOLDSET=1` when submitting the build.
 
 GitHub Actions (recommended)
 1) Create a deploy Service Account (SA) and grant roles:

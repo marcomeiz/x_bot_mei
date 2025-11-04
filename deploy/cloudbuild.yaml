@@ -18,6 +18,7 @@ substitutions:
   _BUCKET_DB: xbot-473616-x-bot-mei-db
   _SHORT_SHA: manual
   _BRANCH: main
+  _INGEST_GOLDSET: '0'
 
 steps:
   # Commit metadata for notifications
@@ -99,7 +100,7 @@ steps:
 
         bash ./deploy/scripts/notify_success.sh "${_SERVICE}" "${_REGION}"
 
-  # Ingest/re-embed goldset into Chroma with 3072-dim vectors
+  # Ingest/re-embed goldset into Chroma with 3072-dim vectors (on-demand only)
   - name: python:3.11-slim
     id: ingest-goldset
     entrypoint: bash
@@ -109,6 +110,10 @@ steps:
       - -ceu
       - |
         set -euo pipefail
+        if [ "${_INGEST_GOLDSET:-0}" != "1" ]; then
+          echo "[ingest-goldset] Skipped (set _INGEST_GOLDSET=1 to enable)";
+          exit 0;
+        fi
         pip install -r requirements.runtime.txt
         python - << 'PY'
         from embeddings_manager import get_chroma_client

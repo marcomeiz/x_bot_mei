@@ -692,7 +692,20 @@ class ProposalService:
             )
 
             issues = []
-            similarity = max_similarity_to_goldset(content)
+            # Modo estricto: generar embedding del borrador para comparar con goldset
+            similarity = max_similarity_to_goldset(content, generate_if_missing=True)
+            if similarity is None:
+                logger.info(
+                    "[GOLDSET] Draft %s similarity=None (no cache available; embedding generation may have failed).",
+                    label,
+                )
+            else:
+                logger.info(
+                    "[GOLDSET] Draft %s similarity=%.3f (min=%.2f)",
+                    label,
+                    similarity,
+                    GOLDSET_MIN_SIMILARITY,
+                )
             # Mantener sugerencia de voz aunque similitud sea None
             if similarity is not None:
                 issues.append(f"Sugerencia: refuerza la voz (similitud {similarity:.2f}).")

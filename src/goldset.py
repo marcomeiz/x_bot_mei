@@ -10,7 +10,6 @@ from embeddings_manager import get_embedding, get_chroma_client
 from logger_config import logger
 
 DEFAULT_GOLDSET_PATH = Path("data/gold_posts/hormozi_master.json")
-GOLDSET_MIN_SIMILARITY = float(os.getenv("UMBRAL_SIMILITUD", os.getenv("GOLDSET_MIN_SIMILITUD", "0.75")) or 0.75)
 
 
 @lru_cache(maxsize=1)
@@ -155,12 +154,12 @@ def _compute_embeddings_locally() -> Tuple[List[str], List[Sequence[float]]]:
     return valid_texts, embeddings
 
 
-def max_similarity_to_goldset(text: str) -> Optional[float]:
+def max_similarity_to_goldset(text: str, *, generate_if_missing: bool = False) -> Optional[float]:
     if not text or not text.strip():
         return None
     try:
-        # No generar embeddings en ruta de /g; si falta caché, se omite similitud
-        vec = get_embedding(text, generate_if_missing=False)
+        # En modo estricto (/g), se permite generar embedding del borrador para medir contra goldset
+        vec = get_embedding(text, generate_if_missing=generate_if_missing)
     except Exception as exc:  # pragma: no cover
         logger.warning("Could not embed draft for goldset comparison: %s", exc)
         return None

@@ -105,6 +105,12 @@ LOG_WARDEN_FAILURE_REASON=true
 - Recommended model (adjust if your key doesn’t support it):
   - `EMBED_MODEL=openai/text-embedding-3-large` (3072)
 
+### Goldset (similitud de estilo)
+
+- El chequeo de similitud de las variantes usa el goldset, no los tópicos.
+- Implementación: `ProposalService._check_contract_requirements` llama `max_similarity_to_goldset(draft, generate_if_missing=True)`.
+- Si por cualquier motivo el embedding falla y la similitud es `None`, no se bloquea por ese motivo (se mantiene la sugerencia), pero se recomienda revisar logs de `[EMB]`.
+
 ## ChromaDB
 
 - File: `embeddings_manager.py`
@@ -121,10 +127,10 @@ LOG_WARDEN_FAILURE_REASON=true
 
 ### Embedding policy for `/g`
 
-- Durante la propuesta interactiva no se generan embeddings. Solo consultas a caché (LRU/FS/Firestore/Chroma).
-- Si falta caché, se omite similitud y se registra `[METRIC] emb_skip_due_to_policy`.
-- En la aprobación (A/B/C) se permite generar el embedding del tweet aprobado para guardarlo en `memory_collection`.
-  - Enforcement points: `bot._embed_line` usa `generate_if_missing=false`; `ProposalService._finalize_choice` usa `generate_if_missing=true` tras la aprobación.
+- Estricto: antes de publicar la propuesta, se genera el embedding de cada variante A/B/C para medir similitud contra el goldset (impacta coste/latencia).
+- Se registra en logs: `[GOLDSET] Draft <A|B|C> similarity=<score> (min=<umbral>)`.
+- En la aprobación (A/B/C) se mantiene la generación de embedding del tweet aprobado para guardarlo en `memory_collection`.
+  - Enforcement points: `ProposalService._check_contract_requirements` → `max_similarity_to_goldset(..., generate_if_missing=True)`.
 
 ### Embeddings: fingerprint y dimensión
 

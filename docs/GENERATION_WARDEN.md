@@ -135,6 +135,7 @@ LOG_WARDEN_FAILURE_REASON=true
 
 - Colección: `EMB_CACHE_COLLECTION` (por defecto `embedding_cache`). No debe contener `/`.
 - Si `EMB_CACHE_COLLECTION` incluye `/`, el sistema lo sanea reemplazándolo por `_` y registra un warning.
+- Los IDs de documento usan `fingerprint:model` y `key` saneados (se reemplaza `/` por `_`) para cumplir con Firestore.
 
 ## Tests
 

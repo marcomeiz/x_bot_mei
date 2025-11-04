@@ -486,26 +486,4 @@ def get_embedding(text: str, *, force: bool = False, generate_if_missing: bool =
     if record_metric: record_metric("emb_failure", 1, {"provider": _emb_provider, "model": model_name})
     return None
 
-def find_similar_topics(topic_text: str, n_results: int = 4, *, generate_if_missing: bool = False) -> List[str]:
-    """Finds similar topics in the topics_collection."""
-    logger.info(f"Buscando temas similares a: '{topic_text[:50]}...'")
-    topic_embedding = get_embedding(topic_text, generate_if_missing=generate_if_missing)
-    if not topic_embedding:
-        logger.warning("No se pudo generar el embedding para el tema, no se puede buscar similitud.")
-        return []
-
-    try:
-        topics_collection = get_topics_collection()
-        results = topics_collection.query(
-            query_embeddings=[topic_embedding],
-            n_results=n_results
-        )
-        
-        # Exclude the exact match which is likely the topic itself
-        similar_docs = [doc for doc in results['documents'][0] if doc != topic_text]
-        
-        logger.info(f"Se encontraron {len(similar_docs)} temas similares.")
-        return similar_docs
-    except Exception as e:
-        logger.error(f"Error al buscar temas similares en ChromaDB: {e}", exc_info=True)
-        return []
+## Deprecated: find_similar_topics fue eliminada por no usarse y para evitar violar la política /g.

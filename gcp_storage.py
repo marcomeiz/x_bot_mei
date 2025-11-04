@@ -46,6 +46,11 @@ def _get_gcs():
         _gcs_client = None
     return _gcs_client
 
+def _sanitize_id(value: str) -> str:
+    """Sanitize strings used in Firestore IDs to avoid '/' path issues."""
+    return (value or "").replace("/", "_")
+
+
 def firestore_get_embedding(key: str, fingerprint: str) -> Optional[List[float]]:
     """Lee embedding desde Firestore por clave y fingerprint."""
     client = _get_firestore()
@@ -55,7 +60,9 @@ def firestore_get_embedding(key: str, fingerprint: str) -> Optional[List[float]]
     if "/" in coll_name:
         logger.warning("EMB_CACHE_COLLECTION contiene '/'; se reemplaza por '_' para cumplir con Firestore.")
         coll_name = coll_name.replace("/", "_")
-    doc_id = f"{fingerprint}:{key}"
+    safe_fp = _sanitize_id(fingerprint)
+    safe_key = _sanitize_id(key)
+    doc_id = f"{safe_fp}:{safe_key}"
     try:
         doc = client.collection(coll_name).document(doc_id).get()
         if not doc.exists:
@@ -80,7 +87,9 @@ def firestore_put_embedding(key: str, fingerprint: str, vec: List[float], text: 
     if "/" in coll_name:
         logger.warning("EMB_CACHE_COLLECTION contiene '/'; se reemplaza por '_' para cumplir con Firestore.")
         coll_name = coll_name.replace("/", "_")
-    doc_id = f"{fingerprint}:{key}"
+    safe_fp = _sanitize_id(fingerprint)
+    safe_key = _sanitize_id(key)
+    doc_id = f"{safe_fp}:{safe_key}"
     now = int(time.time())
     expires_at = (now + int(ttl_seconds)) if ttl_seconds else None
     payload: Dict[str, object] = {

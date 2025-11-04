@@ -41,6 +41,9 @@ _embed_fallback_candidates = (
 _embed_client: Optional[OpenAI] = None
 _embed_client_lock = threading.Lock()
 
+# Texto actual en curso de embedding; usado por wrappers de SDK/HTTP para compatibilidad con pruebas
+_current_text_for_embed: str = ""
+
 # --------- Embeddings Cache (LRU + FS + Chroma) ---------
 _embed_cache_lock = threading.Lock()
 _embed_cache_lru: OrderedDict[str, List[float]] = OrderedDict()
@@ -245,7 +248,80 @@ def get_memory_collection():
     return client.get_or_create_collection(name="memory_collection", metadata={"hnsw:space": "cosine"})
 
 
-def get_embedding(text: str, *, force: bool = False):
+def _sdk_call(model: str) -> Optional[list]:
+    """Llamada a proveedor SDK (OpenAI/compatible) utilizando el texto activo.
+
+    Nota: La firma acepta solo 'model' para permitir monkeypatch en pruebas.
+    El texto a embeber se toma de la variable global '_current_text_for_embed'.
+    """
+    text = _current_text_for_embed
+    try:
+        client = _get_embed_client()
+        resp = client.embeddings.create(model=model, input=[text], timeout=15)
+        data = getattr(resp, "data", None) or []
+        if not data:
+            logger.error("Embedding SDK response missing vector payload")
+            return None
+        vec = getattr(data[0], "embedding", None)
+        if not isinstance(vec, list) or not all(isinstance(x, (int, float)) for x in vec):
+            logger.error("Embedding SDK vector invalid type")
+            return None
+        return vec
+    except Exception as e:
+        logger.error(f"Embedding SDK error for model '{model}': {e}")
+        return None
+
+
+def _http_call(model: str) -> Optional[list]:
+    """Llamada HTTP a OpenRouter para embeddings usando el texto activo.
+
+    La firma acepta solo 'model' por compatibilidad con pruebas.
+    """
+    text = _current_text_for_embed
+    try:
+        s2 = AppSettings.load()
+        url = s2.openrouter_base_url.rstrip('/') + '/embeddings'
+        headers = {"Authorization": f"Bearer {s2.openrouter_api_key}", "Content-Type": "application/json"}
+        payload = {"model": model, "input": [text]}
+        resp = requests.post(url, headers=headers, data=_json.dumps(payload), timeout=10)
+        raw = resp.text
+        try:
+            data = resp.json()
+        except Exception:
+            try:
+                data = _json.loads(raw)
+            except Exception:
+                data = {}
+        if resp.status_code != 200:
+            snippet = raw[:240].replace("\n", " ")
+            logger.error(f"Embeddings HTTP error {resp.status_code}: {snippet}")
+            return None
+        if isinstance(data, dict) and "error" in data:
+            snippet = str(data.get("error"))[:240]
+            logger.error(f"Embeddings HTTP returned error payload: {snippet}")
+            return None
+        arr = (data.get("data") if isinstance(data, dict) else None)
+        vec = None
+        if isinstance(arr, list) and arr:
+            vec = arr[0].get("embedding") if isinstance(arr[0], dict) else None
+        # Tolerancia a esquemas alternativos
+        if vec is None and isinstance(data, dict):
+            maybe_vec = data.get("embedding")
+            if isinstance(maybe_vec, list):
+                vec = maybe_vec
+        if not isinstance(vec, list) or not all(isinstance(x, (int, float)) for x in vec):
+            logger.error("Embedding HTTP vector invalid/missing in response")
+            return None
+        if not isinstance(vec, list) or not all(isinstance(x, (int, float)) for x in vec):
+            logger.error("Embedding HTTP vector invalid type")
+            return None
+        return vec
+    except Exception as ee:
+        logger.error(f"Embedding HTTP exception: {ee}")
+        return None
+
+
+def get_embedding(text: str, *, force: bool = False, generate_if_missing: bool = True):
     """Obtiene el embedding para un texto, con verificación previa de existencia en cachés.
 
     Flujo:
@@ -253,7 +329,9 @@ def get_embedding(text: str, *, force: bool = False):
     4) Si no existe o force=True: generar y almacenar en LRU/FS/DB
     """
     global _last_embed_error_ts, _embed_model_override
-    fingerprint = _embedding_fingerprint()
+    # Cargar configuración una sola vez y derivar fingerprint/modelo
+    s = AppSettings.load()
+    fingerprint = s.embed_model
     key = _make_content_key(text)
     key_fp = f"{fingerprint}:{key}"
 
@@ -284,76 +362,27 @@ def get_embedding(text: str, *, force: bool = False):
             _lru_put(key_fp, hit)
             return hit
 
+    # Antes de generar: respetar política de no-generación cuando aplique
+    if not generate_if_missing and not force:
+        logger.info("[EMB] Cache miss → Política activa: NO generar embedding (generate_if_missing=False).")
+        if record_metric: record_metric("emb_skip_due_to_policy", 1, {"reason": "generate_if_missing_false"})
+        return None
+
     # Circuit breaker: evita timeouts repetidos durante 60s tras fallo (se puede desactivar por env)
     circuit_disabled = os.getenv("EMBED_DISABLE_CIRCUIT", "0").lower() in {"1", "true", "yes"}
     if (not circuit_disabled) and _last_embed_error_ts and (time.time() - _last_embed_error_ts) < 60:
         logger.warning("Embedding circuit open (recent failures); skipping embedding generation.")
+        if record_metric: record_metric("emb_skip_due_to_policy", 1, {"reason": "circuit_open"})
         return None
-    s = AppSettings.load()
+    # Reset override por llamada para evitar fugas de estado entre ejecuciones
+    global _embed_model_override
+    _embed_model_override = None
     model_name = _embed_model_override or s.embed_model
     logger.info(f"[EMB] Cache miss → Generando embedding (provider={_emb_provider}, model={model_name}) para: '{text[:50]}...'")
 
-    def _sdk_call(model: str) -> Optional[list]:
-        try:
-            client = _get_embed_client()
-            # Usar llamada directa; algunas versiones no soportan with_options en embeddings
-            resp = client.embeddings.create(model=model, input=[text], timeout=15)
-            data = getattr(resp, "data", None) or []
-            if not data:
-                logger.error("Embedding SDK response missing vector payload")
-                return None
-            vec = getattr(data[0], "embedding", None)
-            if not isinstance(vec, list) or not all(isinstance(x, (int, float)) for x in vec):
-                logger.error("Embedding SDK vector invalid type")
-                return None
-            return vec
-        except Exception as e:
-            logger.error(f"Embedding SDK error for model '{model}': {e}")
-            return None
-
-    def _http_call(model: str) -> Optional[list]:
-        try:
-            s2 = AppSettings.load()
-            url = s2.openrouter_base_url.rstrip('/') + '/embeddings'
-            headers = {"Authorization": f"Bearer {s2.openrouter_api_key}", "Content-Type": "application/json"}
-            payload = {"model": model, "input": [text]}
-            resp = requests.post(url, headers=headers, data=_json.dumps(payload), timeout=10)
-            raw = resp.text
-            try:
-                data = resp.json()
-            except Exception:
-                try:
-                    data = _json.loads(raw)
-                except Exception:
-                    data = {}
-            if resp.status_code != 200:
-                snippet = raw[:240].replace("\n", " ")
-                logger.error(f"Embeddings HTTP error {resp.status_code}: {snippet}")
-                return None
-            if isinstance(data, dict) and "error" in data:
-                snippet = str(data.get("error"))[:240]
-                logger.error(f"Embeddings HTTP returned error payload: {snippet}")
-                return None
-            arr = (data.get("data") if isinstance(data, dict) else None)
-            vec = None
-            if isinstance(arr, list) and arr:
-                vec = arr[0].get("embedding") if isinstance(arr[0], dict) else None
-            # Tolerancia a esquemas alternativos
-            if vec is None and isinstance(data, dict):
-                # Algunos proveedores devuelven {"embedding": [...]} directo
-                maybe_vec = data.get("embedding")
-                if isinstance(maybe_vec, list):
-                    vec = maybe_vec
-            if not isinstance(vec, list) or not all(isinstance(x, (int, float)) for x in vec):
-                logger.error("Embedding HTTP vector invalid/missing in response")
-                return None
-            if not isinstance(vec, list) or not all(isinstance(x, (int, float)) for x in vec):
-                logger.error("Embedding HTTP vector invalid type")
-                return None
-            return vec
-        except Exception as ee:
-            logger.error(f"Embedding HTTP exception: {ee}")
-            return None
+    # Setear texto actual para llamadas de proveedor
+    global _current_text_for_embed
+    _current_text_for_embed = text
 
     # Provider routing
     vec: Optional[list] = None

@@ -85,3 +85,6 @@ Checklist para no fallar
 5) Calibrar UMBRAL_SIMILITUD_LINE
 
 Con esto, no deberías necesitar proporcionar manualmente rutas o tokens cada vez: el token ya está en .env y la URL se obtiene con gcloud en un comando único.
+- Política de generación:
+  - La ingestión y los jobs de re-embed SÍ pueden generar embeddings para poblar cachés.
+  - La ruta interactiva `/g` NO genera embeddings; usa cache‑only y omite similitud si no hay caché.

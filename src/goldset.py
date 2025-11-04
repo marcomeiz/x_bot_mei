@@ -143,7 +143,8 @@ def max_similarity_to_goldset(text: str) -> Optional[float]:
     if not text or not text.strip():
         return None
     try:
-        vec = get_embedding(text)
+        # No generar embeddings en ruta de /g; si falta caché, se omite similitud
+        vec = get_embedding(text, generate_if_missing=False)
     except Exception as exc:  # pragma: no cover
         logger.warning("Could not embed draft for goldset comparison: %s", exc)
         return None
@@ -227,7 +228,8 @@ def retrieve_goldset_examples(query: str, k: int = 3) -> List[str]:
     vector = None
     if query and query.strip():
         try:
-            vector = np.array(get_embedding(query), dtype=float)
+            # Evitar generación en ruta /g; si no hay caché, se usarán anchors por defecto
+            vector = np.array(get_embedding(query, generate_if_missing=False), dtype=float)
             vector = _normalize_vector(vector)
         except Exception as exc:
             logger.warning("Could not embed query for goldset retrieval: %s", exc)

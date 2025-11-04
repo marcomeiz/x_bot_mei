@@ -114,6 +114,12 @@ LOG_WARDEN_FAILURE_REASON=true
   - `chromadb==0.4.24`, `numpy==1.26.4` (compatibility for REST v1; avoids `np.float_` error).
 - Performance: `find_relevant_topic` ≈ 0.27–5 s with HTTP.
 
+### Embedding policy for `/g`
+
+- The interactive generation route does not generate new embeddings. Cache-only lookups are used (LRU/FS/Firestore/Chroma).
+- If cache is missing, similarity checks are skipped and a metric `[METRIC] emb_skip_due_to_policy` is logged.
+   - Enforcement points: `bot._embed_line` and `ProposalService` (approve/finalize memory) explicitly set `generate_if_missing=False` on `get_embedding` to prevent accidental generation in interactive flows.
+
 ## Tests
 
 - File: `tests/test_variants_guardrails.py`

@@ -92,8 +92,8 @@ async def process_pdf(pdf_path: str) -> Optional[Dict]:
             print(f"No topics extracted from {pdf_path}")
             return None
 
-        # Deduplicate topics
-        unique_topics = list(set(topics))
+        # Deduplicate topics preservando el orden original
+        unique_topics = list(dict.fromkeys(topics))
         print(f"Found {len(unique_topics)} unique topics out of {len(topics)} extracted.")
         topics = unique_topics
 

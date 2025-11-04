@@ -621,7 +621,8 @@ def _cos(a: list[float], b: list[float]) -> float:
 
 def _embed_line(text: str) -> Optional[list[float]]:
     try:
-        vec = get_embedding(text)
+        # Política cache-only: no generar embeddings en rutas interactivas
+        vec = get_embedding(text, generate_if_missing=False)
         if not isinstance(vec, list) or len(vec) != SIM_DIM:
             return None
         return _l2_normalize(vec)

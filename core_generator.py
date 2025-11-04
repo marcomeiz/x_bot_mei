@@ -224,7 +224,8 @@ def _log_similarity(topic_abstract: str, ignore_similarity: bool) -> None:
         logger.info("Memoria vacía; sin comprobación de similitud.")
         return
 
-    topic_embedding = get_embedding(topic_abstract)
+    # Política /g: no generar embeddings en ruta interactiva; usar solo caché si existe
+    topic_embedding = get_embedding(topic_abstract, generate_if_missing=False)
     if topic_embedding is None:
         logger.info("Embedding del tema no disponible; se omite comprobación de similitud.")
         return

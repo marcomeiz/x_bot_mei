@@ -59,6 +59,8 @@ Costos y monitoreo
  - Observabilidad avanzada: el módulo `metrics.py` emite logs estructurados con prefijo `[METRIC]` para latencias
    por etapa del cache lookup (LRU, Firestore, FS, Chroma), tiempos de generación (provider/model), cache hits y errores.
    Úsalo para crear métricas basadas en logs en Cloud Monitoring y configurar dashboards/alertas p95/p99.
+- Política `/g`: la ruta interactiva no genera nuevos embeddings; si falta caché, se omite la similitud y se registra `[METRIC] emb_skip_due_to_policy`.
+  - Implementación: `bot._embed_line` y `proposal_service` (ramas de aprobación y memorización) llaman `get_embedding(..., generate_if_missing=False)` para asegurar operación cache-only.
 
 Verify
 - curl "https://<service-url>/stats?token=$ADMIN_API_TOKEN"

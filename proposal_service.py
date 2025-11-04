@@ -829,7 +829,8 @@ class ProposalService:
             return
 
         memory_collection = get_memory_collection()
-        tweet_embedding = get_embedding(chosen_tweet)
+        # Política cache-only: no generar embeddings si faltan en memoria
+        tweet_embedding = get_embedding(chosen_tweet, generate_if_missing=False)
         if tweet_embedding and memory_collection.count() > 0:
             try:
                 query = memory_collection.query(query_embeddings=[tweet_embedding], n_results=1)
@@ -896,7 +897,8 @@ class ProposalService:
         message_prefix: Optional[str] = None,
     ) -> None:
         memory_collection = get_memory_collection()
-        tweet_embedding = get_embedding(chosen_tweet)
+        # Política cache-only: no generar embeddings en la fase de memorización
+        tweet_embedding = get_embedding(chosen_tweet, generate_if_missing=False)
         total_memory = None
         if tweet_embedding:
             memory_collection.add(embeddings=[tweet_embedding], documents=[chosen_tweet], ids=[topic_id])

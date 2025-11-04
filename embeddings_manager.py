@@ -32,10 +32,10 @@ _last_embed_error_ts: float = 0.0
 # Modelo de embeddings efectivo (override dinámico si el default falla)
 _embed_model_override: Optional[str] = None
 _embed_fallback_candidates = (
-    # Prefer stable providers first
-    "jinaai/jina-embeddings-v2-base-en",
+    # Prefer stable providers first (alineado con docs: openai → thenlper → jina)
     "openai/text-embedding-3-small",
     "thenlper/gte-small",
+    "jinaai/jina-embeddings-v2-base-en",
 )
 
 _embed_client: Optional[OpenAI] = None
@@ -132,20 +132,34 @@ def _fs_store(key: str, fingerprint: str, vec: List[float]) -> None:
 def _chroma_load(key: str, fingerprint: str) -> Optional[List[float]]:
     try:
         coll = _get_embedding_cache_collection()
-        data = coll.get(ids=[key], include=["embeddings", "metadatas"]) or {}
-        ids = data.get("ids") or []
-        embs = data.get("embeddings") or []
-        metas = data.get("metadatas") or []
-        if not ids:
+        data = coll.get(ids=[key], include=["embeddings", "metadatas", "ids"]) or {}
+        # Conversión segura a lista para evitar truthiness ambiguo con arrays de NumPy
+        def _to_list(x):
+            if x is None:
+                return []
+            if hasattr(x, "tolist"):
+                try:
+                    return x.tolist()
+                except Exception:
+                    pass
+            try:
+                return list(x)
+            except Exception:
+                return []
+
+        ids = _to_list(data.get("ids"))
+        embs = _to_list(data.get("embeddings"))
+        metas = _to_list(data.get("metadatas"))
+        if len(ids) == 0:
             return None
-        # Aplanar vectores si vienen anidados
+        # Aplanar vectores si vienen anidados [[vec]]
         if isinstance(embs, list) and embs and isinstance(embs[0], list):
             flat = embs[0]
         else:
             flat = embs if isinstance(embs, list) else []
-        meta = metas[0] if metas else {}
+        meta = metas[0] if (isinstance(metas, list) and metas) else {}
         fp_ok = (meta or {}).get("fingerprint") == fingerprint
-        if flat and fp_ok:
+        if isinstance(flat, list) and flat and fp_ok:
             logger.info("[EMB][DB] Cache hit (id=%s, fp=%s)", key[:10], fingerprint)
             return flat
     except Exception as e:

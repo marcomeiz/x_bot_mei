@@ -74,13 +74,29 @@ def _load_embeddings_from_chroma() -> Optional[Tuple[List[str], List[Sequence[fl
     try:
         client = get_chroma_client()
         collection = client.get_or_create_collection(GOLDSET_COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
-        result = collection.get(include=["embeddings", "documents"])  # ensure embeddings are returned
-        docs = result.get("documents") or []
-        embeddings = result.get("embeddings") or []
-        if not docs or not embeddings:
+        result = collection.get(include=["embeddings", "documents"]) or {}
+
+        def _to_list(x):
+            if x is None:
+                return []
+            if hasattr(x, "tolist"):
+                try:
+                    return x.tolist()
+                except Exception:
+                    pass
+            try:
+                return list(x)
+            except Exception:
+                return []
+
+        docs_raw = result.get("documents")
+        embs_raw = result.get("embeddings")
+        docs = _to_list(docs_raw)
+        embeddings = _to_list(embs_raw)
+        texts = [d[0] if isinstance(d, list) else d for d in docs]
+        if len(texts) == 0 or len(embeddings) == 0:
             logger.info("Chroma goldset empty or missing embeddings.")
             return None
-        texts = [d[0] if isinstance(d, list) else d for d in docs]
         return texts, embeddings
     except Exception as exc:
         logger.warning("Could not load goldset from Chroma: %s", exc)

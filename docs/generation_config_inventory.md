@@ -55,4 +55,9 @@ This note tracks every configuration surface that impacts tweet/comment generati
 **Autor:** AI assistant  
 **Justificación:** Garantizar que runtime solo lea embeddings normalizados, con trazabilidad de versión y recuento desde Cloud Logging.
 
+**Cambio:** `diagnostics_logger` emite `DIAG_STRUCTURED_OK` al inicializar el handler `StructuredLogHandler` (Cloud Logging) con payload `jsonPayload`.  
+**Fecha:** 2025-11-04  
+**Autor:** AI assistant  
+**Justificación:** Validar rápidamente que Cloud Run recibe eventos estructurados antes de inspeccionar variantes.
+
 Actualizar este documento tras cada etapa para mantener trazabilidad.

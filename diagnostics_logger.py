@@ -17,6 +17,13 @@ try:
     _diag_logger.setLevel(logging.INFO)
     if not any(isinstance(h, StructuredLogHandler) for h in _diag_logger.handlers):
         _diag_logger.addHandler(_structured_handler)
+    from datetime import datetime, timezone
+    _diag_logger.info({
+        "message": "DIAG_STRUCTURED_OK",
+        "similarity": 0.0,
+        "variant": "diag",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
 except Exception:
     _structured_handler = None
     _diag_logger = logging.getLogger("diagnostics_fallback")

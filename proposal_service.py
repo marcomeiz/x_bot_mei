@@ -756,18 +756,27 @@ class ProposalService:
 
             # Emisión de log estructurado por variante (sin truncar texto)
             try:
-                log_post_metrics(
-                    piece_id=piece_id,
-                    variant=label,
-                    draft_text=content,
-                    similarity=similarity,
-                    min_required=GOLDSET_MIN_SIMILARITY,
-                    passed=is_valid,
-                    emb_model_runtime=emb_model_runtime,
-                    sim_kind="max_cosine_goldset",
-                    goldset_collection=GOLDSET_COLLECTION_NAME,
-                    timestamp=int(time.time()),
-                )
+                from datetime import datetime, timezone as _tz
+                import os as _os
+                # normaliza etiquetas de variante a short/mid/long
+                _variant_map = {"A": "short", "B": "mid", "C": "long"}
+                _variant_norm = _variant_map.get(label, label)
+                _min_required = float(_os.getenv("GOLDSET_MIN_SIMILARITY", "0.75"))
+                _sim_float = float(similarity) if similarity is not None else None
+                if _sim_float is not None:
+                    log_post_metrics(
+                        piece_id=piece_id,
+                        variant=_variant_norm,
+                        draft_text=content,
+                        similarity=_sim_float,
+                        min_required=_min_required,
+                        passed=bool(_sim_float >= _min_required),
+                        emb_model_runtime="openai/text-embedding-3-large",
+                        emb_model_goldset="openai/text-embedding-3-large",
+                        sim_kind="max_cosine_goldset",
+                        goldset_collection=_os.getenv("GOLDSET_COLLECTION_NAME", "unknown"),
+                        timestamp=datetime.now(_tz.utc).isoformat(),
+                    )
             except Exception:
                 # No interrumpir el flujo por fallos de logging
                 logger.debug("Diag logging (variant_evaluation) skipped due to an error.")

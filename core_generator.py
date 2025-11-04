@@ -387,6 +387,23 @@ def find_relevant_topic(sample_size: int = 3):
         candidate_pool_size = min(len(pool), max(sample_size * TOPIC_CANDIDATE_MULTIPLIER, TOPIC_CANDIDATE_MIN))
         candidates = random.sample(pool, candidate_pool_size)
 
+        # Pre-cargar embeddings existentes para los candidatos para evitar recomputación en cada /g
+        embedding_map: Dict[str, list] = {}
+        try:
+            emb_raw = topics_collection.get(ids=candidates, include=["embeddings"])  # type: ignore[arg-type]
+            if isinstance(emb_raw, dict):
+                emb_ids = _flatten_maybe(emb_raw.get("ids"))
+                emb_vals = emb_raw.get("embeddings") or []
+                # Aplanar si viene como lista de listas
+                if isinstance(emb_vals, list) and emb_vals and isinstance(emb_vals[0], list):
+                    flat_embs = [v for sub in emb_vals for v in sub]
+                else:
+                    flat_embs = emb_vals or []
+                if emb_ids and flat_embs and len(emb_ids) == len(flat_embs):
+                    embedding_map = {i: e for i, e in zip(emb_ids, flat_embs) if isinstance(e, list) and e}
+        except Exception as exc:
+            logger.warning("No se pudieron recuperar embeddings precomputados para candidatos: %s", exc)
+
         memory_collection = get_memory_collection()
         try:
             has_memory = memory_collection.count() > 0
@@ -409,14 +426,15 @@ def find_relevant_topic(sample_size: int = 3):
             abstract = entry["abstract"]
             distance = 1.0
             if has_memory:
-                embedding = get_embedding(abstract)
-                if embedding is not None:
-                    try:
+                try:
+                    # Usar embedding ya almacenado para este tópico si existe; evita get_embedding
+                    embedding = embedding_map.get(cid)
+                    if embedding is not None:
                         res = memory_collection.query(query_embeddings=[embedding], n_results=3)
                         dist_val = res and res.get("distances") and res["distances"][0][0]
-                        distance = float(dist_val) if isinstance(dist_val, (int, float)) else 0.0
-                    except Exception:
-                        distance = 0.0
+                        distance = float(dist_val) if isinstance(dist_val, (int, float)) else 1.0
+                except Exception:
+                    distance = 1.0
 
             metadata = entry.get("metadata")
             recency_score = _compute_recency_score(metadata, now)

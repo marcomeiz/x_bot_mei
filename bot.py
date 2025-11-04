@@ -1,3 +1,4 @@
+import logging_bootstrap  # <-- inicialización temprana de Cloud Logging
 print("---- ESTA ES LA PUTA VERSIÓN NUEVA DEL CÓDIGO: v_FINAL ----", flush=True)
 
 import os

@@ -35,7 +35,7 @@ LONG_MIN=240
 LONG_MAX=280
 
 # Embeddings (use a stable, supported model for your key)
-EMBED_MODEL=jinaai/jina-embeddings-v2-base-en
+EMBED_MODEL=openai/text-embedding-3-large
 
 # ChromaDB
 CHROMA_DB_URL=http://<host>:<port>
@@ -103,7 +103,7 @@ LOG_WARDEN_FAILURE_REASON=true
   - Accepts `data[0].embedding` or top‑level `embedding` if provider differs.
   - Circuit breaker (60s) after repeated errors.
 - Recommended model (adjust if your key doesn’t support it):
-  - `EMBED_MODEL=jinaai/jina-embeddings-v2-base-en`
+  - `EMBED_MODEL=openai/text-embedding-3-large` (3072)
 
 ## ChromaDB
 
@@ -131,7 +131,7 @@ gcloud run services update x-bot-mei \
   ENFORCE_NO_COMMAS=true,ENFORCE_NO_AND_OR=true,\
   WARDEN_WORDS_PER_LINE_LO=5,WARDEN_WORDS_PER_LINE_HI=12,\
   MID_MIN=180,MID_MAX=230,LONG_MIN=240,LONG_MAX=280,\
-  EMBED_MODEL=jinaai/jina-embeddings-v2-base-en,\
+  EMBED_MODEL=openai/text-embedding-3-large,\
   CHROMA_DB_URL=http://<host>:<port>,\
   LOG_WARDEN_FAILURE_REASON=true
 ```

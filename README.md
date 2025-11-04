@@ -55,7 +55,8 @@ La instalación y ejecución no han cambiado, pero se documentan las variables r
 4.  **Guardrails (`config/warden.yaml`, `config/lexicon.json`, `config/style_audit.yaml`):** Define los límites duros del Warden (commas, palabras por línea, rangos de caracteres, modo minimal), el vocabulario vetado/stopwords y los umbrales del guardián de estilo. Usa `WARDEN_CONFIG_PATH`, `LEXICON_CONFIG_PATH` o `STYLE_AUDIT_CONFIG_PATH` para apuntar a otras rutas, o variables (`ENFORCE_NO_COMMAS`, `STYLE_MEMORY_SIMILARITY_FLOOR`, etc.) si necesitas overrides rápidos.
 5.  **Mensajes (`config/messages.yaml`):** Copys para Telegram (bot, propuestas, avisos). Usa `MESSAGES_CONFIG_PATH` o overrides puntuales por env si hace falta.
 6.  **Embeddings (HTTP-first)**
-    - `EMBED_MODEL` (por defecto `jinaai/jina-embeddings-v2-base-en`)
+    - `EMBED_MODEL` (por defecto `openai/text-embedding-3-small` desde `config/settings.*.yaml`)
+    - Recomendado en producción: `openai/text-embedding-3-large` (3072) para compatibilidad con `SIM_DIM=3072` y pipelines (`cloudbuild_reembed.yaml`).
     - Llamada HTTP directa con fallback a SDK; circuito de 60s tras errores.
 7.  **ChromaDB**
     - `CHROMA_DB_URL` para cliente HTTP (recomendado) o `CHROMA_DB_PATH` para local.

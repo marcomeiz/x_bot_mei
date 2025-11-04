@@ -17,10 +17,10 @@ Cómo obtener la URL de Cloud Run
 2) Guarda esa URL como MEI_URL si lo deseas (opcional): export MEI_URL=$(gcloud run services describe x-bot-mei --region <tu-region> --format 'value(status.url)')
 
 Asegurar 3072 dimensiones en el servicio
-- Recomendado: EMBED_MODEL=jinaai/jina-embeddings-v2-base-en (3072)
+- Recomendado: EMBED_MODEL=openai/text-embedding-3-large (3072)
 - Comando:
   gcloud run services update x-bot-mei --region <tu-region> \
-    --update-env-vars EMBED_MODEL=jinaai/jina-embeddings-v2-base-en,SIM_DIM=3072,TOPICS_COLLECTION=topics_collection_3072,WARMUP_ANCHORS=150
+    --update-env-vars EMBED_MODEL=openai/text-embedding-3-large,SIM_DIM=3072,TOPICS_COLLECTION=topics_collection_3072,WARMUP_ANCHORS=150
 
 Endpoint de ingestión (contrato)
 - POST /ingest_topics?token=<ADMIN_API_TOKEN>
@@ -85,4 +85,3 @@ Checklist para no fallar
 5) Calibrar UMBRAL_SIMILITUD_LINE
 
 Con esto, no deberías necesitar proporcionar manualmente rutas o tokens cada vez: el token ya está en .env y la URL se obtiene con gcloud en un comando único.
-

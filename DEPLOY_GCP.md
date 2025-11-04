@@ -32,6 +32,34 @@ What it does
 - Prints /stats endpoint to verify counts.
  - Sends Telegram notifications for deploy start/success (manual script and Cloud Build pipeline).
 
+Embeddings GCP‑nativos (Vertex AI + Firestore/GCS)
+- Para evitar recomputación y costos por duplicados, el sistema implementa verificación previa y almacenamiento persistente en GCP.
+- Variables clave (inyectadas como env en Cloud Run/Functions):
+  - EMB_PROVIDER=vertex                # usa Vertex AI como proveedor de embeddings
+  - GCP_PROJECT_ID=<proyecto>
+  - GCP_LOCATION=us-central1           # o europe-west4, etc.
+  - EMB_CACHE_COLLECTION=embedding_cache  # colección de Firestore para vector+metadatos
+  - EMB_GCS_BUCKET=<bucket opcional>   # si se desea guardar .npy para auditoría
+  - EMB_CACHE_TTL=0                    # segundos; 0 = sin expiración (usar TTL de Firestore si se configura)
+  - EMB_FS_CACHE=0                     # desactiva cache en disco local en producción
+  - CHROMA_DB_URL o CHROMA_DB_PATH     # fuente de colecciones (para backfill opcional)
+- Flujo de verificación (en embeddings_manager.py): LRU → Firestore → FS → Chroma → generación.
+  - Si existe el embedding (mismo fingerprint/modelo), no se regenera.
+  - Al generar, se persiste en Firestore (y opcionalmente GCS) con metadatos: fingerprint, ts, expires_at, gcs_uri.
+- Backfill batch (poblar Firestore desde Chroma):
+  - python scripts/backfill_firestore_from_chroma.py --collections topics_collection memory_collection --batch-size 128
+  - Puede ejecutarse como Job de Cloud Run o Cloud Functions invocada por Cloud Scheduler.
+  - Usa la verificación previa; no re‑embedderá registros ya persistidos.
+
+Costos y monitoreo
+- Serverless: Cloud Run/Functions para ejecución on‑demand/batch.
+- Embeddings: Vertex AI (paga por uso). Se minimiza con caché persistente y backfill por lotes.
+- Logging: Todos los cache hits/misses y tiempos se registran en Cloud Logging (ver filtros por etiqueta [EMB]).
+- Recomendado: crear una métrica basada en logs para contar `Cache miss → Generando embedding` y alertar si sube en exceso.
+ - Observabilidad avanzada: el módulo `metrics.py` emite logs estructurados con prefijo `[METRIC]` para latencias
+   por etapa del cache lookup (LRU, Firestore, FS, Chroma), tiempos de generación (provider/model), cache hits y errores.
+   Úsalo para crear métricas basadas en logs en Cloud Monitoring y configurar dashboards/alertas p95/p99.
+
 Verify
 - curl "https://<service-url>/stats?token=$ADMIN_API_TOKEN"
 - Approve a tweet in Telegram and you should see: "✅ Añadido a la memoria. Ya hay X publicaciones." and the count reflected in stats.

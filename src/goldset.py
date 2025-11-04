@@ -8,6 +8,7 @@ from typing import List, Optional, Sequence, Tuple
 import numpy as np
 from embeddings_manager import get_embedding, get_chroma_client
 from logger_config import logger
+from src.normalization import normalize_for_embedding
 
 DEFAULT_GOLDSET_PATH = Path("data/gold_posts/hormozi_master.json")
 
@@ -142,7 +143,7 @@ def _compute_embeddings_locally() -> Tuple[List[str], List[Sequence[float]]]:
     valid_texts: List[str] = []
     for text in texts:
         try:
-            vec = get_embedding(text)
+            vec = get_embedding(normalize_for_embedding(text))
         except Exception as exc:
             logger.warning("Goldset embedding failed: %s", exc)
             continue
@@ -159,7 +160,7 @@ def max_similarity_to_goldset(text: str, *, generate_if_missing: bool = False) -
         return None
     try:
         # En modo estricto (/g), se permite generar embedding del borrador para medir contra goldset
-        vec = get_embedding(text, generate_if_missing=generate_if_missing)
+        vec = get_embedding(normalize_for_embedding(text), generate_if_missing=generate_if_missing)
     except Exception as exc:  # pragma: no cover
         logger.warning("Could not embed draft for goldset comparison: %s", exc)
         return None

@@ -283,13 +283,13 @@ def get_memory_collection():
     return client.get_or_create_collection(name="memory_collection", metadata={"hnsw:space": "cosine"})
 
 
-def _sdk_call(model: str) -> Optional[list]:
+def _sdk_call(model: str, text: Optional[str] = None) -> Optional[list]:
     """Llamada a proveedor SDK (OpenAI/compatible) utilizando el texto activo.
 
     Nota: La firma acepta solo 'model' para permitir monkeypatch en pruebas.
     El texto a embeber se toma de la variable global '_current_text_for_embed'.
     """
-    text = _current_text_for_embed
+    text = text or _current_text_for_embed
     try:
         client = _get_embed_client()
         resp = client.embeddings.create(model=model, input=[text], timeout=15)
@@ -307,12 +307,12 @@ def _sdk_call(model: str) -> Optional[list]:
         return None
 
 
-def _http_call(model: str) -> Optional[list]:
+def _http_call(model: str, text: Optional[str] = None) -> Optional[list]:
     """Llamada HTTP a OpenRouter para embeddings usando el texto activo.
 
     La firma acepta solo 'model' por compatibilidad con pruebas.
     """
-    text = _current_text_for_embed
+    text = text or _current_text_for_embed
     try:
         s2 = AppSettings.load()
         url = s2.openrouter_base_url.rstrip('/') + '/embeddings'
@@ -369,7 +369,8 @@ def get_embedding(text: str, *, force: bool = False, generate_if_missing: bool =
     global _embed_model_override
     preferred_model = _embed_model_override or s.embed_model
     fingerprint = _embedding_fingerprint(preferred_model)
-    key = _make_content_key(text)
+    normalized_text = normalize_for_embedding(text)
+    key = _make_content_key(normalized_text)
     key_fp = f"{fingerprint}:{key}"
 
     # Cache-first si no hay force
@@ -428,16 +429,16 @@ def get_embedding(text: str, *, force: bool = False, generate_if_missing: bool =
 
     # Setear texto actual para llamadas de proveedor
     global _current_text_for_embed
-    _current_text_for_embed = text
+    _current_text_for_embed = normalized_text
 
     # Provider routing
     vec: Optional[list] = None
     with Timer("emb_generate", labels={"provider": _emb_provider, "model": model_name}):
         if _emb_provider == "vertex" and get_vertex_embedding is not None:
-            vec = get_vertex_embedding(text, model_name)
+            vec = get_vertex_embedding(normalized_text, model_name)
         else:
             # Intento HTTP-first para mayor compatibilidad; luego SDK
-            vec = _http_call(model_name) or _sdk_call(model_name)
+            vec = _http_call(model_name, normalized_text) or _sdk_call(model_name, normalized_text)
     if vec is not None:
         # Validar dimensión si está configurada
         expected_dim = int(os.getenv("SIM_DIM", "0") or 0)
@@ -448,9 +449,9 @@ def get_embedding(text: str, *, force: bool = False, generate_if_missing: bool =
         # Store en caches
         _lru_put(key_fp, vec)
         if record_metric: record_metric("emb_cache_store", 1, {"stage": "firestore"})
-        _firestore_store(key, fingerprint, vec, text)
+        _firestore_store(key, fingerprint, vec, normalized_text)
         _fs_store(key, fingerprint, vec)
-        _chroma_store(key, fingerprint, vec, text)
+        _chroma_store(key, fingerprint, vec, normalized_text)
         if record_metric: record_metric("emb_success", 1, {"dim": len(vec) if isinstance(vec, list) else None})
         return vec
 
@@ -462,9 +463,9 @@ def get_embedding(text: str, *, force: bool = False, generate_if_missing: bool =
         with Timer("emb_generate_fallback", labels={"provider": _emb_provider, "model": candidate}):
             if _emb_provider == "vertex" and get_vertex_embedding is not None:
                 # Si el proveedor Vertex falla, probamos OR como fallback
-                vec2 = _http_call(candidate) or _sdk_call(candidate)
+                vec2 = _http_call(candidate, normalized_text) or _sdk_call(candidate, normalized_text)
             else:
-                vec2 = _http_call(candidate) or _sdk_call(candidate)
+                vec2 = _http_call(candidate, normalized_text) or _sdk_call(candidate, normalized_text)
         if vec2 is not None:
             expected_dim = int(os.getenv("SIM_DIM", "0") or 0)
             if expected_dim > 0 and (not isinstance(vec2, list) or len(vec2) != expected_dim):
@@ -476,9 +477,9 @@ def get_embedding(text: str, *, force: bool = False, generate_if_missing: bool =
             eff_fp = _embedding_fingerprint(candidate)
             eff_key_fp = f"{eff_fp}:{key}"
             _lru_put(eff_key_fp, vec2)
-            _firestore_store(key, eff_fp, vec2, text)
+            _firestore_store(key, eff_fp, vec2, normalized_text)
             _fs_store(key, eff_fp, vec2)
-            _chroma_store(key, eff_fp, vec2, text)
+            _chroma_store(key, eff_fp, vec2, normalized_text)
             if record_metric: record_metric("emb_success", 1, {"dim": len(vec2) if isinstance(vec2, list) else None, "fallback": True})
             return vec2
 

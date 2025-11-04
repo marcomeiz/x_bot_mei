@@ -45,4 +45,9 @@ This note tracks every configuration surface that impacts tweet/comment generati
 **Autor:** AI assistant  
 **Justificación:** Garantizar trazabilidad pieza/variant con campos `piece_id`, `variant`, `draft_text`, `similarity`, `min_required`, `passed`, `timestamp` para análisis y depuración.
 
+**Cambio:** Normalización unificada (`src/normalization.py`) aplicada antes de generar embeddings en runtime (`embeddings_manager.get_embedding`) y goldset (`src/goldset._compute_embeddings_locally`).  
+**Fecha:** 2025-11-04  
+**Autor:** AI assistant  
+**Justificación:** Alinear pipelines de similitud para usar minúsculas, filtrado de URLs/handles/emojis y normalización ASCII antes de cualquier embedding, evitando divergencias entre ingesta y generación.
+
 Actualizar este documento tras cada etapa para mantener trazabilidad.

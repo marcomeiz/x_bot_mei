@@ -311,27 +311,65 @@ def ingest_topics():
 
 @app.route("/health/embeddings")
 def health_embeddings():
-    """Devuelve dims y warmup; ok=true si ambos dims==SIM_DIM y warmed>=WARMUP_ANCHORS."""
+    """Devuelve salud de embeddings y acuerdo de dimensiones.
+
+    ok = True solo si:
+    - goldset_dim, topics_dim y memory_dim coinciden entre sí y (si está definida) con SIM_DIM
+    - warmed >= WARMUP_ANCHORS
+    """
     try:
         client = get_chroma_client()
         gold = client.get_or_create_collection("goldset_collection", metadata={"hnsw:space": "cosine"})
-        g_res = gold.get(include=["embeddings"]) or {}
+        g_res = gold.get(include=["embeddings"], limit=200) or {}
         g_vecs = g_res.get("embeddings") or []
-        gold_dim = (len(g_vecs[0]) if g_vecs else None)
+        gold_dims_seen = sorted({(len(v) if isinstance(v, list) else None) for v in g_vecs if isinstance(v, list) and v})
+        gold_dim = (gold_dims_seen[0] if gold_dims_seen else None)
 
         topics = client.get_or_create_collection(TOPICS_COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
-        t_res = topics.get(include=["embeddings"]) or {}
+        t_res = topics.get(include=["embeddings"], limit=200) or {}
         t_vecs = t_res.get("embeddings") or []
-        topics_dim = (len(t_vecs[0]) if t_vecs else None)
+        topics_dims_seen = sorted({(len(v) if isinstance(v, list) else None) for v in t_vecs if isinstance(v, list) and v})
+        topics_dim = (topics_dims_seen[0] if topics_dims_seen else None)
+
+        memory = client.get_or_create_collection("memory_collection", metadata={"hnsw:space": "cosine"})
+        m_res = memory.get(include=["embeddings"], limit=200) or {}
+        m_vecs = m_res.get("embeddings") or []
+        memory_dims_seen = sorted({(len(v) if isinstance(v, list) else None) for v in m_vecs if isinstance(v, list) and v})
+        memory_dim = (memory_dims_seen[0] if memory_dims_seen else None)
 
         warmed = len(_ANCHORS_CACHE)
-        ok = (gold_dim == SIM_DIM) and (topics_dim == SIM_DIM) and (warmed >= WARMUP_ANCHORS)
-        return {
+        sim_dim_env = SIM_DIM if SIM_DIM > 0 else None
+
+        dims_present = [d for d in (gold_dim, topics_dim, memory_dim) if d is not None]
+        all_equal = len(set(dims_present)) == 1 if dims_present else True
+        agree_with_env = (sim_dim_env is None) or (not dims_present) or (dims_present[0] == sim_dim_env)
+        agree_dim = bool(all_equal and agree_with_env)
+
+        ok = bool(agree_dim and (warmed >= WARMUP_ANCHORS))
+
+        payload = {
             "goldset_dim": gold_dim,
             "topics_dim": topics_dim,
+            "memory_dim": memory_dim,
+            "goldset_dims_seen": gold_dims_seen,
+            "topics_dims_seen": topics_dims_seen,
+            "memory_dims_seen": memory_dims_seen,
+            "sim_dim_env": sim_dim_env,
+            "agree_dim": agree_dim,
             "warmed": warmed,
             "ok": ok,
-        }, 200
+        }
+
+        if not agree_dim:
+            details = []
+            details.append(f"goldset={gold_dims_seen or []}")
+            details.append(f"topics={topics_dims_seen or []}")
+            details.append(f"memory={memory_dims_seen or []}")
+            if sim_dim_env is not None:
+                details.append(f"SIM_DIM={sim_dim_env}")
+            payload["details"] = "; ".join(details)
+
+        return payload, 200
     except Exception:
         return {"ok": False, "error": "server_error"}, 500
 

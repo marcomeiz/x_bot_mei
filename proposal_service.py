@@ -897,8 +897,8 @@ class ProposalService:
         message_prefix: Optional[str] = None,
     ) -> None:
         memory_collection = get_memory_collection()
-        # Política cache-only: no generar embeddings en la fase de memorización
-        tweet_embedding = get_embedding(chosen_tweet, generate_if_missing=False)
+        # Al aprobar, permitimos generar embedding para persistir en memoria
+        tweet_embedding = get_embedding(chosen_tweet, generate_if_missing=True)
         total_memory = None
         if tweet_embedding:
             memory_collection.add(embeddings=[tweet_embedding], documents=[chosen_tweet], ids=[topic_id])

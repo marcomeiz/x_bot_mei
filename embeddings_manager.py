@@ -75,10 +75,10 @@ def _make_content_key(text: str) -> str:
     norm = _normalize_text_for_key(text)
     return hashlib.sha256(norm.encode("utf-8")).hexdigest()
 
-def _embedding_fingerprint() -> str:
-    # Identifica unívocamente el modelo (y por extensión su dimensión)
-    s = AppSettings.load()
-    return s.embed_model
+def _embedding_fingerprint(model_name: str) -> str:
+    # Identifica unívocamente el modelo efectivo (y por extensión su dimensión)
+    # Usamos el nombre del modelo real para evitar contaminación entre dimensiones.
+    return (model_name or "").strip()
 
 def _get_embedding_cache_collection():
     client = get_chroma_client()
@@ -159,7 +159,16 @@ def _chroma_load(key: str, fingerprint: str) -> Optional[List[float]]:
             flat = embs if isinstance(embs, list) else []
         meta = metas[0] if (isinstance(metas, list) and metas) else {}
         fp_ok = (meta or {}).get("fingerprint") == fingerprint
-        if isinstance(flat, list) and flat and fp_ok:
+        # Validación opcional de dimensión (si se dispone)
+        expected_dim = int(os.getenv("SIM_DIM", "0") or 0)
+        meta_dim = (meta or {}).get("dim") if isinstance(meta, dict) else None
+        dim_ok = True
+        if isinstance(meta_dim, int) and meta_dim > 0:
+            dim_ok = isinstance(flat, list) and len(flat) == meta_dim
+        if expected_dim > 0:
+            dim_ok = dim_ok and isinstance(flat, list) and len(flat) == expected_dim
+
+        if isinstance(flat, list) and flat and fp_ok and dim_ok:
             logger.info("[EMB][DB] Cache hit (id=%s, fp=%s)", key[:10], fingerprint)
             return flat
     except Exception as e:
@@ -169,7 +178,12 @@ def _chroma_load(key: str, fingerprint: str) -> Optional[List[float]]:
 def _chroma_store(key: str, fingerprint: str, vec: List[float], text: str) -> None:
     try:
         coll = _get_embedding_cache_collection()
-        coll.upsert(ids=[key], documents=[text], embeddings=[vec], metadatas=[{"fingerprint": fingerprint, "ts": int(time.time())}])
+        coll.upsert(
+            ids=[key],
+            documents=[text],
+            embeddings=[vec],
+            metadatas=[{"fingerprint": fingerprint, "dim": len(vec) if isinstance(vec, list) else None, "ts": int(time.time())}],
+        )
         logger.info("[EMB][DB] Cache store (id=%s, fp=%s)", key[:10], fingerprint)
     except Exception as e:
         logger.warning("[EMB][DB] Cache store fallo: %s", e)
@@ -226,6 +240,12 @@ def get_chroma_client():
                 host = parsed.hostname or url
                 port = parsed.port or (443 if (parsed.scheme or "http").lower() == "https" else 80)
                 ssl = (parsed.scheme or "http").lower() == "https"
+                # Advertir si hay subruta, ya que HttpClient no la utiliza
+                if (parsed.path or "").strip("/"):
+                    logger.warning(
+                        "CHROMA_DB_URL contiene path '%s' que será ignorado por HttpClient; recomendamos exponer Chroma en raíz.",
+                        parsed.path,
+                    )
                 logger.info(
                     "Inicializando cliente HTTP de ChromaDB (host='%s', port=%s, ssl=%s)…",
                     host,
@@ -238,7 +258,7 @@ def get_chroma_client():
                 logger.error("No se pudo conectar a ChromaDB HTTP (%s). Fallback a cliente local.", http_exc, exc_info=True)
                 # Continuar al fallback local
         # Fallback local (persistente) usando nueva API de Chroma (PersistentClient)
-        persist_dir = path or "/tmp/chroma"
+        persist_dir = path or "db/"
         logger.info("Inicializando cliente local de ChromaDB (persist_directory='%s')…", persist_dir)
         try:
             _chroma_client = chromadb.PersistentClient(path=persist_dir, settings=ChromaSettings(anonymized_telemetry=False))
@@ -343,9 +363,11 @@ def get_embedding(text: str, *, force: bool = False, generate_if_missing: bool =
     4) Si no existe o force=True: generar y almacenar en LRU/FS/DB
     """
     global _last_embed_error_ts, _embed_model_override
-    # Cargar configuración una sola vez y derivar fingerprint/modelo
+    # Cargar configuración y decidir el modelo preferido para esta llamada
     s = AppSettings.load()
-    fingerprint = s.embed_model
+    global _embed_model_override
+    preferred_model = _embed_model_override or s.embed_model
+    fingerprint = _embedding_fingerprint(preferred_model)
     key = _make_content_key(text)
     key_fp = f"{fingerprint}:{key}"
 
@@ -354,27 +376,37 @@ def get_embedding(text: str, *, force: bool = False, generate_if_missing: bool =
         with Timer("emb_cache_lookup", labels={"stage": "lru"}):
             hit = _lru_get(key_fp)
         if hit is not None:
-            logger.info("[EMB] LRU hit (fp=%s)", fingerprint)
-            if record_metric: record_metric("emb_cache_hit", 1, {"stage": "lru"})
-            return hit
+            expected_dim = int(os.getenv("SIM_DIM", "0") or 0)
+            if expected_dim > 0 and (not isinstance(hit, list) or len(hit) != expected_dim):
+                logger.warning("[EMB] LRU hit con dimensión inesperada (len=%s != %s); ignorando entrada.", len(hit) if isinstance(hit, list) else None, expected_dim)
+            else:
+                logger.info("[EMB] LRU hit (fp=%s)", fingerprint)
+                if record_metric: record_metric("emb_cache_hit", 1, {"stage": "lru"})
+                return hit
         with Timer("emb_cache_lookup", labels={"stage": "firestore"}):
             hit = _firestore_load(key, fingerprint)
         if hit is not None:
             if record_metric: record_metric("emb_cache_hit", 1, {"stage": "firestore"})
-            _lru_put(key_fp, hit)
-            return hit
+            expected_dim = int(os.getenv("SIM_DIM", "0") or 0)
+            if expected_dim == 0 or (isinstance(hit, list) and len(hit) == expected_dim):
+                _lru_put(key_fp, hit)
+                return hit
         with Timer("emb_cache_lookup", labels={"stage": "fs"}):
             hit = _fs_load(key, fingerprint)
         if hit is not None:
             if record_metric: record_metric("emb_cache_hit", 1, {"stage": "fs"})
-            _lru_put(key_fp, hit)
-            return hit
+            expected_dim = int(os.getenv("SIM_DIM", "0") or 0)
+            if expected_dim == 0 or (isinstance(hit, list) and len(hit) == expected_dim):
+                _lru_put(key_fp, hit)
+                return hit
         with Timer("emb_cache_lookup", labels={"stage": "chroma"}):
             hit = _chroma_load(key, fingerprint)
         if hit is not None:
             if record_metric: record_metric("emb_cache_hit", 1, {"stage": "chroma"})
-            _lru_put(key_fp, hit)
-            return hit
+            expected_dim = int(os.getenv("SIM_DIM", "0") or 0)
+            if expected_dim == 0 or (isinstance(hit, list) and len(hit) == expected_dim):
+                _lru_put(key_fp, hit)
+                return hit
 
     # Antes de generar: respetar política de no-generación cuando aplique
     if not generate_if_missing and not force:
@@ -388,10 +420,9 @@ def get_embedding(text: str, *, force: bool = False, generate_if_missing: bool =
         logger.warning("Embedding circuit open (recent failures); skipping embedding generation.")
         if record_metric: record_metric("emb_skip_due_to_policy", 1, {"reason": "circuit_open"})
         return None
-    # Reset override por llamada para evitar fugas de estado entre ejecuciones
-    global _embed_model_override
+    # Reset override por llamada; comenzamos con el modelo preferido
     _embed_model_override = None
-    model_name = _embed_model_override or s.embed_model
+    model_name = preferred_model
     logger.info(f"[EMB] Cache miss → Generando embedding (provider={_emb_provider}, model={model_name}) para: '{text[:50]}...'")
 
     # Setear texto actual para llamadas de proveedor
@@ -407,7 +438,13 @@ def get_embedding(text: str, *, force: bool = False, generate_if_missing: bool =
             # Intento HTTP-first para mayor compatibilidad; luego SDK
             vec = _http_call(model_name) or _sdk_call(model_name)
     if vec is not None:
-         # Store en caches
+        # Validar dimensión si está configurada
+        expected_dim = int(os.getenv("SIM_DIM", "0") or 0)
+        if expected_dim > 0 and (not isinstance(vec, list) or len(vec) != expected_dim):
+            logger.error("Embedding con dimensión inesperada (len=%s != %s); no se almacenará ni retornará.", len(vec) if isinstance(vec, list) else None, expected_dim)
+            vec = None
+    if vec is not None:
+        # Store en caches
         _lru_put(key_fp, vec)
         if record_metric: record_metric("emb_cache_store", 1, {"stage": "firestore"})
         _firestore_store(key, fingerprint, vec, text)
@@ -428,24 +465,30 @@ def get_embedding(text: str, *, force: bool = False, generate_if_missing: bool =
             else:
                 vec2 = _http_call(candidate) or _sdk_call(candidate)
         if vec2 is not None:
+            expected_dim = int(os.getenv("SIM_DIM", "0") or 0)
+            if expected_dim > 0 and (not isinstance(vec2, list) or len(vec2) != expected_dim):
+                logger.error("Embedding fallback con dimensión inesperada (len=%s != %s); se descarta.", len(vec2) if isinstance(vec2, list) else None, expected_dim)
+                continue
             _embed_model_override = candidate
             logger.info(f"Embedding model conmutado dinámicamente a '{candidate}'")
-            if vec2 is not None:
-                _lru_put(key_fp, vec2)
-                _firestore_store(key, fingerprint, vec2, text)
-                _fs_store(key, fingerprint, vec2)
-                _chroma_store(key, fingerprint, vec2, text)
-                if record_metric: record_metric("emb_success", 1, {"dim": len(vec2) if isinstance(vec2, list) else None, "fallback": True})
-                return vec2
+            # Actualizar fingerprint y key para el modelo efectivo
+            eff_fp = _embedding_fingerprint(candidate)
+            eff_key_fp = f"{eff_fp}:{key}"
+            _lru_put(eff_key_fp, vec2)
+            _firestore_store(key, eff_fp, vec2, text)
+            _fs_store(key, eff_fp, vec2)
+            _chroma_store(key, eff_fp, vec2, text)
+            if record_metric: record_metric("emb_success", 1, {"dim": len(vec2) if isinstance(vec2, list) else None, "fallback": True})
+            return vec2
 
     _last_embed_error_ts = time.time()
     if record_metric: record_metric("emb_failure", 1, {"provider": _emb_provider, "model": model_name})
     return None
 
-def find_similar_topics(topic_text: str, n_results: int = 4) -> List[str]:
+def find_similar_topics(topic_text: str, n_results: int = 4, *, generate_if_missing: bool = False) -> List[str]:
     """Finds similar topics in the topics_collection."""
     logger.info(f"Buscando temas similares a: '{topic_text[:50]}...'")
-    topic_embedding = get_embedding(topic_text)
+    topic_embedding = get_embedding(topic_text, generate_if_missing=generate_if_missing)
     if not topic_embedding:
         logger.warning("No se pudo generar el embedding para el tema, no se puede buscar similitud.")
         return []

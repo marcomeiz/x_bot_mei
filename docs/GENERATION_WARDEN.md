@@ -108,17 +108,27 @@ LOG_WARDEN_FAILURE_REASON=true
 ## ChromaDB
 
 - File: `embeddings_manager.py`
-- HTTP with fallback:
-  - v2: `chromadb.HttpClient(host, port, ssl)`; if 404 on `/api/v2`, fallback v1: `chromadb.Client(Settings(chroma_api_impl="rest", ...))`.
+- HTTP:
+  - v2: `chromadb.HttpClient(host, port, ssl)`. Si la URL tiene subruta, el cliente ignora el path; expón Chroma en raíz.
 - Dependencies pinned:
-  - `chromadb==0.4.24`, `numpy==1.26.4` (compatibility for REST v1; avoids `np.float_` error).
-- Performance: `find_relevant_topic` ≈ 0.27–5 s with HTTP.
+  - `chromadb==0.4.24`, `numpy==1.26.4`.
+- Performance: `find_relevant_topic` ≈ 0.27–5 s con HTTP.
+
+### Persistencia local
+
+- Si no hay `CHROMA_DB_URL`, se usa `db/` como directorio persistente local (en lugar de `/tmp/chroma`).
 
 ### Embedding policy for `/g`
 
-- The interactive generation route does not generate new embeddings. Cache-only lookups are used (LRU/FS/Firestore/Chroma).
-- If cache is missing, similarity checks are skipped and a metric `[METRIC] emb_skip_due_to_policy` is logged.
-   - Enforcement points: `bot._embed_line` and `ProposalService` (approve/finalize memory) explicitly set `generate_if_missing=False` on `get_embedding` to prevent accidental generation in interactive flows.
+- Durante la propuesta interactiva no se generan embeddings. Solo consultas a caché (LRU/FS/Firestore/Chroma).
+- Si falta caché, se omite similitud y se registra `[METRIC] emb_skip_due_to_policy`.
+- En la aprobación (A/B/C) se permite generar el embedding del tweet aprobado para guardarlo en `memory_collection`.
+  - Enforcement points: `bot._embed_line` usa `generate_if_missing=false`; `ProposalService._finalize_choice` usa `generate_if_missing=true` tras la aprobación.
+
+### Embeddings: fingerprint y dimensión
+
+- El fingerprint de caché usa el modelo efectivo (incluye fallbacks) para evitar mezclar dimensiones.
+- Si `SIM_DIM` está definida, se valida la dimensión antes de almacenar/reutilizar entradas; las incongruentes se ignoran.
 
 ## Tests
 
@@ -167,3 +177,12 @@ Validation for each: `short ≤160`, `mid 180–230`, `long 240–280`; one sent
 - `[PERF] Single‑call` in 20–45 s (balanced) or 15–30 s (speed).
 - No embedding errors; similarity working after a few approvals.
 - Outputs are human, imperative, tactical, ready to publish.
+## Health de embeddings
+
+- Endpoint: `/health/embeddings`
+- Campos:
+  - `goldset_dim`, `topics_dim`, `memory_dim`: longitud de un vector representativo por colección.
+  - `goldset_dims_seen`, `topics_dims_seen`, `memory_dims_seen`: conjunto de dimensiones observadas (muestra ≤200).
+  - `sim_dim_env`: valor de `SIM_DIM` si está definido.
+  - `agree_dim`: true si todas las colecciones comparten dimensión y coincide con `SIM_DIM` (si existe).
+  - `warmed`: cantidad de anclas precalentadas; `ok=true` exige `warmed >= WARMUP_ANCHORS` y `agree_dim=true`.

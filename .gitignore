@@ -22,6 +22,9 @@ logs*.json
 bot.log
 clear.log
 watcher_v2.log
+.temp/
+# Temporary audit docs (kept out of VCS)
+temp_docs/
 
 # Local databases & state
 *.sqlite3

@@ -212,3 +212,9 @@ Validation for each: `short ≤160`, `mid 180–230`, `long 240–280`; one sent
   - `g_send_proposal`: envío del mensaje de propuesta a Telegram.
   - `g_embed_memory_on_approval`, `g_memory_add`: embedding y persistencia al aprobar.
   - `g_send_*`: tiempos de mensajes de aviso/errores y prompts de publicación.
+
+## Resumen de variantes en logs
+
+- Al final de la propuesta, se emite un bloque `[SUMMARY]` con cada variante y su similitud con el goldset:
+  - Formato: `- A | sim=0.468 | <texto>` (sim con 3 decimales, `NA` si no se pudo calcular).
+  - Fuente: `ProposalService` tras calcular contrato+goldset.

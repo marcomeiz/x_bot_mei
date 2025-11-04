@@ -299,7 +299,7 @@ class ProposalService:
             return False
 
         with Timer("g_check_contract_and_goldset", labels={"chat_id": chat_id}):
-            compliance_warnings, blocking_contract = self._check_contract_requirements({
+            compliance_warnings, blocking_contract, _ = self._check_contract_requirements({
             "short": draft_a,
             "mid": draft_b,
             "long": draft_c,
@@ -459,7 +459,7 @@ class ProposalService:
                 self.telegram.send_message(chat_id, get_message("variants_similar_after"))
                 return False
 
-        compliance_warnings, blocking_contract = self._check_contract_requirements(draft_map)
+        compliance_warnings, blocking_contract, sims_map = self._check_contract_requirements(draft_map)
         if LOG_GENERATED_VARIANTS:
             for label, text in draft_map.items():
                 logger.info("[CHAT_ID: %s] Draft %s generated (%s chars):\n%s", chat_id, label, len((text or "")), text or "<vacío>")
@@ -521,6 +521,19 @@ class ProposalService:
             labels=labeled_drafts,
             errors=variant_errors,
         )
+
+        # Resumen final de variantes y similitud
+        try:
+            ordered = [k for k in ("A", "B", "C") if draft_map.get(k)]
+            lines = []
+            for k in ordered:
+                sim = sims_map.get(k)
+                s = "NA" if sim is None else f"{sim:.3f}"
+                lines.append(f"  - {k} | sim={s} | {draft_map.get(k)}")
+            if lines:
+                logger.info("[SUMMARY]\n%s", "\n".join(lines))
+        except Exception:
+            logger.debug("Resumen de variantes no disponible (error de formateo).")
 
         logger.info("[CHAT_ID: %s] Intentando enviar propuesta a Telegram.", chat_id)
         with Timer("g_send_proposal", labels={"chat_id": chat_id}):
@@ -676,7 +689,7 @@ class ProposalService:
                 best_pair = (label_a, label_b, similarity)
         return False, best_pair
 
-    def _check_contract_requirements(self, drafts: Dict[str, str]) -> Tuple[Dict[str, str], bool]:
+    def _check_contract_requirements(self, drafts: Dict[str, str]) -> Tuple[Dict[str, str], bool, Dict[str, Optional[float]]]:
         """
         Evalúa requisitos del contrato para cada variante y decide si se debe bloquear.
 
@@ -685,6 +698,7 @@ class ProposalService:
         una variante es válida, no bloqueamos y dejamos que se envíen las disponibles.
         """
         warnings: Dict[str, str] = {}
+        sims: Dict[str, Optional[float]] = {}
         any_valid = False
 
         for label, text in drafts.items():
@@ -704,6 +718,7 @@ class ProposalService:
             issues = []
             # Modo estricto: generar embedding del borrador para comparar con goldset
             similarity = max_similarity_to_goldset(content, generate_if_missing=True)
+            sims[label] = similarity
             if similarity is None:
                 logger.info(
                     "[GOLDSET] Draft %s similarity=None (no cache available; embedding generation may have failed).",
@@ -738,7 +753,7 @@ class ProposalService:
 
         # Bloqueamos solo si ninguna variante válida está disponible
         blocking = not any_valid
-        return warnings, blocking
+        return warnings, blocking, sims
 
     def _should_refine_variant(self, evaluation: Optional[Dict[str, object]], text: str) -> bool:
         if not evaluation or not isinstance(evaluation, dict):

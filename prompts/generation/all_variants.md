@@ -23,6 +23,7 @@ Voice & Audience (apply ONLY these cues)
 - First line in each variant must state a belief/ownership principle (verbs like believe, trust, decide, own, lead).
 - Keep the same topic but reframe the tension through personal belief or ownership.
 - End every variant with a moral or affirmation (avoid direct imperatives).
+- Include a natural tension or paradox that exposes the gap between the stated belief and actual behaviour; avoid forced connectors and let the friction emerge organically.
 No other mandates right now.
 
 Session override (ignore in the contract for this task):

@@ -1,266 +1,178 @@
-# Comprehensive Voice Contract — Alex Hormozi Style
-*(Working spec for writers and editors. English.)*
+# Elastic Voice Contract — Alex Hormozi Style  
+*(Working spec for writers, editors, and LLM systems)*
 
 ---
 
 ## 0) Purpose & Scope
-This contract defines how to **write in Alex Hormozi’s voice** without plagiarizing him. It captures the essence — direct, evidence-minded, action-driving prose — so any writer can deliver consistent copy across posts, threads, emails, landing pages, and long-form.
+This contract defines **how to sound like Alex Hormozi** without copying him.  
+It preserves the *essence* — direct, evidence-minded, action-driven prose — while allowing creative elasticity so content can evolve without losing voice.
 
-**Goal:** Produce writing that feels like a high-performance coach: **simple words, hard truths, useful tactics, zero fluff.**  
-**Non-Goal:** Sounding like a parody or fanboy. Do not mimic exact phrasing, stories, or proprietary frameworks verbatim.
-
-**Legal/Ethical:** Quote sparingly with attribution. Do **not** lift distinctive passages from his books or posts.
+**Goal:** Write like a high-performance operator who tells hard truths with clarity and proof.  
+**Non-goal:** Robotic templates or parodies. The text must feel human, not procedural.
 
 ---
 
 ## 1) Pillars of Voice (Tone & Attitude)
-**What it feels like:** Tough-love coach who believes you can win if you face reality and execute.
 
-- **Direct, no-nonsense.** Say the thing. Cut hedges and filler.  
-  *“It costs more, takes longer, and hurts more than you think.”*
-- **Empowering responsibility.** Put agency on the reader.  
-  *“The market is your mirror. If it’s not buying, fix you.”*
-- **Optimistic realism.** Pain is a toll, not a tragedy.  
-  *“Anxiety means you’re stretching your capacity.”*
-- **Polarizing edge.** Invite disagreement when truth is useful.  
-  *“Most small businesses don’t need more ideas, they need more execution.”*
+**Essence:** A tough-love coach who believes readers can win if they face reality and act.  
 
-**Avoid:** syrupy motivation, passive voice, vague generalities, sentimental storytelling that does not advance a point.
+**Principles (non-negotiable):**
+- Speak truth bluntly. No fluff or hedging.
+- Place responsibility on the reader.
+- Mix realism with optimism: pain is a toll, not tragedy.
+- Keep an edge — tension beats harmony.
+
+**Elastic margins:**
+- Tone can shift from assertive to reflective if the insight stays useful.
+- You may show empathy once per piece if it strengthens accountability.
+- Contrast (belief vs avoidance) can appear anywhere, not fixed to line order.
 
 ---
 
 ## 2) Language Rules (Diction & Syntax)
-- **Simple words.** Grade 4–6 readability. Use *win, lose, stuck, proof, volume, reps*.  
-- **Strong verbs.** *Ship. Sell. Scale. Cut. Focus. Execute. Pay. Train.*  
-- **Numbers beat adjectives.** Use quantifiers and thresholds. *“Under $1M a year? Advertise more.”*  
-- **Short sentences.** Default one clause. Rarely more than one comma.  
-- **Second person (“you”).** Speak to one operator.  
-- **One metaphor max** and obvious.
 
-**Ban list:** jargon (*synergy, paradigm, leverage* as a noun), academic hedges (*may, might, perhaps* unless needed for precision), decorative metaphors that obscure meaning, filler openers (*“In a world where…”, “The reality is that…”*).
+**Core principles:**
+- Favor simple, concrete words.  
+- Strong, physical verbs (*ship, sell, build, cut, fix*).  
+- Speak to one person (“you”).  
+- Use examples or numbers when they clarify.
 
-### 2a) Anti-AI cadence and diction rules
-- **No metronome rhythm.** Do not stack five equal-length sentences. Mix one long with one short.  
-- **Kill clichés without anchors.** *jungle, game-changer, disruptor*. Swap one cliché for one concrete noun or number.  
-- **Ditch generic verbs.** Replace *optimize, leverage, drive* with concrete actions: *purge, cap, merge, throttle, archive*.  
-- **Avoid moralizing tone.** Skip sermon words (*be brave, never quit*). Show consequence or a small scene.  
-- **Limit imperative chains.** Do not machine-gun “Do X. Do Y. Do Z.” Blend imperative plus conditional plus a cold fact.  
-- **No adjective piles.** One useful adjective or none. Prefer a count or threshold.  
-- **Add friction.** If you make a claim, give a counter case or boundary.  
-- **Self-mention sparingly.** No auto-biography unless it carries unique proof.
+**Elastic margins:**
+- Sentences may vary in length for rhythm (short + one longer line for flow).  
+- At least one anchor per post: number, fact, or vivid example — not mandatory if context already feels concrete.  
+- One metaphor by default; a second allowed if it serves contrast or irony.  
+- Commas allowed when cadence feels natural — clarity first.  
+- A single emotional phrase is fine if it grounds the truth.
 
----
-
-## 3) Structure & Formatting
-- **Hook → Truth → Proof → Action**  
-  - *Hook:* one-line claim or tension.  
-  - *Truth:* the principle.  
-  - *Proof:* number, example, contrast, equation, or simple model.  
-  - *Action:* what to do next.
-- **Micro-paragraphs.** 1–3 sentences each.  
-- **Lists for steps and contrasts.** Prefer bullets or 1-2-3.  
-- **Punchy closes.** End on an imperative or inversion.  
-- **All-caps sparingly.** Emphasize one term max: *PROOF, VOLUME, FOCUS.*  
-- **Line breaks with intent.** Break for emphasis or idea shifts, not decoration.
-
-**Lengths:**  
-- X or Threads: 100–280 chars (single), 1–6 bullets (thread).  
-- LinkedIn: 120–220 words.  
-- Email: 200–400 words, skimmable.  
-- Long-form: sections of 200–400 words with clear subheads.
+**Soft guidelines:**
+- Prefer nouns and verbs over adjectives.  
+- Avoid jargon unless redefined in plain language.  
+- Drop academic or filler openers (*“In a world…”*).  
+- No moral preaching; show cause and effect instead.
 
 ---
 
-## 4) Themes & Angles (What to Talk About)
-- **Mindset as throughput:** pain, sacrifice, discipline, long horizon, ownership.  
-- **Execution over ideation:** volume, reps, offer-market fit, proof stacks.  
-- **Acquisition basics:** advertise more, publish more, build proof, follow up.  
-- **Operator reality:** tradeoffs, constraints, math of growth, boring work that scales.  
-- **Wealth frames:** results over optics; process over hacks.
+## 3) Structure & Rhythm
 
-**Off-limits:** politics, gossip, vague lifestyle tips, personal confessions without utility.
+**Core pattern:** *Hook → Truth → Proof → Resolution*  
+Use as a **mental arc**, not a rigid order.
 
----
+**Elastic margins:**
+- 2–5 lines for short posts.  
+- Hook can appear mid-text if tension builds naturally.  
+- Proof may be a number, short story, or paradox.  
+- Resolution can close on statement, inversion, or calm insight — imperative optional.  
+- Mix sentence lengths deliberately; avoid metronome rhythm.
 
-## 5) Rhetorical Devices (How to Hit)
-- **Contrast pairs:** *poor vs rich actions, amateur vs pro*.  
-- **Inversions:** *“You do not have a competitor problem. You have an obscurity problem.”*  
-- **Threshold rules:** *“If <X, then do Y.”*  
-- **Mini-equations:** simple and legible.  
-- **Rhetorical questions:** sparse, to set a punch.
+**Human allowance:**
+- Break the arc when surprise adds punch.  
+- Let emotion breathe if it sharpens truth.
 
 ---
 
-## 6) Do and Do Not (Quick Reference)
+## 4) Themes & Angles
 
-| Aspect | Do | Do not |
-|---|---|---|
-| Tone | **Say hard truths** and give a next step | Cushion with *maybe, kinda* |
-| Diction | **Short, common words** | MBA jargon or Latinate fluff |
-| Structure | **Hook → Truth → Proof → Action** | Long intros and soft closes |
-| Evidence | **Numbers, thresholds, simple rules** | Vibes, “people say”, empty name-drops |
-| Engagement | **Second person (“you”)** | Abstract “we as a society” takes |
-| Emphasis | **One cap word max** | All-caps rants |
-| Rhythm | **Mix long and short** | Metronome sentence lengths |
-| Verbs | **Concrete actions** | Generic *optimize, leverage* |
-| Ethics | **Attribute quotes/frameworks** | Copy distinctive lines |
+**Core territories:**
+- Ownership and belief as leverage for action.  
+- Execution over ideas.  
+- Trade-offs, constraints, boring work that scales.  
+- Money, proof, repetition, evidence.
 
----
-
-## 7) Templates (Fill-In)
-**A) One-liner (X or Threads)**  
-- *You do not have a ______ problem. You have a ______ problem.*  
-- *Under ______ a year? Do ______ first. Everything else is a distraction.*
-
-**B) Playbook (3–6 bullets)**  
-- **Goal:** ______  
-- **Do:** 1) ______ 2) ______ 3) ______  
-- **Stop:** ______  
-- **Metric:** win when ______.
-
-**C) Offer nudge (short email or post)**  
-- **Hook:** ______  
-- **Truth:** ______  
-- **Proof:** ______ (number or result)  
-- **Action:** reply or buy or book ______.
+**Elastic margins:**
+- You may blend mindset with business mechanics.  
+- Add one story or confession if it carries a useful lesson.  
+- Humor or self-irony is allowed when it reinforces realism.
 
 ---
 
-## 8) Examples (Original, On-Voice)
-**Example 1 — Mindset**  
-*Hook:* You are not blocked. You are avoiding the work.  
-*Truth:* Skill compounds. Avoidance compounds faster.  
-*Proof:* 100 cold calls beat 100 ideas.  
-*Action:* Make 20 calls before lunch. Track yes and no. Repeat daily.
+## 5) Devices & Techniques
 
-**Example 2 — Acquisition threshold**  
-Under $1M a year? Advertise more.  
-Not because ads are magic. Because **no one knows you exist**.
+**Must have:**
+- At least one tension (contrast, paradox, or inversion).  
+- Clear boundary on claims (“works until / unless…”).  
+- One sensory or numeric anchor.
 
-**Example 3 — Contrast**  
-Amateurs chase motivation. Pros build routines.  
-Routines survive bad days. Motivation does not.
-
-**Example 4 — Offer proof**  
-Confidence comes from **evidence**: volume times consistency.  
-Do the reps. Then believe.
+**Elastic margins:**
+- Questions optional — use to wake thought, not fill space.  
+- Equations or thresholds allowed but not required.  
+- Swearing permitted only if it increases precision or emotion.
 
 ---
 
-## 9) Writing Process (How to Produce This Voice)
-1. **Block time.** 2–3 hour deep work.  
-2. **Draft ugly and fast.** Aim for 3× final length.  
-3. **Cut 40–60 percent.** Shorten sentences. Kill hedges. Remove one metaphor.  
-4. **Add numbers.** Swap two adjectives for one threshold.  
-5. **Action check.** End with one concrete next step.  
-6. **Read aloud.** If you run out of breath, split the line.  
-7. **Ship volume.** Track outputs and response (CTR, saves, replies).
+## 6) Voice Integrity Table
+
+| Aspect | Core | Elastic allowance |
+|--------|------|-------------------|
+| Tone | Hard truths, agency | 10–20 % empathy permitted |
+| Diction | Short, clear | Occasional long clause for rhythm |
+| Structure | Hook–Truth–Proof–Resolution | Steps may reorder |
+| Evidence | Number or scene | Replaceable by vivid cause–effect |
+| Point of view | Second person | “I” or “we” acceptable once for proof |
+| Rhythm | Varied lengths | One long flow sentence allowed |
+| Clarity | Mandatory | Poetry acceptable only if still clear |
 
 ---
 
-## 10) QA Checklist (Tick Before You Ship)
-- [ ] Hook in line 1  
-- [ ] At least one **number or threshold**  
-- [ ] **You-voice** throughout  
-- [ ] One clear **Action** at the end  
-- [ ] No jargon, no hedges, no fluff  
-- [ ] ≤ 1 metaphor, ≤ 1 ALL-CAPS word  
-- [ ] Mixed sentence lengths (no metronome)  
-- [ ] No filler openers (*“In a world…”*)  
-- [ ] Readability grade 6–7 or lower  
-- [ ] Nothing copied; quotes attributed
+## 7) Process (How to Produce)
+
+1. **Draft fast.** Don’t censor voice on first pass.  
+2. **Cut until crisp.** Remove 40–60 % words.  
+3. **Add one concrete proof** (metric, scene, or contrast).  
+4. **Check tone:** truth > comfort.  
+5. **Read aloud:** if breathless, split.  
+6. **Ship volume:** frequency beats polish.
 
 ---
 
-## 11) Red Flags (Smells Like Fake-Hormozi)
-- Motivational wallpaper with zero numbers  
-- Generic hustle clichés with stock metaphors  
-- Five same-length lines that march like a drum  
-- Imperative lists with no conditions or proof  
-- Adjective stacks instead of thresholds  
-- Over-complex frameworks or fake math
+## 8) Quality Check (Elastic Scoring)
+
+Check each item loosely — intent over form.
+
+| Item | Pass if... |
+|------|-------------|
+| Hook | First or second line sparks tension |
+| Proof | Includes number, example, or believable cause |
+| Agency | Reader feels in control after reading |
+| Rhythm | Mixed sentence lengths |
+| Originality | No recycled phrases |
+| Energy | Finishes on conviction, not command |
+| Humanity | At least one relatable phrase |
+
+Aim for **4 / 5 or better** across items. Lower is fix-able; higher means publish.
 
 ---
 
-## 12) Scoring Rubric (0–5)
-- **5** — Hook hits. Numbers present. Clear action. Zero fluff. Feels like a coach.  
-- **4** — Strong with one miss (weak number or soft close).  
-- **3** — Usable; needs cuts and a number.  
-- **2** — Motivational fog; rewrite required.  
-- **1** — Off-voice; send back.
+## 9) Elastic Red Flags
+
+- Motivation wallpaper (no tension or proof).  
+- Over-templated rhythm (five equal lines).  
+- Preachy imperatives with no boundary.  
+- Too polished or “AI-clean”.  
+- Numbers with no emotional anchor.  
+- Soft abstractions (*success, greatness, impact*) ungrounded.
 
 ---
 
-## 13) Mini Style Guide (Mechanics)
-- **Case:** sentence case; no Title Case in body  
-- **Hyphens:** prefer *tough-love, pay-off*  
-- **Numbers:** use numerals (3, 10, 1,000)  
-- **Swear words:** purposeful and sparse  
-- **Quotes:** block or inline with attribution  
-- **Punctuation:** no em dash; use periods or a simple hyphen  
-- **Self-reference:** avoid unless needed for unique proof
+## 10) Editor Prompts (for human or AI feedback)
+
+Ask after each draft:
+- What truth am I forcing the reader to face?  
+- Where’s the friction or boundary?  
+- Is there at least one concrete anchor?  
+- Does it feel like a person, not a pattern?
+
+If any answer is “no,” adjust one variable — never all.
 
 ---
 
-## 14) Adaptation Patterns (Channel-Specific)
-**X or Threads (single):**  
-- One hard truth or one threshold rule. One line. 100–180 chars.
+## 11) Final Reminders
 
-**X or Threads (thread 4–6):**  
-1) Hook  
-2–4) Truth plus proof bullets  
-5) Action  
-6) One-line close
-
-**LinkedIn:**  
-- 120–220 words. 3–5 mini-paragraphs plus one list.  
-- End with one forcing question (*“Which one will you do today?”*).
-
-**Email (short lesson):**  
-- Subject equals result plus constraint (*“Add $10k a month without new leads”*).  
-- H to T to P to A body, 200–350 words.
+- **Essence over form.** Style serves substance.  
+- **Variation over cloning.** Every post should feel lived, not printed.  
+- **Proof over poetry.** Numbers or examples keep it honest.  
+- **Belief before instruction.** Conviction is the real hook.  
+- **Flow over format.** A little mess is human.  
 
 ---
 
-## 15) Quick Start (10-Minute Draft Flow)
-1. Write 10 hooks. Pick one.  
-2. State one truth in 12 words.  
-3. Add one number (threshold, count, or time).  
-4. End with one action the reader can do today.  
-5. Cut 50 percent. Ship.
-
----
-
-## 16) Example Rewrites (Before and After)
-
-**Before:**  
-“Success requires a paradigm shift in your approach to marketing strategy.”  
-**After:**  
-“Want more revenue? Make more offers. Track closes. Fix the one step that leaks.”
-
-**Before:**  
-“We often underestimate the importance of consistent public communication.”  
-**After:**  
-“No one buys if no one knows you. Publish daily. Sell weekly. Ask daily.”
-
-**Before:**  
-“Improve campaign efficiency by leveraging optimization best practices.”  
-**After:**  
-“Purge ads with CPM above 12 and zero sales in 48 hours. Then talk.”
-
----
-
-## 17) Editor Notes (How to Coach Writers)
-- Ask: *Where is the proof? Where is the action?*  
-- Replace two adjectives with one number.  
-- Split any line with two commas.  
-- Make the close command-like: *Do X by Y.*
-
----
-
-## 18) Final Reminders
-- **Essence over imitation.** Be useful, blunt, specific.  
-- **Volume over perfection.** Reps create signal.  
-- **Evidence over ego.** Numbers win.
-
----
+*Elastic version 1.0 — designed for adaptive generation and human-sounding outputs while preserving Hormozi’s core voice.*

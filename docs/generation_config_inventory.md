@@ -28,4 +28,11 @@ This note tracks every configuration surface that impacts tweet/comment generati
 1. Consolidar mensajes de usuario/logs en `config/messages.yaml`.
 2. Añadir logging de verificación (Stage 0.1) y pruebas de carga dinámica.
 
+---
+
+**Cambio:** Ajuste del prompt `prompts/generation/all_variants.md` para reforzar la ancla belief/ownership con tensión/paradoja explícita.  
+**Fecha:** 2025-11-04  
+**Autor:** AI assistant  
+**Justificación:** Incrementar similitud media y alineación con el eje belief del autor sin relajar guardrails ni umbrales.
+
 Actualizar este documento tras cada etapa para mantener trazabilidad.

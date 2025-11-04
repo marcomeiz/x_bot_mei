@@ -29,6 +29,7 @@ from variant_generators import (
     assess_comment_opportunity,
     generate_comment_reply,
 )
+from metrics import Timer
 
 
 class TweetDrafts(BaseModel):
@@ -254,7 +255,8 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
 
     _log_similarity(topic_abstract, ignore_similarity)
 
-    gold_examples = retrieve_goldset_examples(topic_abstract or "", k=3)
+    with Timer("g_goldset_retrieve", labels={"k": 3}):
+        gold_examples = retrieve_goldset_examples(topic_abstract or "", k=3)
     if gold_examples:
         logger.info("Using %s goldset examples as style anchors.", len(gold_examples))
 
@@ -263,12 +265,13 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
     for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
         logger.info("Intento de generación de IA %s/%s…", attempt, MAX_GENERATION_ATTEMPTS)
         try:
-            drafts, variant_errors = generate_all_variants(
-                topic_abstract,
-                context,
-                settings,
-                gold_examples=gold_examples,
-            )
+            with Timer("g_llm_single_call", labels={"model": GENERATION_MODEL}):
+                drafts, variant_errors = generate_all_variants(
+                    topic_abstract,
+                    context,
+                    settings,
+                    gold_examples=gold_examples,
+                )
             result = {
                 "short": (drafts.get("short") or "").strip(),
                 "mid": (drafts.get("mid") or "").strip(),

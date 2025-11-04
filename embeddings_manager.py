@@ -52,7 +52,7 @@ _emb_fs_cache_enabled = os.getenv("EMB_FS_CACHE", "0").lower() in {"1", "true", 
 _emb_fs_cache_dir = Path(os.getenv("EMB_FS_CACHE_DIR", "data/emb_cache")).resolve()
 
 # --------- GCP Firestore/GCS backend ---------
-_emb_firestore_enabled = os.getenv("EMB_USE_FIRESTORE", "1").lower() in {"1", "true", "yes"}
+_emb_firestore_enabled = os.getenv("EMB_USE_FIRESTORE", "0").lower() in {"1", "true", "yes"}
 _emb_cache_ttl = int(os.getenv("EMB_CACHE_TTL", "0") or 0)  # segundos; 0 = sin expiración
 try:
     from gcp_storage import firestore_get_embedding, firestore_put_embedding  # type: ignore

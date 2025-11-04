@@ -38,6 +38,7 @@ Embeddings GCP‑nativos (Vertex AI + Firestore/GCS)
   - EMB_PROVIDER=vertex                # usa Vertex AI como proveedor de embeddings
   - GCP_PROJECT_ID=<proyecto>
   - GCP_LOCATION=us-central1           # o europe-west4, etc.
+  - EMB_USE_FIRESTORE=0                # OFF por defecto; pon 1 para habilitar
   - EMB_CACHE_COLLECTION=embedding_cache  # colección de Firestore para vector+metadatos
   - EMB_GCS_BUCKET=<bucket opcional>   # si se desea guardar .npy para auditoría
   - EMB_CACHE_TTL=0                    # segundos; 0 = sin expiración (usar TTL de Firestore si se configura)

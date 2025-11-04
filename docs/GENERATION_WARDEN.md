@@ -139,6 +139,7 @@ LOG_WARDEN_FAILURE_REASON=true
 
 ### Firestore (embedding cache opcional)
 
+- Estado: DESACTIVADO por defecto. Actívalo con `EMB_USE_FIRESTORE=1` si necesitas caché global de embeddings.
 - Colección: `EMB_CACHE_COLLECTION` (por defecto `embedding_cache`). No debe contener `/`.
 - Si `EMB_CACHE_COLLECTION` incluye `/`, el sistema lo sanea reemplazándolo por `_` y registra un warning.
 - Los IDs de documento usan `fingerprint:model` y `key` saneados (se reemplaza `/` por `_`) para cumplir con Firestore.
@@ -199,3 +200,15 @@ Validation for each: `short ≤160`, `mid 180–230`, `long 240–280`; one sent
   - `sim_dim_env`: valor de `SIM_DIM` si está definido.
   - `agree_dim`: true si todas las colecciones comparten dimensión y coincide con `SIM_DIM` (si existe).
   - `warmed`: cantidad de anclas precalentadas; `ok=true` exige `warmed >= WARMUP_ANCHORS` y `agree_dim=true`.
+## Métricas de latencia (/g)
+
+- Formato: logs `[METRIC]` con nombre y valor en ms.
+- Principales métricas añadidas:
+  - `g_find_topic`: selección de tema en Chroma.
+  - `g_goldset_retrieve`: carga de anchors/ejemplos del goldset.
+  - `g_llm_single_call`: llamada LLM que genera A/B/C.
+  - `g_generate_variants`: envoltura de generación (desde propuesta).
+  - `g_check_contract_and_goldset`: verificación de contrato + similitud goldset.
+  - `g_send_proposal`: envío del mensaje de propuesta a Telegram.
+  - `g_embed_memory_on_approval`, `g_memory_add`: embedding y persistencia al aprobar.
+  - `g_send_*`: tiempos de mensajes de aviso/errores y prompts de publicación.

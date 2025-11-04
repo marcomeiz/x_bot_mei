@@ -26,6 +26,7 @@ from src.messages import get_message
 from src.goldset import GOLDSET_MIN_SIMILARITY, max_similarity_to_goldset
 from src.settings import AppSettings
 from diagnostics_logger import log_post_metrics
+from metrics import Timer, record_metric
 
 
 class ProviderGenerationError(Exception):
@@ -70,7 +71,8 @@ class ProposalService:
             self.telegram.send_message(chat_id, JOB_TIMEOUT_MESSAGE)
             return
 
-        topic = find_relevant_topic()
+        with Timer("g_find_topic", labels={"chat_id": chat_id}):
+            topic = find_relevant_topic()
         if not topic:
             logger.warning("[CHAT_ID: %s] No hay temas disponibles para generar.", chat_id)
             self.telegram.send_message(
@@ -234,7 +236,8 @@ class ProposalService:
                 return False
 
         try:
-            gen_result = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
+            with Timer("g_generate_variants", labels={"chat_id": chat_id}):
+                gen_result = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
             _process_generation_result(gen_result)
 
         except ProviderGenerationError:
@@ -291,10 +294,12 @@ class ProposalService:
                 labels,
                 sim_value,
             )
-            self.telegram.send_message(chat_id, get_message("variants_similar_initial"))
+            with Timer("g_send_warning_variants_similar", labels={"chat_id": chat_id}):
+                self.telegram.send_message(chat_id, get_message("variants_similar_initial"))
             return False
 
-        compliance_warnings, blocking_contract = self._check_contract_requirements({
+        with Timer("g_check_contract_and_goldset", labels={"chat_id": chat_id}):
+            compliance_warnings, blocking_contract = self._check_contract_requirements({
             "short": draft_a,
             "mid": draft_b,
             "long": draft_c,
@@ -307,7 +312,8 @@ class ProposalService:
                     reply_markup=self.telegram.get_new_tweet_keyboard(),
                 )
                 return False
-            self.telegram.send_message(chat_id, get_message("contract_retry"))
+            with Timer("g_send_warning_contract_retry", labels={"chat_id": chat_id}):
+                self.telegram.send_message(chat_id, get_message("contract_retry"))
             return False
         if compliance_warnings:
             logger.info(
@@ -336,7 +342,8 @@ class ProposalService:
                 f"- {label_lookup.get(label, label.upper())}: {reason}"
                 for label, reason in error_summary.items()
             ]
-            self.telegram.send_message(
+            with Timer("g_send_error_variants_summary", labels={"chat_id": chat_id}):
+                self.telegram.send_message(
                 chat_id,
                 "\n".join(summary_lines),
                 reply_markup=self.telegram.get_new_tweet_keyboard(),
@@ -364,7 +371,8 @@ class ProposalService:
             draft_c=draft_c or None, 
             category="Multi-length"
         )
-        self.drafts.save(chat_id, topic_id, payload)
+        with Timer("g_save_draft_payload", labels={"chat_id": chat_id}):
+            self.drafts.save(chat_id, topic_id, payload)
 
         keyboard = self.telegram.build_proposal_keyboard(
             topic_id,
@@ -515,7 +523,9 @@ class ProposalService:
         )
 
         logger.info("[CHAT_ID: %s] Intentando enviar propuesta a Telegram.", chat_id)
-        if self.telegram.send_message(chat_id, message_text, reply_markup=keyboard, as_html=True):
+        with Timer("g_send_proposal", labels={"chat_id": chat_id}):
+            sent_ok = self.telegram.send_message(chat_id, message_text, reply_markup=keyboard, as_html=True)
+        if sent_ok:
             logger.info("[CHAT_ID: %s] Propuesta enviada correctamente a Telegram.", chat_id)
             try:
                 # Successful send: log final metrics snapshot
@@ -911,10 +921,12 @@ class ProposalService:
     ) -> None:
         memory_collection = get_memory_collection()
         # Al aprobar, permitimos generar embedding para persistir en memoria
-        tweet_embedding = get_embedding(chosen_tweet, generate_if_missing=True)
+        with Timer("g_embed_memory_on_approval", labels={"chat_id": chat_id}):
+            tweet_embedding = get_embedding(chosen_tweet, generate_if_missing=True)
         total_memory = None
         if tweet_embedding:
-            memory_collection.add(embeddings=[tweet_embedding], documents=[chosen_tweet], ids=[topic_id])
+            with Timer("g_memory_add", labels={"chat_id": chat_id}):
+                memory_collection.add(embeddings=[tweet_embedding], documents=[chosen_tweet], ids=[topic_id])
             try:
                 total_memory = memory_collection.count()
             except Exception:
@@ -923,9 +935,14 @@ class ProposalService:
         intent_url = f"{self.share_base_url}{quote(chosen_tweet, safe='') }"
         keyboard = {"inline_keyboard": [[{"text": f"🚀 Publicar Opción {option}", "url": intent_url}]]}
         if message_prefix:
-            self.telegram.send_message(chat_id, message_prefix)
-        self.telegram.send_message(chat_id, get_message("publish_prompt"), reply_markup=keyboard)
+            with Timer("g_send_publish_prefix", labels={"chat_id": chat_id}):
+                self.telegram.send_message(chat_id, message_prefix)
+        with Timer("g_send_publish_prompt", labels={"chat_id": chat_id}):
+            self.telegram.send_message(chat_id, get_message("publish_prompt"), reply_markup=keyboard)
         if total_memory is not None:
-            self.telegram.send_message(chat_id, get_message("memory_added", total=total_memory))
-        self.telegram.send_message(chat_id, get_message("ready_for_next"), reply_markup=self.telegram.get_new_tweet_keyboard())
-        self.drafts.delete(chat_id, topic_id)
+            with Timer("g_send_memory_added", labels={"chat_id": chat_id}):
+                self.telegram.send_message(chat_id, get_message("memory_added", total=total_memory))
+        with Timer("g_send_ready_for_next", labels={"chat_id": chat_id}):
+            self.telegram.send_message(chat_id, get_message("ready_for_next"), reply_markup=self.telegram.get_new_tweet_keyboard())
+        with Timer("g_delete_temp_draft", labels={"chat_id": chat_id}):
+            self.drafts.delete(chat_id, topic_id)

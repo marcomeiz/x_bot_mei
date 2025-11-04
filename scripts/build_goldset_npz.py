@@ -99,7 +99,11 @@ def main():
     t0 = time.time()
     # Asegura el modelo por entorno (embeddings_manager usa ENV/AppSettings)
     if args.emb_model:
-        os.environ.setdefault("EMBED_MODEL", args.emb_model)
+        os.environ["EMBED_MODEL"] = args.emb_model
+    # Verifica credencial para OpenRouter
+    if not os.getenv("OPENROUTER_API_KEY"):
+        _e("[ERR] Falta OPENROUTER_API_KEY en el entorno; expórtala antes de ejecutar.")
+        sys.exit(4)
 
     for i, t in enumerate(texts, 1):
         nt = normalize_for_embedding(t)

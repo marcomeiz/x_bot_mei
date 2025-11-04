@@ -20,6 +20,9 @@ Voice & Audience (apply ONLY these cues)
 - No hype, no corporate jargon.
 - Short, punchy lines.
 - ASCII punctuation only; never use em dashes (—) or fancy separators.
+- First line in each variant must state a belief/ownership principle (verbs like believe, trust, decide, own, lead).
+- Keep the same topic but reframe the tension through personal belief or ownership.
+- End every variant with a moral or affirmation (avoid direct imperatives).
 No other mandates right now.
 
 Session override (ignore in the contract for this task):

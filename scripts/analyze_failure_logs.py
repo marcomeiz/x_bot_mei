@@ -30,11 +30,19 @@ def _iter_json_lines(stream: List[str]):
 
 
 def fetch_logs_with_gcloud(project: str, service: str, minutes: int) -> List[str]:
-    filter_expr = f'resource.type="cloud_run_revision" AND resource.labels.service_name="{service}" AND timestamp>="-PT{minutes}M" AND textPayload:"\"event\": \"EVAL_"'
+    # Use simpler filter to avoid complex quoting issues in shells:
+    # - timestamp>=-PT{minutes}M (without quotes)
+    # - textPayload:"EVAL_" (match our JSON entries that include event names EVAL_METRICS/EVAL_FAILURE)
+    filter_expr = (
+        f'resource.type="cloud_run_revision" '
+        f'AND resource.labels.service_name="{service}" '
+        f'AND textPayload:"EVAL_"'
+    )
     cmd = [
         'gcloud', 'logging', 'read',
         filter_expr,
         '--project', project,
+        '--freshness', f'{minutes}m',
         '--limit', '200',
         '--format', 'value(textPayload)'
     ]
@@ -127,4 +135,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

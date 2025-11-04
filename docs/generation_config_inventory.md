@@ -40,4 +40,9 @@ This note tracks every configuration surface that impacts tweet/comment generati
 **Autor:** AI assistant  
 **Justificación:** Sustituir flags rígidos previos por una verificación de anclas (número/hecho/ejemplo) y alimentar telemetría sin depender de `missing_number` ni reglas similares.
 
+**Cambio:** Emisión de un log estructurado por variante en `diagnostics_logger.log_post_metrics` para Cloud Logging (`jsonPayload`).  
+**Fecha:** 2025-11-04  
+**Autor:** AI assistant  
+**Justificación:** Garantizar trazabilidad pieza/variant con campos `piece_id`, `variant`, `draft_text`, `similarity`, `min_required`, `passed`, `timestamp` para análisis y depuración.
+
 Actualizar este documento tras cada etapa para mantener trazabilidad.

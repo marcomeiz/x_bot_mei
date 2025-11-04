@@ -1,6 +1,8 @@
 import json
 import os
 import re
+import sys
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
 from logger_config import logger
@@ -69,6 +71,15 @@ def compute_basic_metrics(text: str) -> Dict[str, Any]:
     }
 
 
+def _emit_structured_variant_log(payload: Dict[str, Any]) -> None:
+    """Emit a JSON line suitable for Cloud Logging jsonPayload ingestion."""
+    try:
+        sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except Exception:
+        # Fallback to standard logger if direct write fails (still structured, but with prefix)
+        logger.info(json.dumps(payload, ensure_ascii=False))
+
+
 def log_post_metrics(
     *,
     chat_id: int,
@@ -111,6 +122,17 @@ def log_post_metrics(
                 "enforce_no_commas": thresholds["enforce_no_commas"],
             },
         }
+
+        structured_payload = {
+            "piece_id": str(topic_id or title or ""),
+            "variant": label.lower(),
+            "draft_text": info.get("text", ""),
+            "similarity": base.get("goldset_similarity"),
+            "min_required": thresholds["goldset_min_similarity"],
+            "passed": bool(info.get("text")) and not blocked,
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        }
+        _emit_structured_variant_log(structured_payload)
 
     entry = {
         "event": "EVAL_FAILURE" if blocked else "EVAL_METRICS",

@@ -132,7 +132,8 @@ def _fs_store(key: str, fingerprint: str, vec: List[float]) -> None:
 def _chroma_load(key: str, fingerprint: str) -> Optional[List[float]]:
     try:
         coll = _get_embedding_cache_collection()
-        data = coll.get(ids=[key], include=["embeddings", "metadatas", "ids"]) or {}
+        # Nota: 'ids' no es un valor válido para 'include' en Chroma; se solicita solo embeddings/metadatas.
+        data = coll.get(ids=[key], include=["embeddings", "metadatas"]) or {}
         # Conversión segura a lista para evitar truthiness ambiguo con arrays de NumPy
         def _to_list(x):
             if x is None:
@@ -147,10 +148,10 @@ def _chroma_load(key: str, fingerprint: str) -> Optional[List[float]]:
             except Exception:
                 return []
 
-        ids = _to_list(data.get("ids"))
         embs = _to_list(data.get("embeddings"))
         metas = _to_list(data.get("metadatas"))
-        if len(ids) == 0:
+        # Determinar existencia por presencia de vector
+        if not embs:
             return None
         # Aplanar vectores si vienen anidados [[vec]]
         if isinstance(embs, list) and embs and isinstance(embs[0], list):

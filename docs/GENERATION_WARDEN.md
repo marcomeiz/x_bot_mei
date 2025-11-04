@@ -110,6 +110,7 @@ LOG_WARDEN_FAILURE_REASON=true
 - File: `embeddings_manager.py`
 - HTTP:
   - v2: `chromadb.HttpClient(host, port, ssl)`. Si la URL tiene subruta, el cliente ignora el path; expón Chroma en raíz.
+  - lecturas: se solicitan solo `embeddings`/`metadatas` en `include` (no `ids`).
 - Dependencies pinned:
   - `chromadb==0.4.24`, `numpy==1.26.4`.
 - Performance: `find_relevant_topic` ≈ 0.27–5 s con HTTP.
@@ -129,6 +130,11 @@ LOG_WARDEN_FAILURE_REASON=true
 
 - El fingerprint de caché usa el modelo efectivo (incluye fallbacks) para evitar mezclar dimensiones.
 - Si `SIM_DIM` está definida, se valida la dimensión antes de almacenar/reutilizar entradas; las incongruentes se ignoran.
+
+### Firestore (embedding cache opcional)
+
+- Colección: `EMB_CACHE_COLLECTION` (por defecto `embedding_cache`). No debe contener `/`.
+- Si `EMB_CACHE_COLLECTION` incluye `/`, el sistema lo sanea reemplazándolo por `_` y registra un warning.
 
 ## Tests
 

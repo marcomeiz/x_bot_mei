@@ -17,7 +17,7 @@ from typing import Dict, Optional
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
-from embeddings_manager import get_embedding, get_memory_collection, get_topics_collection, find_similar_topics
+from embeddings_manager import get_embedding, get_memory_collection, get_topics_collection
 from logger_config import logger
 from prompt_context import build_prompt_context
 from style_guard import StyleRejection, audit_and_improve_comment

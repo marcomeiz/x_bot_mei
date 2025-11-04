@@ -51,7 +51,10 @@ def firestore_get_embedding(key: str, fingerprint: str) -> Optional[List[float]]
     client = _get_firestore()
     if client is None:
         return None
-    coll_name = os.getenv("EMB_CACHE_COLLECTION", "embedding_cache")
+    coll_name = (os.getenv("EMB_CACHE_COLLECTION", "embedding_cache") or "embedding_cache").strip()
+    if "/" in coll_name:
+        logger.warning("EMB_CACHE_COLLECTION contiene '/'; se reemplaza por '_' para cumplir con Firestore.")
+        coll_name = coll_name.replace("/", "_")
     doc_id = f"{fingerprint}:{key}"
     try:
         doc = client.collection(coll_name).document(doc_id).get()
@@ -73,7 +76,10 @@ def firestore_put_embedding(key: str, fingerprint: str, vec: List[float], text: 
     client = _get_firestore()
     if client is None:
         return
-    coll_name = os.getenv("EMB_CACHE_COLLECTION", "embedding_cache")
+    coll_name = (os.getenv("EMB_CACHE_COLLECTION", "embedding_cache") or "embedding_cache").strip()
+    if "/" in coll_name:
+        logger.warning("EMB_CACHE_COLLECTION contiene '/'; se reemplaza por '_' para cumplir con Firestore.")
+        coll_name = coll_name.replace("/", "_")
     doc_id = f"{fingerprint}:{key}"
     now = int(time.time())
     expires_at = (now + int(ttl_seconds)) if ttl_seconds else None
@@ -108,4 +114,3 @@ def firestore_put_embedding(key: str, fingerprint: str, vec: List[float], text: 
         logger.info("[EMB][FSDB] Cache store (doc=%s)", doc_id[:16])
     except Exception as e:
         logger.warning("Firestore put fallo: %s", e)
-

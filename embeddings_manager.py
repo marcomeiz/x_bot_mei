@@ -357,8 +357,15 @@ def _http_call(model: str, text: Optional[str] = None) -> Optional[list]:
         return None
 
 
-def get_embedding(text: str, *, force: bool = False, generate_if_missing: bool = True):
+def get_embedding(text: str, *, model: Optional[str] = None, force: bool = False, generate_if_missing: bool = True):
     """Obtiene el embedding para un texto, con verificación previa de existencia en cachés.
+
+    Parámetros:
+    - text: Texto de entrada.
+    - model: Nombre de modelo de embeddings a usar para esta llamada (override opcional).
+             Si no se proporciona, se utiliza el modelo de AppSettings o un override interno si existe.
+    - force: Si True, fuerza regeneración ignorando cachés locales/remotos.
+    - generate_if_missing: Si False, no genera embedding cuando no existe en caché.
 
     Flujo:
     1) LRU (memoria del proceso) → 2) FS opcional → 3) Chroma embedding_cache
@@ -368,7 +375,8 @@ def get_embedding(text: str, *, force: bool = False, generate_if_missing: bool =
     # Cargar configuración y decidir el modelo preferido para esta llamada
     s = AppSettings.load()
     global _embed_model_override
-    preferred_model = _embed_model_override or s.embed_model
+    # Permitir override explícito por parámetro 'model' manteniendo compatibilidad
+    preferred_model = (model or _embed_model_override or s.embed_model)
     fingerprint = _embedding_fingerprint(preferred_model)
     normalized_text = normalize_for_embedding(text)
     key = _make_content_key(normalized_text)

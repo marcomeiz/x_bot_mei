@@ -2,12 +2,25 @@ import json
 import os
 import re
 import sys
+import logging
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
 from logger_config import logger
 from src.goldset import GOLDSET_MIN_SIMILARITY, max_similarity_to_goldset
 from src.style_config import get_style_settings
+try:
+    from google.cloud.logging_v2.handlers import StructuredLogHandler
+
+    _structured_handler = StructuredLogHandler()
+    _diag_logger = logging.getLogger("diagnostics")
+    _diag_logger.setLevel(logging.INFO)
+    if not any(isinstance(h, StructuredLogHandler) for h in _diag_logger.handlers):
+        _diag_logger.addHandler(_structured_handler)
+except Exception:
+    _structured_handler = None
+    _diag_logger = logging.getLogger("diagnostics_fallback")
+    _diag_logger.setLevel(logging.INFO)
 
 
 def _env_float(name: str, default: float) -> float:
@@ -72,12 +85,11 @@ def compute_basic_metrics(text: str) -> Dict[str, Any]:
 
 
 def _emit_structured_variant_log(payload: Dict[str, Any]) -> None:
-    """Emit a JSON line suitable for Cloud Logging jsonPayload ingestion."""
+    """Emit a structured entry (jsonPayload) for Cloud Logging."""
     try:
-        sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        _diag_logger.info(payload)
     except Exception:
-        # Fallback to standard logger if direct write fails (still structured, but with prefix)
-        logger.info(json.dumps(payload, ensure_ascii=False))
+        pass
 
 
 def log_post_metrics(

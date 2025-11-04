@@ -24,6 +24,22 @@ This note tracks every configuration surface that impacts tweet/comment generati
 - Variables `.env` críticas documentadas en `README.md` y `AGENTS/05_STACK_CONFIG.md`.
 - Validar en runtime que cada constante se origina del archivo/config esperado (Stage 0.1 – logging de verificación).
 
+### Nuevo: Versión de pipeline (congelación de esquema de logs)
+- `PIPELINE_VERSION` controla el valor incluido en los logs estructurados para trazabilidad de la versión de la tubería. Por defecto: `legacy_v1`. Ejemplos: `adaptive_v1`, `legacy_v1`.
+
+### Nuevo: Modo de variantes adaptativo
+- `VARIANT_MODE=adaptive` activa una generación secuencial con early-stop.
+- `ADAPTIVE_MAX_VARIANTS=3` límite superior de variantes producidas (por defecto 3: mid → short → long).
+- `ADAPTIVE_HOLGURA=0.03` margen adicional sobre `GOLDSET_MIN_SIMILARITY` para considerar un "strong pass" y detener la tubería.
+
+Pipeline adaptativo:
+- Paso 1: generate_mid() – una sola generación creativa por defecto.
+- Paso 2: compress_to_short() – reescritura hacia ≤160 chars si no hubo early-stop.
+- Paso 3: expand_to_long() – reescritura hacia 240–280 chars si no hubo early-stop.
+
+Criterio de early-stop:
+- Se detiene si la variante generada habla en segunda persona (you/you're/you'll/your) y su similitud con el goldset ≥ `GOLDSET_MIN_SIMILARITY + ADAPTIVE_HOLGURA`.
+
 ## Próximos pasos
 1. Consolidar mensajes de usuario/logs en `config/messages.yaml`.
 2. Añadir logging de verificación (Stage 0.1) y pruebas de carga dinámica.
@@ -55,9 +71,28 @@ This note tracks every configuration surface that impacts tweet/comment generati
 **Autor:** AI assistant  
 **Justificación:** Garantizar que runtime solo lea embeddings normalizados, con trazabilidad de versión y recuento desde Cloud Logging.
 
-**Cambio:** `diagnostics_logger` emite `DIAG_STRUCTURED_OK` al inicializar el handler `StructuredLogHandler` (Cloud Logging) con payload `jsonPayload`.  
+**Cambio:** `diagnostics_logger` emite `DIAG_STRUCTURED_OK` al inicializar el handler `StructuredLogHandler` (Cloud Logging) con payload `jsonPayload`.
 **Fecha:** 2025-11-04  
 **Autor:** AI assistant  
 **Justificación:** Validar rápidamente que Cloud Run recibe eventos estructurados antes de inspeccionar variantes.
+
+**Cambio:** Introducción de `VARIANT_MODE=adaptive` con pipeline secuencial mid → short → long y early-stop por holgura.  
+**Fecha:** 2025-11-04  
+**Autor:** AI assistant  
+**Justificación:** Reducir costo/latencia generando una sola variante creativa y derivando las otras por reescritura controlada; detener cuando la calidad/estilo supera el umbral con margen.
+
+**Cambio:** Nuevos helpers `compress_to_short()` y `expand_to_long()` en `variant_generators.py`.  
+**Fecha:** 2025-11-04  
+**Autor:** AI assistant  
+**Justificación:** Encapsular reescrituras hacia los rangos objetivo de caracteres reutilizando `ensure_char_range_via_llm` y respetando guardrails.
+
+**Cambio:** Congelación del esquema de logs en `diagnostics_logger.log_post_metrics` y adición de campos `pipeline_version` y `variant_source`.  
+**Fecha:** 2025-11-04  
+**Autor:** AI assistant  
+**Justificación:** Mantener compatibilidad retroactiva con consultas existentes mientras se añade trazabilidad de la versión del pipeline y el origen de cada variante (gen | refine | derive).
+
+Notas de uso:
+- `pipeline_version` se fija desde ENV `PIPELINE_VERSION` (default `legacy_v1`).
+- `variant_source` se pasa vía `extra` al logger: por defecto `gen`; usar `refine` cuando la variante haya sido reescrita y `derive` cuando provenga de derivación/compresión/expansión.
 
 Actualizar este documento tras cada etapa para mantener trazabilidad.

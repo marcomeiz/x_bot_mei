@@ -664,6 +664,29 @@ def ensure_char_range_via_llm(text: str, model: str, lo: int, hi: int) -> str:
     return best
 
 
+# --- Adaptive helpers (lightweight rewrites) ---
+def compress_to_short(text: str, model: str) -> str:
+    """Rewrite text toward short variant limits (<=160 chars) while preserving tone.
+
+    Uses ensure_char_range_via_llm with an upper bound of 160 characters.
+    """
+    text = (text or "").strip()
+    if not text:
+        return ""
+    return ensure_char_range_via_llm(text, model, 0, 160)
+
+
+def expand_to_long(text: str, model: str) -> str:
+    """Rewrite text toward long variant limits (240–280 chars) while preserving tone.
+
+    Uses ensure_char_range_via_llm with bounds 240–280 characters.
+    """
+    text = (text or "").strip()
+    if not text:
+        return ""
+    return ensure_char_range_via_llm(text, model, 240, 280)
+
+
 def regenerate_single_variant(
     label: str,
     topic_abstract: str,

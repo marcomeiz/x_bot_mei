@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Dict, Any, Optional
 
 
@@ -19,6 +20,7 @@ def log_post_metrics(
     """Shim de compatibilidad para código existente.
     Construye el payload esperado y lo envía como jsonPayload.
     """
+    PIPELINE_VERSION = os.getenv("PIPELINE_VERSION", "legacy_v1")
     p = {
         "event": "variant_evaluation",
         "piece_id": piece_id,
@@ -32,5 +34,8 @@ def log_post_metrics(
         "sim_kind": extra.get("sim_kind"),
         "goldset_collection": extra.get("goldset_collection"),
         "timestamp": extra.get("timestamp"),
+        # Nuevos campos (back-compat, no rompen consultas actuales)
+        "pipeline_version": PIPELINE_VERSION,
+        "variant_source": extra.get("variant_source", "gen"),
     }
     emit_structured({k: v for k, v in p.items() if v is not None})

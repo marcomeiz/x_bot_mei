@@ -418,6 +418,7 @@ class ProposalService:
         except Exception:
             logger.debug("Diag logging (initial) skipped due to an error.")
         updated_variants = False
+        refined_labels = set()
         for label in ("A", "B", "C"):
             eval_data = normalized_evals.get(label)
             text = draft_map.get(label) or ""
@@ -430,6 +431,7 @@ class ProposalService:
                     evaluations[label] = eval_raw
                     normalized_evals[label] = self._normalize_evaluations({label: eval_raw}).get(label, eval_data)
                     updated_variants = True
+                    refined_labels.add(label)
 
         if updated_variants:
             draft_a, draft_b, draft_c = draft_map["A"], draft_map["B"], draft_map["C"]
@@ -459,7 +461,17 @@ class ProposalService:
                 self.telegram.send_message(chat_id, get_message("variants_similar_after"))
                 return False
 
-        compliance_warnings, blocking_contract, sims_map = self._check_contract_requirements(draft_map, piece_id=topic_id)
+        # Construir fuente de variante por etiqueta normalizada short/mid/long
+        variant_sources_map = {
+            "short": ("refine" if "A" in refined_labels else "gen"),
+            "mid": ("refine" if "B" in refined_labels else "gen"),
+            "long": ("refine" if "C" in refined_labels else "gen"),
+        }
+        compliance_warnings, blocking_contract, sims_map = self._check_contract_requirements(
+            draft_map,
+            piece_id=topic_id,
+            variant_sources=variant_sources_map,
+        )
         if LOG_GENERATED_VARIANTS:
             for label, text in draft_map.items():
                 logger.info("[CHAT_ID: %s] Draft %s generated (%s chars):\n%s", chat_id, label, len((text or "")), text or "<vacío>")
@@ -689,7 +701,7 @@ class ProposalService:
                 best_pair = (label_a, label_b, similarity)
         return False, best_pair
 
-    def _check_contract_requirements(self, drafts: Dict[str, str], piece_id: Optional[str] = None) -> Tuple[Dict[str, str], bool, Dict[str, Optional[float]]]:
+    def _check_contract_requirements(self, drafts: Dict[str, str], piece_id: Optional[str] = None, variant_sources: Optional[Dict[str, str]] = None) -> Tuple[Dict[str, str], bool, Dict[str, Optional[float]]]:
         """
         Evalúa requisitos del contrato para cada variante y decide si se debe bloquear.
 
@@ -775,6 +787,7 @@ class ProposalService:
                         emb_model_goldset="openai/text-embedding-3-large",
                         sim_kind="max_cosine_goldset",
                         goldset_collection=_os.getenv("GOLDSET_COLLECTION_NAME", "unknown"),
+                        variant_source=(variant_sources.get(_variant_norm) if isinstance(variant_sources, dict) else "gen") or "gen",
                         timestamp=datetime.now(_tz.utc).isoformat(),
                     )
             except Exception:

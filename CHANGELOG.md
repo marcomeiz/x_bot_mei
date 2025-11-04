@@ -17,3 +17,23 @@
    - `embeddings_manager._chroma_load`: reemplazo de `or []` por conversión segura a lista; flatten defensivo.
    - `src/goldset._load_embeddings_from_chroma`: conversión segura a listas y validación por tamaño.
  - Alineación con documentación: orden de modelos fallback actualizado a `openai/text-embedding-3-small → thenlper/gte-small → jinaai/jina-embeddings-v2-base-en`.
+
+- Nuevo: modo de variantes adaptativo (`VARIANT_MODE=adaptive`).
+  - Propósito: reducir coste/latencia generando una sola variante creativa (mid) y derivando short/long por reescritura.
+  - Justificación: early-stop cuando la similitud al goldset supera `GOLDSET_MIN_SIMILARITY + ADAPTIVE_HOLGURA` y cumple segunda persona.
+  - Cambios:
+    - `core_generator.generate_tweet_from_topic`: rama adaptativa con pipeline mid → compress_to_short → expand_to_long y early-stop.
+    - `variant_generators.py`: helpers `compress_to_short()` y `expand_to_long()` basados en `ensure_char_range_via_llm`.
+    - Documentación: `docs/generation_config_inventory.md` actualizado con nuevas variables y criterios.
+  - Autor: AI assistant.
+  - Fecha: 2025-11-04.
+
+- Congelación de esquema de logs y nuevos campos en `diagnostics_logger.log_post_metrics`.
+  - Propósito: mantener compatibilidad retroactiva y añadir trazabilidad del pipeline y del origen de cada variante.
+  - Cambios:
+    - Añadido `pipeline_version` (desde ENV `PIPELINE_VERSION`, default `legacy_v1`).
+    - Añadido `variant_source` (extra: `gen | refine | derive`, default `gen`).
+    - `proposal_service`: se pasa `variant_source=refine` en logs de evaluación cuando aplica.
+    - Documentación: `docs/generation_config_inventory.md` actualizado con nueva ENV y guía de uso.
+  - Autor: AI assistant.
+  - Fecha: 2025-11-04.

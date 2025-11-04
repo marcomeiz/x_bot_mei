@@ -26,10 +26,14 @@ from variant_generators import (
     CommentResult,
     CommentAssessment,
     generate_all_variants,
+    regenerate_single_variant,
+    compress_to_short,
+    expand_to_long,
     assess_comment_opportunity,
     generate_comment_reply,
 )
 from metrics import Timer
+from src.goldset import GOLDSET_MIN_SIMILARITY, max_similarity_to_goldset
 
 
 class TweetDrafts(BaseModel):
@@ -259,6 +263,93 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
         gold_examples = retrieve_goldset_examples(topic_abstract or "", k=3)
     if gold_examples:
         logger.info("Using %s goldset examples as style anchors.", len(gold_examples))
+
+    # --- Adaptive mode ---
+    variant_mode = os.getenv("VARIANT_MODE", "standard").strip().lower()
+    if variant_mode == "adaptive":
+        adaptive_max = max(1, int(os.getenv("ADAPTIVE_MAX_VARIANTS", "3") or 3))
+        holgura = float(os.getenv("ADAPTIVE_HOLGURA", "0.03") or 0.03)
+
+        def _speaks_to_you(text: str) -> bool:
+            lower = (text or "").lower()
+            if not lower:
+                return False
+            import re as _re
+            return bool(
+                _re.search(r"\byou\b", lower)
+                or _re.search(r"\byou['’]re\b", lower)
+                or _re.search(r"\byou['’]ll\b", lower)
+                or _re.search(r"\byour\b", lower)
+            )
+
+        def _strong_pass(text: str) -> bool:
+            sim = max_similarity_to_goldset((text or "").strip(), generate_if_missing=True)
+            if sim is None:
+                return False
+            return _speaks_to_you(text) and (sim >= GOLDSET_MIN_SIMILARITY + holgura)
+
+        logger.info("Adaptive variant mode enabled (max=%s, holgura=%.03f).", adaptive_max, holgura)
+        drafts: Dict[str, str] = {"short": "", "mid": "", "long": ""}
+        variant_errors: Dict[str, str] = {}
+
+        # 1) Single creative: generate mid
+        try:
+            with Timer("g_llm_single_mid", labels={"model": GENERATION_MODEL}):
+                mid = regenerate_single_variant("mid", topic_abstract, context, settings)  # type: ignore[name-defined]
+        except Exception as exc:
+            logger.error("Error generating mid variant (adaptive): %s", exc, exc_info=True)
+            mid = None
+
+        if not mid:
+            variant_errors["mid"] = "No se pudo generar la variante 'mid' en modo adaptativo."
+        else:
+            drafts["mid"] = mid
+
+        # Early-stop if strong pass and max variants permits
+        produced = 1 if drafts["mid"] else 0
+        if drafts["mid"] and _strong_pass(drafts["mid"]) and produced >= min(adaptive_max, 1):
+            logger.info("Early-stop: mid variant passes strongly. Returning only mid.")
+            return {"mid": drafts["mid"], "short": "", "long": "", "variant_errors": variant_errors}
+
+        if adaptive_max >= 2 and drafts["mid"]:
+            # 2) Compress to short
+            try:
+                with Timer("g_llm_adapt_compress", labels={"model": GENERATION_MODEL}):
+                    short = compress_to_short(drafts["mid"], GENERATION_MODEL)
+                drafts["short"] = (short or "").strip()
+                produced += 1 if drafts["short"] else 0
+            except Exception as exc:
+                logger.warning("Fallo al comprimir a 'short' en modo adaptativo: %s", exc)
+                variant_errors["short"] = "Error al comprimir a 'short'"
+
+            if drafts["short"] and _strong_pass(drafts["short"]) and produced >= min(adaptive_max, 2):
+                logger.info("Early-stop: short variant passes strongly. Returning mid+short.")
+                return {
+                    "short": drafts["short"],
+                    "mid": drafts["mid"],
+                    "long": "",
+                    "variant_errors": variant_errors,
+                }
+
+        if adaptive_max >= 3 and drafts["mid"]:
+            # 3) Expand to long
+            try:
+                with Timer("g_llm_adapt_expand", labels={"model": GENERATION_MODEL}):
+                    long = expand_to_long(drafts["mid"], GENERATION_MODEL)
+                drafts["long"] = (long or "").strip()
+            except Exception as exc:
+                logger.warning("Fallo al expandir a 'long' en modo adaptativo: %s", exc)
+                variant_errors["long"] = "Error al expandir a 'long'"
+
+        # Return whatever we produced
+        result = {
+            "short": drafts.get("short", ""),
+            "mid": drafts.get("mid", ""),
+            "long": drafts.get("long", ""),
+        }
+        if variant_errors:
+            result["variant_errors"] = variant_errors
+        return result
 
     last_error = ""
     provider_error_message = ""

@@ -35,4 +35,9 @@ This note tracks every configuration surface that impacts tweet/comment generati
 **Autor:** AI assistant  
 **Justificación:** Incrementar similitud media y alineación con el eje belief del autor sin relajar guardrails ni umbrales.
 
+**Cambio:** Registro de métrica `has_anchor` en `diagnostics_logger.compute_basic_metrics` para auditar anclas concretas en logs estructurados.  
+**Fecha:** 2025-11-04  
+**Autor:** AI assistant  
+**Justificación:** Sustituir flags rígidos previos por una verificación de anclas (número/hecho/ejemplo) y alimentar telemetría sin depender de `missing_number` ni reglas similares.
+
 Actualizar este documento tras cada etapa para mantener trazabilidad.

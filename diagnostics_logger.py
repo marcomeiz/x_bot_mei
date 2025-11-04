@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from typing import Dict, Any, Optional
 
 from logger_config import logger
@@ -12,6 +13,24 @@ def _env_float(name: str, default: float) -> float:
         return float(os.getenv(name, str(default)) or default)
     except Exception:
         return default
+
+
+_ANCHOR_RE = re.compile(
+    r"(?ix)"
+    r"("  # numeric anchors
+    r"\b\d{1,3}(?:[.,]\d{3})*(?:\.\d+)?(?:%|k|m|b|x)?\b"
+    r"|"
+    r"\b\d+\s?(?:min|mins|minutes?|hours?|hrs?|days?|weeks?|months?|yrs?|years?)\b"
+    r"|"
+    r"[\$€£]\s?\d+(?:[.,]\d{3})*(?:\.\d+)?"
+    r"|"
+    r"\b(?:e\.g\.|for example|por ejemplo)\b"
+    r"|"
+    r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)(?:uary|ruary|ch|il|e|y|ust|ember)?\b"
+    r"|"
+    r"\b(?:q[1-4]|fy\d{2}|fy20\d{2})\b"
+    r")"
+)
 
 
 def get_thresholds() -> Dict[str, Any]:
@@ -39,11 +58,13 @@ def compute_basic_metrics(text: str) -> Dict[str, Any]:
         or " you're " in f" {t.lower()} "
         or " you'll " in f" {t.lower()} "
     )
+    anchor_match = _ANCHOR_RE.search(t)
     return {
         "chars": len(t),
         "words": len(words),
         "has_commas": "," in t,
         "speaks_to_you": speaks_to_you,
+        "has_anchor": bool(anchor_match),
         "goldset_similarity": max_similarity_to_goldset(t),
     }
 
@@ -112,4 +133,3 @@ def log_post_metrics(
     except Exception:
         # Fallback to plain log if JSON formatting fails
         logger.info("[DIAG] %s", entry)
-

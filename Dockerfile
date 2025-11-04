@@ -19,5 +19,4 @@ COPY . .
 
 EXPOSE 8080
 
-CMD ["gunicorn", "-b", ":8080", "--timeout", "120", "bot:app"]
-
+CMD ["bash","-c","python -c 'import logging_bootstrap' && exec gunicorn -b :8080 --timeout 120 bot:app"]

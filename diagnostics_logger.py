@@ -11,9 +11,11 @@ try:
         _diag_logger.addHandler(_structured_handler)
 
     root_logger = logging.getLogger()
+    # Limpia handlers previos para evitar formateadores o handlers que añadan
+    # prefijos/texto no JSON y asegurar que Cloud Logging reciba jsonPayload.
+    root_logger.handlers = []  # <<–– añade esto para limpiar interferencias
+    root_logger.addHandler(_structured_handler)
     root_logger.setLevel(logging.INFO)
-    if not any(isinstance(h, StructuredLogHandler) for h in root_logger.handlers):
-        root_logger.addHandler(_structured_handler)
 except Exception:
     _diag_logger = logging.getLogger("diagnostics_fallback")
     _diag_logger.setLevel(logging.INFO)

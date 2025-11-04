@@ -99,7 +99,7 @@ def _summary(values: List[float]) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Calibración de umbral de similitud (coseno)")
-    parser.add_argument("--collection", default=os.getenv("GOLDSET_COLLECTION_NAME", "goldset_collection"))
+    parser.add_argument("--collection", default=os.getenv("GOLDSET_COLLECTION_NAME", "goldset_norm_v1"))
     parser.add_argument("--samples", type=int, default=10000)
     parser.add_argument("--thres-init", type=float, default=0.75)
     args = parser.parse_args()

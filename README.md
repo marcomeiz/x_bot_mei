@@ -41,12 +41,13 @@ La instalación y ejecución no han cambiado, pero se documentan las variables r
 1.  **Instalar:** `python -m venv venv && source venv/bin/activate && pip install -r requirements.txt`.
 2.  **Variables (.env) — claves y modelos**
     - `OPENROUTER_API_KEY` (obligatoria)
-    - `OPENROUTER_BASE_URL` (por defecto `https://openrouter.ai/api/v1`)
+- `OPENROUTER_BASE_URL` (por defecto `https://openrouter.ai/api/v1`)
 - `POST_MODEL` (por defecto `x-ai/grok-4-fast`), `EVAL_FAST_MODEL`, `EVAL_SLOW_MODEL`
 - `POST_REFINER_MODEL` (por defecto reaprovecha `POST_MODEL`)
 - `POST_PRESET` (`speed|balanced|quality`) y/o `POST_TEMPERATURE`
 - `JOB_MAX_WORKERS` (por defecto `3`), `JOB_QUEUE_MAXSIZE` (por defecto `12`), `JOB_TIMEOUT_SECONDS` (por defecto `35`)
 - `LLM_REQUEST_TIMEOUT_SECONDS` (por defecto `15`), `LLM_MIN_WINDOW_SECONDS` (por defecto `5`)
+- `GOLDSET_COLLECTION_NAME` (por defecto `goldset_norm_v1`) y `GOLDSET_NORMALIZER_VERSION` (por defecto `1`) para alinear embeddings normalizados del goldset.
 3.  **Bootstrap local:** `python scripts/bootstrap_workspace.py --clean` para regenerar `json/`, `texts/` y `uploads/` con semillas reproducibles.
 4.  **Selección de configuración (`config/settings.<env>.yaml`):**
     - `APP_CONFIG_ENV=dev|prod` (por defecto `dev`) selecciona el YAML bajo `config/`.

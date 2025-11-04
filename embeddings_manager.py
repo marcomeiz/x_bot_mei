@@ -20,6 +20,7 @@ except Exception:
         def __enter__(self): return self
         def __exit__(self, *a, **kw): pass
 from src.settings import AppSettings
+from src.normalization import normalize_for_embedding
 import json as _json
 import requests
 from urllib.parse import urlparse

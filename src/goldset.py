@@ -36,7 +36,8 @@ def _cosine_similarity(vec_a: Sequence[float], vec_b: Sequence[float]) -> float:
 
 GOLDSET_MIN_SIMILARITY = float(os.getenv("UMBRAL_SIMILITUD", os.getenv("GOLDSET_MIN_SIMILITUD", "0.75")) or 0.75)
 GOLDSET_EMBED_PATH = Path(os.getenv("GOLDSET_EMBED_PATH", "data/gold_posts/goldset_embeddings.npz"))
-GOLDSET_COLLECTION_NAME = os.getenv("GOLDSET_COLLECTION_NAME", "goldset_collection")
+GOLDSET_COLLECTION_NAME = os.getenv("GOLDSET_COLLECTION_NAME", "goldset_norm_v1")
+EXPECTED_NORMALIZER_VERSION = int(os.getenv("GOLDSET_NORMALIZER_VERSION", "1") or 1)
 GOLDSET_CLUSTER_COUNT = max(1, int(os.getenv("GOLDSET_CLUSTER_COUNT", "8") or 8))
 GOLDSET_TEXTS_CACHE: Optional[List[str]] = None
 GOLDSET_EMB_CACHE: Optional[List[Sequence[float]]] = None
@@ -70,33 +71,62 @@ def _load_embeddings_from_npz(path: Path) -> Optional[Tuple[List[str], List[Sequ
     return decoded_texts, vectors_list
 
 
+_GOLDSET_LOGGED = False
+
+
+def _maybe_log_goldset_ready(collection, texts_len: int) -> None:
+    global _GOLDSET_LOGGED
+    if _GOLDSET_LOGGED:
+        return
+    meta = collection.metadata or {}
+    emb_model = meta.get("emb_model", "openai/text-embedding-3-large")
+    emb_dim = meta.get("emb_dim", 3072)
+    normalizer_version = meta.get("normalizer_version", EXPECTED_NORMALIZER_VERSION)
+    logger.info(
+        "GOLDSET_READY name=%s count=%s emb_model=%s dim=%s normalizer_version=%s",
+        GOLDSET_COLLECTION_NAME,
+        texts_len,
+        emb_model,
+        emb_dim,
+        normalizer_version,
+    )
+    _GOLDSET_LOGGED = True
+
+
+def _validate_normalizer_version(metadatas: Sequence) -> None:
+    if not metadatas:
+        return
+    for meta in metadatas:
+        if isinstance(meta, dict):
+            version = meta.get("normalizer_version")
+            if version is not None and int(version) != EXPECTED_NORMALIZER_VERSION:
+                logger.warning(
+                    "Goldset normalizer version mismatch (expected=%s, found=%s).",
+                    EXPECTED_NORMALIZER_VERSION,
+                    version,
+                )
+                break
+
+
 def _load_embeddings_from_chroma() -> Optional[Tuple[List[str], List[Sequence[float]]]]:
     try:
         client = get_chroma_client()
         collection = client.get_or_create_collection(GOLDSET_COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
-        result = collection.get(include=["embeddings", "documents"]) or {}
+        result = collection.get(include=["embeddings", "documents", "metadatas"]) or {}
 
-        def _to_list(x):
-            if x is None:
-                return []
-            if hasattr(x, "tolist"):
-                try:
-                    return x.tolist()
-                except Exception:
-                    pass
-            try:
-                return list(x)
-            except Exception:
-                return []
+        documents = result.get("documents") or []
+        embeddings = result.get("embeddings") or []
+        if isinstance(documents, list) and documents and isinstance(documents[0], list):
+            texts = [d[0] for d in documents]
+        else:
+            texts = list(documents)
 
-        docs_raw = result.get("documents")
-        embs_raw = result.get("embeddings")
-        docs = _to_list(docs_raw)
-        embeddings = _to_list(embs_raw)
-        texts = [d[0] if isinstance(d, list) else d for d in docs]
-        if len(texts) == 0 or len(embeddings) == 0:
+        if not texts or not embeddings:
             logger.info("Chroma goldset empty or missing embeddings.")
             return None
+
+        _maybe_log_goldset_ready(collection, len(texts))
+        _validate_normalizer_version(result.get("metadatas") or [])
         return texts, embeddings
     except Exception as exc:
         logger.warning("Could not load goldset from Chroma: %s", exc)

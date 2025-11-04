@@ -104,6 +104,7 @@ LOG_WARDEN_FAILURE_REASON=true
   - Circuit breaker (60s) after repeated errors.
 - Recommended model (adjust if your key doesn’t support it):
   - `EMBED_MODEL=openai/text-embedding-3-large` (3072)
+  - `GOLDSET_COLLECTION_NAME=goldset_norm_v1` + `GOLDSET_NORMALIZER_VERSION=1`
 
 ### Goldset (similitud de estilo)
 

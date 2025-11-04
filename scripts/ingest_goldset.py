@@ -19,7 +19,7 @@ from embeddings_manager import get_chroma_client, get_embedding  # noqa: E402
 from logger_config import logger  # noqa: E402
 
 
-GOLDSET_COLLECTION_NAME = os.getenv("GOLDSET_COLLECTION_NAME", "goldset_collection")
+GOLDSET_COLLECTION_NAME = os.getenv("GOLDSET_COLLECTION_NAME", "goldset_norm_v1")
 GOLDSET_FILE = Path(os.getenv("GOLDSET_DATA_PATH", "data/gold_posts/hormozi_master.json"))
 ID_PREFIX = "gold_"
 

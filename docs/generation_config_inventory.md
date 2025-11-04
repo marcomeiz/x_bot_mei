@@ -50,4 +50,9 @@ This note tracks every configuration surface that impacts tweet/comment generati
 **Autor:** AI assistant  
 **Justificación:** Alinear pipelines de similitud para usar minúsculas, filtrado de URLs/handles/emojis y normalización ASCII antes de cualquier embedding, evitando divergencias entre ingesta y generación.
 
+**Cambio:** Colección versionada `goldset_norm_v1` (script `scripts/build_goldset_norm_v1.py`) con metadatos emb_model/emb_dim/normalizer_version y log `GOLDSET_READY`.  
+**Fecha:** 2025-11-04  
+**Autor:** AI assistant  
+**Justificación:** Garantizar que runtime solo lea embeddings normalizados, con trazabilidad de versión y recuento desde Cloud Logging.
+
 Actualizar este documento tras cada etapa para mantener trazabilidad.

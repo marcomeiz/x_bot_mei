@@ -18,7 +18,7 @@ from embeddings_manager import get_chroma_client  # noqa: E402
 from logger_config import logger  # noqa: E402
 
 NPZ_PATH = Path(os.getenv("GOLDSET_NPZ_PATH", "data/gold_posts/goldset_embeddings.npz"))
-COLLECTION_NAME = os.getenv("GOLDSET_COLLECTION_NAME", "goldset_collection")
+COLLECTION_NAME = os.getenv("GOLDSET_COLLECTION_NAME", "goldset_norm_v1")
 
 
 def upsert_from_npz(npz_path: Path) -> None:

@@ -23,7 +23,7 @@ from style_guard import StyleRejection
 from telegram_client import TelegramClient
 from llm_fallback import llm
 from src.messages import get_message
-from src.goldset import GOLDSET_MIN_SIMILARITY, max_similarity_to_goldset
+from src.goldset import GOLDSET_MIN_SIMILARITY, max_similarity_to_goldset, GOLDSET_COLLECTION_NAME
 from src.settings import AppSettings
 from diagnostics_logger import log_post_metrics
 from metrics import Timer, record_metric
@@ -303,7 +303,7 @@ class ProposalService:
             "short": draft_a,
             "mid": draft_b,
             "long": draft_c,
-        })
+        }, piece_id=topic_id)
         if blocking_contract:
             if ignore_similarity:
                 self.telegram.send_message(
@@ -459,7 +459,7 @@ class ProposalService:
                 self.telegram.send_message(chat_id, get_message("variants_similar_after"))
                 return False
 
-        compliance_warnings, blocking_contract, sims_map = self._check_contract_requirements(draft_map)
+        compliance_warnings, blocking_contract, sims_map = self._check_contract_requirements(draft_map, piece_id=topic_id)
         if LOG_GENERATED_VARIANTS:
             for label, text in draft_map.items():
                 logger.info("[CHAT_ID: %s] Draft %s generated (%s chars):\n%s", chat_id, label, len((text or "")), text or "<vacío>")
@@ -689,7 +689,7 @@ class ProposalService:
                 best_pair = (label_a, label_b, similarity)
         return False, best_pair
 
-    def _check_contract_requirements(self, drafts: Dict[str, str]) -> Tuple[Dict[str, str], bool, Dict[str, Optional[float]]]:
+    def _check_contract_requirements(self, drafts: Dict[str, str], piece_id: Optional[str] = None) -> Tuple[Dict[str, str], bool, Dict[str, Optional[float]]]:
         """
         Evalúa requisitos del contrato para cada variante y decide si se debe bloquear.
 
@@ -698,6 +698,12 @@ class ProposalService:
         una variante es válida, no bloqueamos y dejamos que se envíen las disponibles.
         """
         warnings: Dict[str, str] = {}
+        # Config del modelo de embeddings en runtime para diagnóstico
+        try:
+            s = AppSettings.load()
+            emb_model_runtime = getattr(s, "embed_model", None)
+        except Exception:
+            emb_model_runtime = None
         sims: Dict[str, Optional[float]] = {}
         any_valid = False
 
@@ -747,6 +753,24 @@ class ProposalService:
             # Consideramos válida si cumple los dos criterios clave
             is_valid = speaks_to_you and (similarity is None or similarity >= GOLDSET_MIN_SIMILARITY)
             any_valid = any_valid or is_valid
+
+            # Emisión de log estructurado por variante (sin truncar texto)
+            try:
+                log_post_metrics(
+                    piece_id=piece_id,
+                    variant=label,
+                    draft_text=content,
+                    similarity=similarity,
+                    min_required=GOLDSET_MIN_SIMILARITY,
+                    passed=is_valid,
+                    emb_model_runtime=emb_model_runtime,
+                    sim_kind="max_cosine_goldset",
+                    goldset_collection=GOLDSET_COLLECTION_NAME,
+                    timestamp=int(time.time()),
+                )
+            except Exception:
+                # No interrumpir el flujo por fallos de logging
+                logger.debug("Diag logging (variant_evaluation) skipped due to an error.")
 
             if issues:
                 warnings[label] = " ".join(issues)

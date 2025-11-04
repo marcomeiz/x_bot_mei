@@ -11,7 +11,7 @@ def log_post_metrics(
     piece_id: Optional[str],
     variant: str,
     draft_text: Optional[str],
-    similarity: float,
+    similarity: Optional[float],
     min_required: float,
     passed: bool,
     **extra,

@@ -25,6 +25,7 @@ watcher_v2.log
 .temp/
 # Temporary audit docs (kept out of VCS)
 temp_docs/
+docs/temporales/
 
 # Local databases & state
 *.sqlite3

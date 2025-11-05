@@ -1,0 +1,121 @@
+[
+  {
+    "key": "contrast_statement",
+    "name": "Declaración de Contraste",
+    "pattern": "Present two opposing ideas to create an instant reveal. Invalidate a common approach (Don't do X), then present a stronger alternative (Do Y) — position Y as the obvious solution.",
+    "structure": "Two imperative sentences: first tells the reader to stop doing X, second tells them to start doing Y (the smarter alternative).",
+    "why": "Invalidates a common, socially accepted approach and replaces it with a pragmatic, stronger alternative, positioning it as the only rational choice."
+  },
+  {
+    "key": "perspective_reframe",
+    "name": "Reencuadre de Perspectiva",
+    "pattern": "Start with a universal truth the reader recognizes. Introduce a twist that reframes it — turn a negative (struggle) into a necessary element for a positive outcome (victory).",
+    "structure": "Two connected sentences: the first states a universal premise; the second (often with 'But') reframes it into a positive necessity.",
+    "why": "Validates a negative universal, then redefines it as the ingredient that gives meaning to the win — turning resistance into value."
+  },
+  {
+    "key": "friction_reduction",
+    "name": "Argumento de Reducción de Fricción",
+    "pattern": "Directly address analysis paralysis or fear to start. Break an intimidating goal into an absurdly small, manageable first step that motivates immediate action.",
+    "structure": "Short intro that names the problem, followed by a compact bullet list (2–3) of tiny first steps as tangible examples.",
+    "why": "By making the first step absurdly small, it removes excuses and lowers activation energy — 'something > nothing' becomes irrefutable."
+  },
+  {
+    "key": "identity_redefinition",
+    "name": "Redefinición de Identidad",
+    "pattern": "Dismantle a limiting label (e.g., 'I'm not a salesperson'). Replace it with a simpler, authentic requirement that feels attainable and aligned with the reader's identity.",
+    "structure": "Two sentences: first denies the need for an unwanted identity, second replaces it with a simpler, more authentic requirement.",
+    "why": "Frees the reader from a hated label and replaces it with an achievable identity, making the skill feel natural and attainable."
+  },
+  {
+    "key": "parallel_contrast_aphorism",
+    "name": "Aforismo de Contraste Paralelo",
+    "pattern": "Use parallel, aphoristic contrast to juxtapose two ideas. Start from a familiar saying (If A is B), then present a surprising counterpart (then C is D). Keep symmetry and punch.",
+    "structure": "One sentence with symmetrical clauses (If A is B, then C is D).",
+    "why": "Leverages a familiar cadence to deliver a surprising counterpart, creating memorability through symmetry."
+  },
+  {
+    "key": "demonstrative_principle",
+    "name": "Principio Demostrativo",
+    "pattern": "Teach a copywriting rule by showing. Contrast a 'bad' version (feature) with a 'good' version (benefit), then conclude with the principle demonstrated.",
+    "structure": "Mini-comparison with clear labels (Bad: … / Good: …) plus one closing sentence stating the principle.",
+    "why": "Shows the lesson instead of telling it: the contrast creates instant understanding, then the rule cements the takeaway."
+  },
+  {
+    "key": "counterintuitive_principle",
+    "name": "Principio Contraintuitivo",
+    "pattern": "State a counterintuitive rule as a near-universal law that challenges a popular belief. Push the reader to adopt a more effective method by reframing the goal.",
+    "structure": "A single assertive line (or two short ones) declaring a counterintuitive truth as fact.",
+    "why": "Breaks the reader's default strategy and replaces it with a faster, more effective path by framing it as an undeniable rule."
+  },
+  {
+    "key": "process_promise",
+    "name": "Promesa de Proceso",
+    "pattern": "Validate the reader's frustration: change isn't instant. Offer a future promise — tiny, consistent effort adds up to a total transformation. Encourage patience and trust in the process.",
+    "structure": "Two connected lines: first manages expectations (change is slow), second projects a future state (the sum of small steps changed everything).",
+    "why": "Builds trust by acknowledging the slow burn, then creates hope with a credible, time-based promise."
+  },
+  {
+    "key": "common_villain_exposure",
+    "name": "Exposición del Villano Común",
+    "pattern": "Recreate a recognizable negative scenario the reader detests. Expose and criticize the shared villain to build instant trust, positioning the writer as an ally.",
+    "structure": "A few tight rhetorical questions (or micro-scenes) that simulate an annoying exchange, ending with a colloquial rejection line (no emojis).",
+    "why": "Creates a 'you and me vs. them' bond by naming the shared enemy and voicing what the reader already feels."
+  },
+  {
+    "key": "hidden_benefits_reveal",
+    "name": "Revelación de Beneficios Ocultos",
+    "pattern": "Start with a promise to reveal the non-obvious value of an action. Use a short list to enumerate specific, unexpected benefits — make the abstract tangible.",
+    "structure": "Short headline line + 2–3 bullet benefits. Keep each benefit concrete and surprising.",
+    "why": "Turns a familiar activity into a high‑ROI habit by surfacing hidden, concrete payoffs."
+  },
+  {
+    "key": "values_manifesto",
+    "name": "Manifiesto de Valores",
+    "pattern": "Redefine a popular idea with a value hierarchy in a compact list. Use A > B comparisons to prioritize deep principles over superficial alternatives.",
+    "structure": "A header line (redefinition) + 2–3 compact comparisons using the 'A > B' form (one per line).",
+    "why": "Hijacks a trendy term and redefines it through a clean value ladder, establishing a new standard."
+  },
+  {
+    "key": "delayed_gratification_formula",
+    "name": "Fórmula de Gratificación Aplazada",
+    "pattern": "State a direct cause-effect between present sacrifice and future reward. Structure like: Do the hard thing today, get the desired outcome tomorrow. Motivate disciplined action.",
+    "structure": "Two short imperatives: pay the price now; get the payoff later.",
+    "why": "Frames effort as a transaction — the present sacrifice buys the future result — making discipline feel like a direct purchase."
+  },
+  {
+    "key": "excuse_invalidation",
+    "name": "Invalidación de Excusa",
+    "pattern": "Identify a common external excuse (the blamed villain). Then absolve it and redirect responsibility to an internal action or inaction, empowering the reader.",
+    "structure": "Two parallel sentences: 'X is not the problem. Y is.'",
+    "why": "Removes the reader's favorite scapegoat and replaces it with an internal locus of control that is actionable."
+  },
+  {
+    "key": "revealing_definition",
+    "name": "Definición Reveladora",
+    "pattern": "Redefine a known concept with a sharp metaphor that reveals its overlooked essence, raising its perceived value.",
+    "structure": "One clean definition line: 'Concept A is Concept B (disguised as) Concept C'.",
+    "why": "Elevates an underrated idea by revealing its true nature through a punchy metaphor."
+  },
+  {
+    "key": "fundamental_maxim",
+    "name": "Máxima Fundamental",
+    "pattern": "Present a core principle as a non-negotiable rule of the domain. Reset priorities by exposing the true hierarchy.",
+    "structure": "One line prefixed with a label like 'Rule:' followed by a priority sequence (e.g., 'People > Product').",
+    "why": "Reorders the reader's mental model by asserting a non‑negotiable hierarchy — a rule that reframes decisions."
+  },
+  {
+    "key": "paradox_statement",
+    "name": "Declaración Paradójica",
+    "pattern": "Drop a claim that sounds self-contradictory to break the reader's pattern. Hook curiosity, then resolve the paradox with a practical insight.",
+    "structure": "A single sharp sentence that appears to contradict the reader's default activity.",
+    "why": "Creates a curiosity gap that forces the mind to seek resolution, pulling the reader into the insight."
+  },
+  {
+    "key": "shared_standard_appeal",
+    "name": "Apelación al Estándar Compartido",
+    "pattern": "Establish a shared standard of excellence or value (If you do X...). Then present the call to action (...then we should do Y) as the logical consequence for those who belong to that group.",
+    "structure": "One conditional line: 'If you are X, then we should Y'.",
+    "why": "Transforms a call to action into group membership: doing Y becomes the natural consequence of belonging to X."
+  }
+]

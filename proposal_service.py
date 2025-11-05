@@ -23,7 +23,11 @@ from style_guard import StyleRejection
 from telegram_client import TelegramClient
 from llm_fallback import llm
 from src.messages import get_message
-from src.goldset import GOLDSET_MIN_SIMILARITY, GOLDSET_COLLECTION_NAME, get_goldset_similarity_details
+from src.goldset import (
+    GOLDSET_MIN_SIMILARITY,
+    get_active_goldset_collection_name,
+    get_goldset_similarity_details,
+)
 from src.settings import AppSettings
 from diagnostics_logger import log_post_metrics
 from metrics import Timer, record_metric
@@ -794,6 +798,7 @@ class ProposalService:
                 _min_required = float(_os.getenv("GOLDSET_MIN_SIMILARITY", "0.75"))
                 _sim_float = float(similarity) if similarity is not None else None
                 passed_flag = bool(_sim_float is not None and _sim_float >= _min_required)
+                active_collection = get_active_goldset_collection_name()
                 log_post_metrics(
                     piece_id=piece_id,
                     variant=_variant_norm,
@@ -807,7 +812,7 @@ class ProposalService:
                     emb_model_runtime=emb_model_runtime or "unknown",
                     emb_model_goldset="openai/text-embedding-3-large",
                     sim_kind="max_cosine_goldset",
-                    goldset_collection=GOLDSET_COLLECTION_NAME,
+                    goldset_collection=active_collection,
                     variant_source=(variant_sources.get(_variant_norm) if isinstance(variant_sources, dict) else "gen") or "gen",
                     timestamp=datetime.now(_tz.utc).isoformat(),
                     event_stage=log_stage,

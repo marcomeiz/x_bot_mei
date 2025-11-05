@@ -86,3 +86,10 @@
     - src/goldset.py: añade GOLDSET_RANDOM_SEED=1337 y fallback cuando falta NPZ (carga textos puros para permitir RANDOM sin embeddings).
   - Métricas/diagnósticos esperados: g_goldset_random_retrieve, generation_prompt_gold_block con anchors_count=5 y evento style_rag_examples.
   - Justificación: si el goldset es consistente en estilo, muestras aleatorias deberían mantener/mejorar el tono; si no, revela inconsistencia del goldset.
+## Revert: Restore semantic Style-RAG (NN)
+
+- Reverted the Acid Test changes that forced random goldset retrieval with k=5.
+- Restored semantic Style-RAG using `retrieve_goldset_examples_nn` with k=3 for both variant and comment generation.
+- Removed usage of `retrieve_goldset_examples_random_meta` and its associated `g_goldset_random_retrieve` diagnostics.
+- Kept `anchors_count` visibility log but without an "expected=5" assertion.
+- This confirms the test’s conclusion: the goldset quality/coverage is the real issue; generation is back to topic-aware NN anchoring.

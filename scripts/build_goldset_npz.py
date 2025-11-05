@@ -8,19 +8,10 @@
 
 import argparse, json, os, sys, time
 from datetime import datetime, timezone
-import numpy as np
 from pathlib import Path
+import numpy as np
 
 def _e(msg): print(msg, file=sys.stderr)
-
-def _add_repo_to_syspath():
-    try:
-        repo_root = Path(__file__).resolve().parents[1]
-        if str(repo_root) not in sys.path:
-            sys.path.insert(0, str(repo_root))
-    except Exception:
-        pass
-
 
 def load_texts(collection: str, jsonl_path: str|None):
     # 1) Si nos dan JSONL (id \t text), lo usamos
@@ -61,8 +52,12 @@ def load_texts(collection: str, jsonl_path: str|None):
         _e("       Pasa --jsonl ruta/al/goldset.jsonl con {'id':..., 'text':...} por línea.")
         sys.exit(2)
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+
 def main():
-    _add_repo_to_syspath()
     ap = argparse.ArgumentParser()
     ap.add_argument("--collection", required=False, default=os.getenv("GOLDSET_COLLECTION_NAME","goldset_norm_v1"))
     ap.add_argument("--out", required=True)
@@ -73,22 +68,13 @@ def main():
     args = ap.parse_args()
 
     # Normalizador y embeddings del propio repo (no inventamos proveedores)
-    try:
-        from src.normalization import normalize_for_embedding
-    except Exception:
-        # compat antiguo
-        def normalize_for_embedding(x:str)->str: return " ".join((x or "").strip().split())
+    from src.normalization import normalize_for_embedding
 
     try:
         from embeddings_manager import get_embedding
     except Exception as e:
-        # Intenta de nuevo tras añadir repo root
-        _add_repo_to_syspath()
-        try:
-            from embeddings_manager import get_embedding  # type: ignore
-        except Exception as e2:
-            _e(f"[ERR] No encuentro embeddings_manager.get_embedding: {e2}")
-            sys.exit(2)
+        _e(f"[ERR] No encuentro embeddings_manager.get_embedding: {e}")
+        sys.exit(2)
 
     ids, texts = load_texts(args.collection, args.jsonl)
     if not texts:
@@ -97,18 +83,9 @@ def main():
 
     vecs = []
     t0 = time.time()
-    # Asegura el modelo por entorno (embeddings_manager usa ENV/AppSettings)
-    if args.emb_model:
-        os.environ["EMBED_MODEL"] = args.emb_model
-    # Verifica credencial para OpenRouter
-    if not os.getenv("OPENROUTER_API_KEY"):
-        _e("[ERR] Falta OPENROUTER_API_KEY en el entorno; expórtala antes de ejecutar.")
-        sys.exit(4)
-
     for i, t in enumerate(texts, 1):
         nt = normalize_for_embedding(t)
-        # embeddings_manager.get_embedding no acepta 'model' como argumento; usa ENV
-        v = get_embedding(nt)  # debe devolver lista/np.array
+        v = get_embedding(nt, model=args.emb_model)  # debe devolver lista/np.array
         if v is None:
             _e(f"[ERR] Embedding None en idx={i}")
             sys.exit(3)

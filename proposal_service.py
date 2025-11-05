@@ -775,24 +775,24 @@ class ProposalService:
                 _variant_norm = _variant_map.get(label, label)
                 _min_required = float(_os.getenv("GOLDSET_MIN_SIMILARITY", "0.75"))
                 _sim_float = float(similarity) if similarity is not None else None
-                if _sim_float is not None:
-                    log_post_metrics(
-                        piece_id=piece_id,
-                        variant=_variant_norm,
-                        draft_text=content,
-                        similarity=_sim_float,
-                        min_required=_min_required,
-                        passed=bool(_sim_float >= _min_required),
-                        emb_model_runtime="openai/text-embedding-3-large",
-                        emb_model_goldset="openai/text-embedding-3-large",
-                        sim_kind="max_cosine_goldset",
-                        goldset_collection=_os.getenv("GOLDSET_COLLECTION_NAME", "unknown"),
-                        variant_source=(variant_sources.get(_variant_norm) if isinstance(variant_sources, dict) else "gen") or "gen",
-                        timestamp=datetime.now(_tz.utc).isoformat(),
-                    )
-            except Exception:
+                passed_flag = bool(_sim_float is not None and _sim_float >= _min_required)
+                log_post_metrics(
+                    piece_id=piece_id,
+                    variant=_variant_norm,
+                    draft_text=content,
+                    similarity=_sim_float,
+                    min_required=_min_required,
+                    passed=passed_flag,
+                    emb_model_runtime="openai/text-embedding-3-large",
+                    emb_model_goldset="openai/text-embedding-3-large",
+                    sim_kind="max_cosine_goldset",
+                    goldset_collection=_os.getenv("GOLDSET_COLLECTION_NAME", "unknown"),
+                    variant_source=(variant_sources.get(_variant_norm) if isinstance(variant_sources, dict) else "gen") or "gen",
+                    timestamp=datetime.now(_tz.utc).isoformat(),
+                )
+            except Exception as logging_error:
                 # No interrumpir el flujo por fallos de logging
-                logger.debug("Diag logging (variant_evaluation) skipped due to an error.")
+                logger.debug("Diag logging (variant_evaluation) skipped due to an error: %s", logging_error)
 
             if issues:
                 warnings[label] = " ".join(issues)

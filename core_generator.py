@@ -34,6 +34,7 @@ from variant_generators import (
 )
 from metrics import Timer
 from src.goldset import GOLDSET_MIN_SIMILARITY, max_similarity_to_goldset
+from src.chroma_utils import flatten_chroma_array, flatten_chroma_metadatas
 
 
 class TweetDrafts(BaseModel):
@@ -111,21 +112,6 @@ def _build_settings() -> GenerationSettings:
     )
 
 
-def _flatten_maybe(nested):
-    if isinstance(nested, list) and nested and isinstance(nested[0], list):
-        return [item for sub in nested for item in sub]
-    return nested
-
-
-def _flatten_metadata(raw):
-    if isinstance(raw, list) and raw and isinstance(raw[0], list):
-        flat = []
-        for sub in raw:
-            flat.extend(sub)
-        return flat
-    return raw or []
-
-
 def _parse_metadata_timestamp(value) -> Optional[datetime]:
     if value is None:
         return None
@@ -191,19 +177,22 @@ def _extract_topic_entry(collection, topic_id: str) -> Optional[Dict[str, object
         logger.warning("No se pudo recuperar el tema %s: %s", topic_id, exc)
         return None
 
-    docs = data.get("documents") if isinstance(data, dict) else None
+    docs_raw = data.get("documents") if isinstance(data, dict) else None
+    docs = flatten_chroma_array(docs_raw)
     if not docs:
         return None
-    abstract = docs[0][0] if isinstance(docs[0], list) else docs[0]
+    first_doc = docs[0]
+    if isinstance(first_doc, list):
+        first_doc = first_doc[0] if first_doc else ""
+    abstract = str(first_doc)
 
     pdf_name = None
     metadata_entry = None
-    metadatas = data.get("metadatas") if isinstance(data, dict) else None
+    metadatas_raw = data.get("metadatas") if isinstance(data, dict) else None
+    metadatas = flatten_chroma_metadatas(metadatas_raw)
     if metadatas:
-        md_entry = metadatas[0][0] if isinstance(metadatas[0], list) and metadatas[0] else metadatas[0]
-        if isinstance(md_entry, dict):
-            metadata_entry = md_entry
-            pdf_name = md_entry.get("pdf") or md_entry.get("source_pdf")
+        metadata_entry = metadatas[0]
+        pdf_name = metadata_entry.get("pdf") or metadata_entry.get("source_pdf")
 
     result = {"topic_id": topic_id, "abstract": abstract}
     if pdf_name:
@@ -459,7 +448,7 @@ def find_relevant_topic(sample_size: int = 3):
     try:
         # 1) Fetch a small window of approved topics (fast path)
         raw = topics_collection.get(where={"status": {"$eq": "approved"}}, include=["metadatas", "documents"], limit=200)  # type: ignore[arg-type]
-        ids_approved = _flatten_maybe(raw.get("ids") if isinstance(raw, dict) else None)
+        ids_approved = flatten_chroma_array(raw.get("ids") if isinstance(raw, dict) else None)
         # 2) If none approved, fetch a random window from all
         if not ids_approved:
             try:
@@ -470,7 +459,7 @@ def find_relevant_topic(sample_size: int = 3):
             if isinstance(total, int) and total > 200:
                 offset = random.randrange(0, max(total - 200, 1))
             raw = topics_collection.get(include=["metadatas", "documents"], limit=200, offset=offset)  # type: ignore[arg-type]
-            all_ids = _flatten_maybe(raw.get("ids") if isinstance(raw, dict) else None)
+            all_ids = flatten_chroma_array(raw.get("ids") if isinstance(raw, dict) else None)
             pool = list(all_ids or [])
         else:
             pool = list(ids_approved)
@@ -487,7 +476,7 @@ def find_relevant_topic(sample_size: int = 3):
         try:
             emb_raw = topics_collection.get(ids=candidates, include=["embeddings"])  # type: ignore[arg-type]
             if isinstance(emb_raw, dict):
-                emb_ids = _flatten_maybe(emb_raw.get("ids"))
+                emb_ids = flatten_chroma_array(emb_raw.get("ids"))
                 emb_vals = emb_raw.get("embeddings") or []
                 # Aplanar si viene como lista de listas
                 if isinstance(emb_vals, list) and emb_vals and isinstance(emb_vals[0], list):

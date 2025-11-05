@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Tuple
 
 from embeddings_manager import get_embedding, get_topics_collection, get_memory_collection
 from logger_config import logger
+from src.chroma_utils import flatten_chroma_metadatas, get_existing_ids
 
 
 class AdminService:
@@ -35,7 +36,7 @@ class AdminService:
             # Traemos todos los metadatos de una vez.
             data = coll.get(include=["metadatas"])
             
-            metadatas = self._flatten_metadatas(data.get("metadatas"))
+            metadatas = flatten_chroma_metadatas(data.get("metadatas"))
             if not metadatas:
                 return {"distinct_pdfs": 0, "total_topics": total_topics, "pdf_counts": {}}
 
@@ -92,7 +93,7 @@ class AdminService:
 
         coll = get_topics_collection()
         ids = [tid for tid, _, _ in normalized]
-        existing_ids = self._existing_ids(coll, ids)
+        existing_ids = get_existing_ids(coll, ids, log_warning=logger.warning)
         to_add = [(tid, abs_, md) for tid, abs_, md in normalized if tid not in existing_ids]
 
         added = 0
@@ -117,30 +118,3 @@ class AdminService:
                 coll.add(embeddings=embeddings, documents=docs, ids=tids, metadatas=metadatas)
                 added = len(embeddings)
         return added, skipped_existing, errors
-
-    # ----------------------------------------------------------------- helpers
-    @staticmethod
-    def _flatten_ids(raw_ids) -> List[str]:
-        if isinstance(raw_ids, list) and raw_ids and isinstance(raw_ids[0], list):
-            return [item for sub in raw_ids for item in sub]
-        if isinstance(raw_ids, list):
-            return raw_ids
-        return []
-
-    @staticmethod
-    def _flatten_metadatas(metadatas) -> List[Dict]:
-        if isinstance(metadatas, list) and metadatas and isinstance(metadatas[0], list):
-            return [item for sub in metadatas for item in sub]
-        if isinstance(metadatas, list):
-            return metadatas
-        return []
-
-    def _existing_ids(self, collection, ids: List[str]) -> set:
-        try:
-            resp = collection.get(ids=ids, include=[])
-            rid = resp.get("ids") if isinstance(resp, dict) else None
-            if rid:
-                return set(self._flatten_ids(rid))
-        except Exception:
-            pass
-        return set()

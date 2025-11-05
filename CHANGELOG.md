@@ -8,6 +8,28 @@
 - Docs: ARCHITECTURE_GCP.md, MAINTENANCE_SCALING.md, TECH_COMPARISON.md
 - Backfill Firestore desde Chroma (scripts/backfill_firestore_from_chroma.py)
 
+## 2025-11-05
+- Consolidación de utilitarios Chroma en `src/chroma_utils.py` y adopción en `admin_service.py`, `persistence_service.py`, `core_generator.py` y `scripts/migrate_local_chroma_to_remote.py`.
+  - Propósito: eliminar funciones duplicadas para aplanar respuestas de Chroma y centralizar la detección de IDs existentes.
+  - Justificación: evitar incoherencias entre servicios, mejorar mantenibilidad y reducir bugs sutiles con listas anidadas.
+  - Autor: AI assistant (codex-cli).
+  - Fecha: 2025-11-05.
+- Limpieza de scripts de goldset (`scripts/build_goldset_npz.py`): obligatorio importar `normalize_for_embedding` desde `src.normalization` eliminando el fallback local.
+  - Propósito: prevenir drift de normalización y mantener una única ruta de normalizado.
+  - Justificación: el fallback reintroducía lógica divergente y permitía ejecuciones fuera del estándar del repo.
+  - Autor: AI assistant (codex-cli).
+  - Fecha: 2025-11-05.
+- Eliminación de dataclasses sin uso (`ABGenerationResult`, `VariantCResult`) en `variant_generators.py`.
+  - Propósito: reducir código muerto y aclarar la API real expuesta por el generador.
+  - Justificación: ninguna referencia activa; su presencia inducía a error durante la revisión de duplicados.
+  - Autor: AI assistant (codex-cli).
+  - Fecha: 2025-11-05.
+- Reactivación del log de `variant_evaluation` en `proposal_service._check_contract_requirements`.
+  - Propósito: asegurar que cada variante evaluada emita el evento estructurado (similarity/min_required/passed) que Cloud Logging consume en `/g`.
+  - Justificación: tras el refactor se saltaba el hook cuando la similitud venía `None`, dejando la consola sin métricas; ahora el evento se emite siempre.
+  - Autor: AI assistant (codex-cli).
+  - Fecha: 2025-11-05.
+
 ## 2025-11-04
 - Eliminada guía temporal `docs/TASK_POPULATE_TOPICS.md` tras verificar:
   - Población de tópicos con embeddings precomputados (topics_dim=3072).

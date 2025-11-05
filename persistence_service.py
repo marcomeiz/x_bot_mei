@@ -10,6 +10,7 @@ from embeddings_manager import get_embedding, get_topics_collection
 from logger_config import logger
 from ingestion_config import WatcherConfig
 from topic_pipeline import TopicRecord
+from src.chroma_utils import get_existing_ids
 
 
 @dataclass(frozen=True)
@@ -38,7 +39,7 @@ def persist_topics(records: List[TopicRecord], cfg: WatcherConfig) -> Persistenc
         return PersistenceSummary(sent=0, added=0, skipped=0, errored=len(records))
 
     ids = [payload[1].topic_id for payload in embeddings_payload]
-    existing_ids = _existing_ids(topics_collection, ids)
+    existing_ids = get_existing_ids(topics_collection, ids, log_warning=logger.warning)
 
     entries_to_add = [payload for payload in embeddings_payload if payload[1].topic_id not in existing_ids]
 
@@ -80,25 +81,6 @@ def write_summary_json(pdf_name: str, records: List[TopicRecord], json_dir: str)
             ensure_ascii=False,
         )
     return output_path
-
-
-def _existing_ids(collection, ids: List[str]) -> set:
-    try:
-        resp = collection.get(ids=ids, include=[])
-        rid = resp.get("ids") if isinstance(resp, dict) else None
-        if rid:
-            return set(_flatten_ids(rid))
-    except Exception as exc:
-        logger.warning("No se pudo verificar duplicados en la base de datos: %s", exc)
-    return set()
-
-
-def _flatten_ids(raw_ids) -> List[str]:
-    if isinstance(raw_ids, list) and raw_ids and isinstance(raw_ids[0], list):
-        return [item for sub in raw_ids for item in sub]
-    if isinstance(raw_ids, list):
-        return raw_ids
-    return []
 
 
 def _sync_remote(entries_to_add: List[tuple], cfg: WatcherConfig) -> None:

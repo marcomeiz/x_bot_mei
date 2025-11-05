@@ -46,22 +46,6 @@ class GenerationSettings:
 
 
 @dataclass
-class ABGenerationResult:
-    draft_a: str
-    draft_b: str
-    reasoning_summary: Optional[str] = None
-    metadata: Dict[str, object] = field(default_factory=dict)
-
-
-@dataclass
-class VariantCResult:
-    draft: str
-    category: str
-    reasoning_summary: Optional[str] = None
-    metadata: Dict[str, object] = field(default_factory=dict)
-
-
-@dataclass
 class CommentResult:
     comment: str
     insight: Optional[str] = None

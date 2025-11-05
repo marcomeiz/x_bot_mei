@@ -16,21 +16,23 @@ Notas:
 """
 
 import argparse
+import sys
+from pathlib import Path
 from urllib.parse import urlparse
 from typing import Any, Dict, List, Tuple
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 import chromadb
 from chromadb.config import Settings as ChromaSettings
+from src.chroma_utils import flatten_chroma_array
 
 
 def _flatten_list(x: Any) -> List[Any]:
     """Aplanar listas anidadas como [[a,b], [c]] a [a,b,c]."""
-    if isinstance(x, list) and x and isinstance(x[0], list):
-        out: List[Any] = []
-        for sub in x:
-            out.extend(sub)
-        return out
-    return x if isinstance(x, list) else []
+    return flatten_chroma_array(x)
 
 
 def _sanitize_metadatas(metas: List[Any]) -> List[Dict[str, Any]]:

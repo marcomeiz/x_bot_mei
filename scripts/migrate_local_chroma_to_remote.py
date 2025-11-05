@@ -58,13 +58,46 @@ def _read_page(coll, limit: int, offset: int) -> Tuple[List[str], List[str], Lis
     data = coll.get(include=["documents", "embeddings", "metadatas"], limit=limit, offset=offset) or {}
     ids = _flatten_list(data.get("ids") or [])
     docs = _flatten_list(data.get("documents") or [])
-    embeds = _flatten_list(data.get("embeddings") or [])
     metas_raw = data.get("metadatas") or []
     metas = _sanitize_metadatas(_flatten_list(metas_raw))
+
+    # Embeddings: mantener como lista de vectores (no aplanar los floats)
+    embeds_raw = data.get("embeddings") or []
+    embeds: List[List[float]] = []
+    if isinstance(embeds_raw, list):
+        if embeds_raw and isinstance(embeds_raw[0], list) and embeds_raw[0] and isinstance(embeds_raw[0][0], (float, int)):
+            # Forma habitual: [[f1,f2,...], [g1,g2,...], ...]
+            embeds = embeds_raw  # type: ignore[assignment]
+        elif embeds_raw and isinstance(embeds_raw[0], list) and isinstance(embeds_raw[0], list):
+            # Doble anidación: [[[floats]], [[floats]]]
+            embeds = [e[0] if isinstance(e, list) else e for e in embeds_raw]  # type: ignore[list-item]
+        elif embeds_raw and isinstance(embeds_raw[0], (float, int)):
+            # Lista plana de floats para un único embedding (p.ej. limit=1 tras aplanado)
+            embeds = [embeds_raw]  # type: ignore[list-item]
+        else:
+            embeds = []
     # Normalizar tipos finales
     ids = [str(i) for i in ids]
     docs = [str(d[0]) if isinstance(d, list) else str(d) for d in docs]
     return ids, docs, embeds, metas
+
+
+def _infer_dim_from_embeddings(embeds: List[Any]) -> int | None:
+    """Inferir la dimensión del embedding a partir de una muestra.
+
+    Soporta dos formas comunes de respuesta de Chroma:
+    - [[f1, f2, ...]] → lista con un único embedding anidado
+    - [f1, f2, ...]   → lista plana de floats (tras aplanado con limit=1)
+    """
+    if not embeds:
+        return None
+    first = embeds[0]
+    if isinstance(first, (list, tuple)):
+        return len(first)
+    if isinstance(first, (float, int)):
+        # Caso lista plana de floats
+        return len(embeds)
+    return None
 
 
 def migrate_collection(source_client, dest_client, name: str, batch: int) -> None:
@@ -74,7 +107,7 @@ def migrate_collection(source_client, dest_client, name: str, batch: int) -> Non
     # Intentar inferir dimensión desde una muestra del origen
     sample = src.get(include=["embeddings"], limit=1) or {}
     emb = _flatten_list(sample.get("embeddings") or [])
-    dim = (len(emb[0]) if emb else None)
+    dim = _infer_dim_from_embeddings(emb)
     print(f"[INFO] Migrando colección '{name}' (dim_origen={dim}) en lotes de {batch}…")
 
     total_src = src.count() or 0
@@ -101,7 +134,7 @@ def migrate_collection(source_client, dest_client, name: str, batch: int) -> Non
         dcount = dest.count()
         dsample = dest.get(include=["embeddings"], limit=1) or {}
         demb = _flatten_list(dsample.get("embeddings") or [])
-        ddim = (len(demb[0]) if demb else None)
+        ddim = _infer_dim_from_embeddings(demb)
         print(f"[INFO] Destino '{name}': count={dcount} dim_muestra={ddim}")
     except Exception as e:
         print(f"[WARN] Verificación destino falló: {e}")

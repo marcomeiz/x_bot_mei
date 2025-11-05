@@ -20,6 +20,13 @@ import random
 import sys
 from typing import Dict, List
 
+import sys
+import os as _os
+# Ensure project root is on sys.path when running from scripts/
+_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
 from diagnostics_logger import diagnostics
 from embeddings_manager import get_embedding, get_topics_collection
 
@@ -27,6 +34,7 @@ from embeddings_manager import get_embedding, get_topics_collection
 random.seed(17)
 
 SEED_JSONL = os.path.join("data", "topics_seed.jsonl")
+SEEDS_DIR = os.path.join("data", "seeds")
 GOLD_JSON = os.path.join("data", "gold_posts", "hormozi_master.json")
 
 TARGET_DIM = 3072
@@ -42,22 +50,53 @@ def _ensure_env_defaults() -> None:
 
 def _load_seed_entries() -> List[Dict[str, str]]:
     items: List[Dict[str, str]] = []
-    if not os.path.exists(SEED_JSONL):
-        return items
-    with open(SEED_JSONL, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
+    # Base seed file
+    if os.path.exists(SEED_JSONL):
+        with open(SEED_JSONL, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                    tid = str(obj.get("id") or obj.get("topic_id") or "").strip()
+                    text = str(obj.get("text") or obj.get("abstract") or "").strip()
+                    if tid and text:
+                        items.append({"id": tid, "text": text})
+                except Exception:
+                    continue
+    # Additional seeds under data/seeds/*.jsonl
+    if os.path.isdir(SEEDS_DIR):
+        for name in sorted(os.listdir(SEEDS_DIR)):
+            if not name.endswith(".jsonl"):
                 continue
+            path = os.path.join(SEEDS_DIR, name)
             try:
-                obj = json.loads(line)
-                tid = str(obj.get("id") or obj.get("topic_id") or "").strip()
-                text = str(obj.get("text") or obj.get("abstract") or "").strip()
-                if tid and text:
-                    items.append({"id": tid, "text": text})
+                with open(path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            obj = json.loads(line)
+                            tid = str(obj.get("id") or obj.get("topic_id") or "").strip()
+                            text = str(obj.get("text") or obj.get("abstract") or "").strip()
+                            if tid and text:
+                                items.append({"id": tid, "text": text})
+                        except Exception:
+                            continue
             except Exception:
                 continue
-    return items
+    # Deduplicate by id (keep first occurrence)
+    seen: Dict[str, bool] = {}
+    uniq: List[Dict[str, str]] = []
+    for it in items:
+        tid = it["id"]
+        if tid in seen:
+            continue
+        seen[tid] = True
+        uniq.append(it)
+    return uniq
 
 
 def _load_gold_entries(limit: int = 100) -> List[Dict[str, str]]:
@@ -156,4 +195,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

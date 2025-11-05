@@ -247,11 +247,9 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
     settings = _build_settings()
 
     _log_similarity(topic_abstract, ignore_similarity)
-
-    with Timer("g_goldset_retrieve", labels={"k": 3}):
-        gold_examples = retrieve_goldset_examples(topic_abstract or "", k=3)
-    if gold_examples:
-        logger.info("Using %s goldset examples as style anchors.", len(gold_examples))
+    # Acid Test: desactivar Style-RAG semántico y forzar anclaje aleatorio dentro del generador
+    gold_examples = None
+    logger.info("[AcidTest] Style-RAG aleatorio activo: el generador recuperará 5 ejemplos sin tema.")
 
     # --- Adaptive mode ---
     variant_mode = os.getenv("VARIANT_MODE", "standard").strip().lower()

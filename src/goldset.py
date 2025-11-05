@@ -223,6 +223,28 @@ def _load_goldset() -> None:
 
     try:
         ids, texts, embeddings, meta = _load_embeddings_from_npz(npz_path, npz_uri=npz_uri)
+    except FileNotFoundError as exc:
+        # Fallback: cargar solo textos desde DEFAULT_GOLDSET_PATH para operaciones que no requieren embeddings
+        try:
+            fallback_texts = load_gold_texts(DEFAULT_GOLDSET_PATH)
+        except Exception as inner_exc:
+            _GOLDSET_LOAD_ERROR = f"Goldset NPZ missing and text fallback failed: {inner_exc}"
+            _emit_npz_failed(npz_uri, exc)
+            raise
+
+        collection_default = _collection_name_from_path(npz_path, GOLDSET_COLLECTION_NAME_DEFAULT)
+        _ACTIVE_COLLECTION_NAME = collection_default
+        _GOLDSET_IDS[:] = [f"text_{i:05d}" for i in range(len(fallback_texts))]
+        _GOLDSET_TEXTS[:] = list(fallback_texts)
+        _GOLDSET_EMBEDDINGS[:] = []
+        _GOLDSET_EMB_DIM = 0
+        _GOLDSET_NORMALIZER_VERSION = EXPECTED_NORMALIZER_VERSION
+        _GOLDSET_CLUSTER_INFO = None
+
+        _emit_npz_failed(npz_uri, exc)
+        _emit_ready(_ACTIVE_COLLECTION_NAME, len(_GOLDSET_TEXTS), _GOLDSET_EMB_DIM, _GOLDSET_NORMALIZER_VERSION)
+        _GOLDSET_LOADED = True
+        return
     except Exception as exc:
         _GOLDSET_LOAD_ERROR = str(exc)
         _emit_npz_failed(npz_uri, exc)

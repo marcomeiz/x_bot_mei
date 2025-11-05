@@ -77,3 +77,12 @@
     - Documentación: `docs/generation_config_inventory.md` actualizado con nueva ENV y guía de uso.
   - Autor: AI assistant.
   - Fecha: 2025-11-04.
+## 2025-11-05 (Acid Test)
+- Desacoplar Style-RAG del tema con recuperación aleatoria y semilla fija.
+  - Propósito: comprobar si la búsqueda semántica está envenenando el estilo.
+  - Cambios:
+    - core_generator: se elimina el prefetch semántico de gold_examples y se delega en variant_generators la recuperación aleatoria (k=5, semilla 1337).
+    - variant_generators: usa retrieve_goldset_examples_random_meta(k=5) con logging estructurado de style_rag_examples (id/idx/text/scope/collection).
+    - src/goldset.py: añade GOLDSET_RANDOM_SEED=1337 y fallback cuando falta NPZ (carga textos puros para permitir RANDOM sin embeddings).
+  - Métricas/diagnósticos esperados: g_goldset_random_retrieve, generation_prompt_gold_block con anchors_count=5 y evento style_rag_examples.
+  - Justificación: si el goldset es consistente en estilo, muestras aleatorias deberían mantener/mejorar el tono; si no, revela inconsistencia del goldset.

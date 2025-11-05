@@ -1,7 +1,7 @@
 ---
 id: generation/all_variants
 purpose: One-shot multi-variant generation focused on VOICE only (V3.1)
-inputs: [topic_abstract, gold_examples_block]
+inputs: [topic_abstract]
 constraints:
   - json_only
   - voice_focus_only
@@ -35,7 +35,13 @@ Topic
 {topic_abstract}
 
 Reference Voice Anchors (do not copy; match tone and rhythm)
-{gold_examples_block}
+{% if gold_examples %}
+{% for example in gold_examples %}
+- {{ example | replace('\n', ' ') }}
+{% endfor %}
+{% else %}
+- (No reference examples available; rely on contract.)
+{% endif %}
 
 Internal Planning (do not output)
 - Compare the anchors and decide which style pattern (diagnosis punch, mini story, aforism, etc.) best fits the topic.

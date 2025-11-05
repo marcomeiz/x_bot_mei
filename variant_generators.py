@@ -38,8 +38,6 @@ from writing_rules import (
     BANNED_SUFFIXES,
 )
 from src.goldset import (
-    retrieve_goldset_examples_nn,
-    retrieve_goldset_examples_random,
     retrieve_goldset_examples_random_meta,
 )
 
@@ -1327,6 +1325,12 @@ def generate_all_variants(
         gold_block = _format_gold_examples_for_prompt(gold_examples, limit=5)
         if not gold_block.strip():
             gold_block = "- (No reference examples available; rely on contract.)"
+        # AcidTest visibility: también emitir count al logger estándar para ver en consola
+        try:
+            _anchors_count = gold_block.count("\n") + (1 if gold_block.strip() else 0)
+            logger.info("[DIAG] anchors_count=%s (expected=5)", _anchors_count)
+        except Exception:
+            pass
 
         prompts_dir = AppSettings.load().prompts_dir
         user_prompt = load_prompt(prompts_dir, "generation/all_variants").render(

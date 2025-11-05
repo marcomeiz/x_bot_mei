@@ -9,6 +9,8 @@
   - Mensajes de Telegram: tema (abstract), origen (PDF si existe) y contadores `(N/280)`.
 - ChromaDB: los temas llevan metadatos `{"pdf": name}` si provienen de ingestión.
 - Fallback LLM: orden por `FALLBACK_PROVIDER_ORDER` (por defecto Gemini → OpenRouter).
+- Documentación primero: antes de tocar código, revisa README/AGENTS/contratos del área; documenta cada cambio en el momento.
+- Protocolo de tareas: toda tarea debe seguir la secuencia duplicados → documentación → limpieza de obsoletos (ver 07_PERSONALITY_PROFILE.md).
 
 ## Definición de Hecho (DoD)
 Ningún cambio se aprueba sin:

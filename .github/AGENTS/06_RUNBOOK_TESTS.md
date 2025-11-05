@@ -18,3 +18,7 @@
 - Rotación de claves: actualizar Secret Manager y redeploy.
 - Proveedor: OpenRouter-only con `OPENROUTER_API_KEY`.
 - Ajustar modelos baratos por entorno: `POST_MODEL`, `EVAL_FAST_MODEL`, `EVAL_SLOW_MODEL`, `COMMENT_*_MODEL`, `TOPIC_EXTRACTION_MODEL`, `EMBED_MODEL`.
+- Documentación obligatoria:
+  - Cada cambio requiere resumen en `CHANGELOG.md` o doc temporal.
+  - Mantener `docs/temporales/<proyecto>/<fecha>/temp_<fecha>_<tarea>.md` con objetivo, progreso, errores, próximos pasos, recursos, notas.
+  - Actualizar el documento temporal tras cada avance significativo; sólo se elimina con confirmación explícita al cerrar la tarea.

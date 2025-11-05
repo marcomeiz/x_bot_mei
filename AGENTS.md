@@ -12,6 +12,7 @@ Consulta:
 - .github/AGENTS/06_RUNBOOK_TESTS.md — Runbook/Tests
   - Envía mensajes con comprobación de errores Telegram (Markdown → plano si falla).
   - Gestiona archivos temporales en `/tmp` para conservar borradores entre callbacks.
+- .github/AGENTS/07_PERSONALITY_PROFILE.md — Perfil de personalidad/tono del agente (leer antes de iniciar cada sesión).
 - `copywriter_contract_hormozi.md`
   - Contrato creativo/estilístico activo. `copywriter_contract.md` queda como referencia histórica y puede reactivarse vía `STYLE_CONTRACT_PATH`.
 - `config/final_review_guidelines.md`

@@ -22,16 +22,18 @@ steps:
         set -euo pipefail
         python -V
         pip install --no-cache-dir -r requirements.runtime.txt
-        # 1) Generar NPZ con embeddings 3072-dim
-        python scripts/gen_goldset_npz.py --output data/gold_posts/goldset_embeddings_2025.npz
-        # Validar dimensión del NPZ generado
-        python - << 'PY'
-        import numpy as np
-        data = np.load('data/gold_posts/goldset_embeddings_2025.npz', allow_pickle=True)
-        vecs = data['vectors'] if 'vectors' in data else data['embeddings']
-        print('NPZ vectors shape:', vecs.shape)
-        print('Sample vector length:', len(vecs[0]))
-        PY
+        # 1) Generar NPZ con textos + embeddings normalizados (3072)
+        python scripts/build_goldset_npz.py \
+          --collection goldset_norm_v1 \
+          --out data/gold_posts/goldset_norm_v1.npz \
+          --emb-model openai/text-embedding-3-large \
+          --dim 3072 \
+          --normalizer-version 1
+        # 1.1) Validar el NPZ generado cumple el contrato
+        python scripts/validate_goldset_npz.py \
+          --npz data/gold_posts/goldset_norm_v1.npz \
+          --expect-dim 3072 \
+          --min-count 100
         # 1.5) Resetear colección goldset (dim=1536) para permitir nueva dimensión 3072
         python - << 'PY'
         from embeddings_manager import get_chroma_client
@@ -43,7 +45,7 @@ steps:
             print('goldset_collection delete skipped:', e)
         PY
         # 2) Upsert a Chroma desde el NPZ (usar env GOLDSET_NPZ_PATH explícitamente)
-        GOLDSET_NPZ_PATH=data/gold_posts/goldset_embeddings_2025.npz python scripts/upsert_goldset_from_npz.py
+        GOLDSET_NPZ_PATH=data/gold_posts/goldset_norm_v1.npz python scripts/upsert_goldset_from_npz.py
         # Verificación rápida de dimensión en Chroma
         python - << 'PY'
         from embeddings_manager import get_chroma_client
@@ -55,11 +57,11 @@ steps:
         print('goldset_collection sample_dim:', dim, 'count:', (len(vecs) if vecs else 0))
         PY
         # 3) Copiar NPZ a ruta por defecto local
-        cp data/gold_posts/goldset_embeddings_2025.npz data/gold_posts/goldset_embeddings.npz || true
+        cp data/gold_posts/goldset_norm_v1.npz data/gold_posts/goldset_embeddings.npz || true
         # 4) Subir NPZ al bucket de DB (para respaldo y fallback)
         pip install --no-cache-dir gsutil || true
         if command -v gsutil >/dev/null 2>&1; then
-          gsutil cp data/gold_posts/goldset_embeddings_2025.npz gs://xbot-473616-x-bot-mei-db/gold_posts/goldset_embeddings_2025.npz || true
+          gsutil cp data/gold_posts/goldset_norm_v1.npz gs://xbot-473616-x-bot-mei-db/gold_posts/goldset_norm_v1.npz || true
           gsutil cp data/gold_posts/goldset_embeddings.npz gs://xbot-473616-x-bot-mei-db/gold_posts/goldset_embeddings.npz || true
         else
           echo "gsutil no disponible; omito copia a GCS"

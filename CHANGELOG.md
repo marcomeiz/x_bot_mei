@@ -28,6 +28,15 @@
   - Propósito: asegurar que cada variante evaluada emita el evento estructurado (similarity/min_required/passed) y que la segunda pasada entregue el valor definitivo cuando el embedding ya está disponible.
   - Justificación: tras el refactor se saltaba el hook cuando la similitud venía `None`, dejando la consola sin métricas; ahora el evento se emite siempre y la actualización final queda diferenciada.
 - Goldset: carga diferida del NPZ (`GOLDSET_NPZ_GCS_URI` prioritario) al primer uso, con logs `GOLDSET_NPZ_LOADED/FAILED` + `DIAG_GOLDSET_READY` y sin fallback legacy.
+  - Propósito: garantizar similitud estable y trazable incluso tras reinicios.
+  - Justificación: evitar cargas silenciosas y asegurar que cada `variant_evaluation` tenga contexto completo.
+  - Autor: AI assistant (codex-cli).
+  - Fecha: 2025-11-05.
+- Tooling NPZ: nuevo `scripts/validate_goldset_npz.py` + cloudbuild actualizado (`build_goldset_npz.py` + validación) y alias legacy `gen_goldset_npz.py`.
+  - Propósito: formalizar el contrato del goldset, detectar NPZ inválidos y evitar scripts divergentes.
+  - Justificación: el pipeline usaba un generador antiguo sin textos/meta ni validador; ahora se estandariza antes de subir/promover.
+  - Autor: AI assistant (codex-cli).
+  - Fecha: 2025-11-05.
   - Propósito: asegurar que runtime usa el NPZ versionado del bucket y expone identificadores estables para telemetría.
   - Justificación: necesitábamos trazabilidad del match en logs y evitar que `goldset_collection` aparezca como `unknown`.
 - Logs estructurados: `diagnostics_logger.log_post_metrics` conserva siempre `similarity`, añade `similarity_raw`, `similarity_norm`, `max_pair_id` y etiqueta `event_stage`.

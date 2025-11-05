@@ -1290,7 +1290,7 @@ def generate_all_variants(
             pass
 
         prompts_dir = AppSettings.load().prompts_dir
-        user_prompt = load_prompt(prompts_dir, "generation/all_variants").render(
+        user_prompt = load_prompt(prompts_dir, "generation/all_variants_v4").render(
             topic_abstract=topic_abstract,
             gold_examples_block=gold_block,
         )

@@ -3,7 +3,8 @@
 This note tracks every configuration surface that impacts tweet/comment generation so we can verify nothing queda hardcodeado. Use it as a checklist before touching code.
 
 ## 1. Prompt Sources
-- `prompts/generation/all_variants.md` → tweet variants (externalizado ✅).
+- `prompts/generation/all_variants_v4.md` → tweet variants (Clean Arch V4, externalizado ✅).
+- `prompts/generation/all_variants.md` → (REMOVED) legacy template with rigid Voice & Audience cues; reemplazado por V4.
 - `prompts/comments/generation_v5_1.md` → protocolo de comentarios (externalizado ✅).
 - `prompts/comments/audit.md` → auditor de comentarios (externo ✅).
 - `prompts/generation/tail_sampling.md` y `prompts/generation/contrast_analysis.md` → tail sampling & contrast (externalizado ✅).
@@ -118,3 +119,8 @@ Actualizar este documento tras cada etapa para mantener trazabilidad.
 **Justificación:** Con el goldset auditado (21 vectores), usar 5 anchors aleatorios refuerza la señal de estilo y mantiene alta coherencia doctrinal.
 
 Nota operativa: `GOLDSET_NPZ_GCS_URI` se mantiene apuntando a `gs://xbot-473616-x-bot-mei-db/goldset/goldset_v2_audited.npz` en Cloud Run (deploy scripts actualizados).
+
+**Cambio:** Introducción del prompt limpio `prompts/generation/all_variants_v4.md` y cambio de referencia en `variant_generators.generate_all_variants`.  
+**Fecha:** 2025-11-05  
+**Autor:** AI assistant  
+**Justificación:** Eliminar conflicto con el `<STYLE_CONTRACT>` del System Prompt; se elimina la sección rígida "Voice & Audience" y se centraliza la inyección de anchors vía `{gold_examples_block}` para robustez y variación humana.

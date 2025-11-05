@@ -46,7 +46,7 @@ LOG_WARDEN_FAILURE_REASON=true
 
 ## Prompt (v2.0)
 
-- File: `prompts/generation/all_variants.md`
+- File: `prompts/generation/all_variants_v4.md`
 - Key points:
   - Explicit rules in the prompt body (style/ICP/micro‑wins/saltos de línea).
   - JSON schema with multiline strings allowed. No prose in output.
@@ -67,7 +67,7 @@ LOG_WARDEN_FAILURE_REASON=true
 - File: `variant_generators.py` (function `generate_all_variants`)
 - Messages:
   - System includes `<STYLE_CONTRACT>`, `<ICP>`, `<FINAL_REVIEW_GUIDELINES>`.
-- User loads `prompts/generation/all_variants.md`.
+- User loads `prompts/generation/all_variants_v4.md`.
   - Reference voice anchors: injected via Style‑RAG RANDOM (`retrieve_goldset_examples_random(k=5)`) selecting 5 examples from the audited goldset v2.
 - Steps:
   1) LLM returns `{short,mid,long}` (retry enforces schema if needed).
@@ -117,7 +117,7 @@ LOG_WARDEN_FAILURE_REASON=true
 > Fecha: 2025-11-05
 > Autor: Marco Mei
 > Justificación: Con un goldset depurado (21 vectores), tomar 5 anchors aleatorios refuerza la voz doctrinal y reduce el sesgo del tópico.
-  - Prompt `prompts/generation/all_variants.md` ahora acepta `{gold_examples_block}` como entrada directa desde `variant_generators`.
+  - Prompt `prompts/generation/all_variants_v4.md` acepta `{gold_examples_block}` como entrada directa desde `variant_generators`.
 - Si por cualquier motivo el embedding falla y la similitud es `None`, no se bloquea por ese motivo (se mantiene la sugerencia), pero se recomienda revisar logs de `[EMB]`.
 
 ## ChromaDB

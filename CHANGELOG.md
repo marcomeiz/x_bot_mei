@@ -9,6 +9,11 @@
 - Backfill Firestore desde Chroma (scripts/backfill_firestore_from_chroma.py)
 
 ## 2025-11-05
+- Introducción del prompt limpio `prompts/generation/all_variants_v4.md` y cambio de referencia en `variant_generators.generate_all_variants`.
+  - Propósito: eliminar conflicto entre el User Prompt y el `<STYLE_CONTRACT>` del System Prompt; suprimir reglas rígidas de "Voice & Audience" que dañan la variación humana.
+  - Justificación: la señal de estilo proveniente de los 5 anchors es robusta pero frágil frente a instrucciones contradictorias; el nuevo prompt limpia la arquitectura y centraliza la inyección de anchors vía `{gold_examples_block}`.
+  - Autor: AI assistant.
+  - Fecha: 2025-11-05.
 - Consolidación de utilitarios Chroma en `src/chroma_utils.py` y adopción en `admin_service.py`, `persistence_service.py`, `core_generator.py` y `scripts/migrate_local_chroma_to_remote.py`.
   - Propósito: eliminar funciones duplicadas para aplanar respuestas de Chroma y centralizar la detección de IDs existentes.
   - Justificación: evitar incoherencias entre servicios, mejorar mantenibilidad y reducir bugs sutiles con listas anidadas.

@@ -1,5 +1,8 @@
 import os
 import re
+import json
+from typing import Optional
+import json
 import threading
 import time
 from itertools import combinations
@@ -19,6 +22,8 @@ from embeddings_manager import get_embedding, get_memory_collection
 from evaluation import evaluate_draft
 from logger_config import logger
 from prompt_context import build_prompt_context
+from persona import get_style_contract_text
+from src.prompt_loader import load_prompt, PromptSpec
 from persona import get_style_contract_text
 from src.prompt_loader import load_prompt
 from style_guard import StyleRejection
@@ -730,23 +735,43 @@ class ProposalService:
             if not content:
                 continue
             try:
-                ok = self._check_style_with_llm(content)
+                ok = self._check_style_with_llm(
+                    content,
+                    piece_id=piece_id,
+                    label=key,
+                    event_stage=log_stage,
+                    variant_source=(variant_sources or {}).get(key),
+                )
             except Exception as e:
                 logger.warning("[JUDGE] Error validando estilo para '%s' (%s): %s", key, log_stage, e)
                 ok = False
             results.append(bool(ok))
         return results
 
-    def _check_style_with_llm(self, draft_text: str) -> bool:
+    def _check_style_with_llm(
+        self,
+        draft_text: str,
+        *,
+        piece_id: Optional[str] = None,
+        label: Optional[str] = None,
+        event_stage: Optional[str] = None,
+        variant_source: Optional[str] = None,
+    ) -> bool:
         """
-        Llama a un LLM (modo juez) para validar estilo vs STYLE_CONTRACT.
-        Respuesta esperada: 'true' o 'false'. Devuelve bool.
+        Juez-Calificador (Grader) de estilo: llama al LLM para evaluar el borrador
+        contra el contrato y devolver un JSON con:
+          - cumple_contrato (bool)
+          - razonamiento_principal (string, 1-2 frases)
+          - puntuacion_tono (int 1-5)
+          - puntuacion_diccion (int 1-5)
+          - puntuacion_ritmo (int 1-5)
+
+        Esta función LOGGEA el razonamiento y las puntuaciones en variant_evaluation
+        y devuelve únicamente el booleano `cumple_contrato`.
         """
         s = AppSettings.load()
         prompts_dir = s.prompts_dir
-        # Cargar contrato vigente
         contract_text = get_style_contract_text()
-        # Cargar prompt del juez
         spec = load_prompt(prompts_dir, "validation/style_judge_v1")
         body = spec.template
         # Extraer SYSTEM y USER del cuerpo (si están etiquetados)
@@ -756,34 +781,92 @@ class ProposalService:
             system_text = (sys_match.group(1) or "").strip()
             user_template = (usr_match.group(1) or "").strip()
         else:
-            # Fallback: todo el cuerpo como user; system por defecto
+            # Fallback: sistema y usuario mínimos para JSON grader
             system_text = (
                 "Eres un editor de estilo de élite, implacable y preciso. Tu única tarea es evaluar si el [BORRADOR] "
-                "se adhiere estrictamente al [CONTRATO].\n\n"
-                "Tu respuesta debe ser únicamente la palabra 'true' o la palabra 'false'. No añadas explicaciones."
+                "se adhiere estrictamente al [CONTRATO]. Devuelve tu evaluación SÓLO en formato JSON."
             )
-            user_template = body
-        # Render del user con variables
+            user_template = (
+                "<STYLE_CONTRACT>\n{style_contract_text}\n</STYLE_CONTRACT>\n\n"
+                "<BORRADOR>\n{draft_text}\n</BORRADOR>\n\n"
+                "Evalúa el borrador contra el contrato. Sé estricto. Responde solo con este JSON:\n"
+                "{\n  \"cumple_contrato\": (bool),\n  \"razonamiento_principal\": \"(string, 1-2 frases explicando tu decisión. Sé específico, cita el Pilar del contrato que falla.)\",\n  \"puntuacion_tono\": (int 1-5, Pilar 1 - Tono),\n  \"puntuacion_diccion\": (int 1-5, Pilar 2 - Lenguaje),\n  \"puntuacion_ritmo\": (int 1-5, Pilar 3 - Estructura)\n}"
+            )
+        # Render del user con variables protegidas
         try:
-            # Usamos el motor de render de PromptSpec para proteger llaves
-            # Creamos una copia con el template del user
-            from src.prompt_loader import PromptSpec
             tmp = PromptSpec(id=spec.id, template=user_template, inputs=["style_contract_text", "draft_text"]) 
             user_text = tmp.render(style_contract_text=contract_text, draft_text=draft_text)
         except Exception:
-            # Fallback simple
             user_text = user_template.format(style_contract_text=contract_text, draft_text=draft_text)
+
         model = s.eval_fast_model
-        response = llm.chat_text(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_text},
-                {"role": "user", "content": user_text},
-            ],
-            temperature=0.1,
-        )
-        result = str(response or "").strip().lower()
-        return result == "true"
+        payload = None
+        try:
+            payload = llm.chat_json(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_text},
+                    {"role": "user", "content": user_text},
+                ],
+                temperature=0.1,
+            )
+        except Exception as exc:
+            logger.warning("[JUDGE] chat_json falló, intentando parseo manual: %s", exc)
+            try:
+                text = llm.chat_text(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_text},
+                        {"role": "user", "content": user_text},
+                    ],
+                    temperature=0.1,
+                )
+                payload = json.loads(str(text or "{}"))
+            except Exception as e2:
+                logger.error("[JUDGE] No se pudo obtener JSON del juez: %s", e2)
+                payload = None
+
+        cumple = False
+        razon = None
+        tono = diccion = ritmo = None
+        if isinstance(payload, dict):
+            try:
+                cumple = bool(payload.get("cumple_contrato", False))
+                razon = str(payload.get("razonamiento_principal") or "").strip() or None
+                tono = payload.get("puntuacion_tono")
+                diccion = payload.get("puntuacion_diccion")
+                ritmo = payload.get("puntuacion_ritmo")
+            except Exception:
+                pass
+        else:
+            # Último recurso: intentar localizar un booleano
+            try:
+                txt = str(payload or "").strip().lower()
+                if txt in {"true", "false"}:
+                    cumple = txt == "true"
+            except Exception:
+                pass
+
+        # Logging estructurado crítico (razonamiento + puntuaciones)
+        try:
+            log_post_metrics(
+                piece_id,
+                str(label or "unknown"),
+                draft_text,
+                None,
+                0.0,
+                bool(cumple),
+                event_stage=event_stage,
+                variant_source=variant_source,
+                judge_reasoning=razon,
+                judge_tono=tono,
+                judge_diccion=diccion,
+                judge_ritmo=ritmo,
+            )
+        except Exception:
+            logger.debug("Diag logging (grader) omitido por error.")
+
+        return bool(cumple)
 
     def _should_refine_variant(self, evaluation: Optional[Dict[str, object]], text: str) -> bool:
         if not evaluation or not isinstance(evaluation, dict):

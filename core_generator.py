@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 from embeddings_manager import get_embedding, get_memory_collection, get_topics_collection
 from logger_config import logger
 from prompt_context import build_prompt_context
-from style_guard import StyleRejection, audit_and_improve_comment
+from style_guard import audit_and_improve_comment
 from variant_generators import (
     GenerationSettings,
     CommentResult,
@@ -364,12 +364,6 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
             if _is_provider_error_message(last_error):
                 provider_error_message = last_error
                 break
-        except StyleRejection as rejection:
-            last_error = str(rejection).strip()
-            logger.warning("Rechazo del revisor final en intento %s: %s", attempt, last_error)
-            if _is_provider_error_message(last_error):
-                provider_error_message = last_error
-                break
         except Exception as exc:
             last_error = str(exc)
             logger.error("Error crítico en el intento %s: %s", attempt, exc, exc_info=True)
@@ -422,19 +416,18 @@ def generate_comment_from_text(source_text: str) -> CommentDraft:
             if assessment.risk and "assessment_risk" not in metadata:
                 metadata["assessment_risk"] = assessment.risk
             return CommentDraft(comment=result.comment, insight=result.insight, metadata=metadata)
-        except StyleRejection as rejection:
-            last_style_feedback = str(rejection).strip()
-            logger.warning("Rechazo de estilo en comentario (intento %s): %s", attempt, last_style_feedback)
         except Exception as exc:
             last_error = str(exc)
             logger.error("Error generando comentario en intento %s: %s", attempt, exc, exc_info=True)
 
+    # En el nuevo flujo, tratamos los rechazos de estilo como errores genéricos y
+    # delegamos la validación detallada al Grader en proposal_service.
+    message = "No se pudo generar un comentario válido."
     if last_style_feedback:
-        raise StyleRejection(f"Falló la auditoría de estilo al generar comentario: {last_style_feedback}")
-    raise RuntimeError(
-        "No se pudo generar un comentario válido."
-        + (f" Último error: {last_error}" if last_error else "")
-    )
+        message += f" Auditoría de estilo fallida: {last_style_feedback}"
+    if last_error:
+        message += f" Último error: {last_error}"
+    raise RuntimeError(message)
 
 
 def find_relevant_topic(sample_size: int = 3):

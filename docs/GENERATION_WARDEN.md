@@ -223,3 +223,9 @@ Nota de control (2025-11-05):
 - Al final de la propuesta, se emite un bloque `[SUMMARY]` con cada variante y su similitud con el goldset:
   - Formato: `- A | sim=0.468 | <texto>` (sim con 3 decimales, `NA` si no se pudo calcular).
   - Fuente: `ProposalService` tras calcular contrato+goldset.
+## Juez-Calificador (Grader) — 2025-11-05
+
+- Se reemplaza el juez binario por un Grader JSON (archivo `prompts/validation/style_judge_v1.md`).
+- El Grader devuelve `cumple_contrato` y un `razonamiento_principal` breve con referencias al pilar del contrato que falla, más puntajes `tono/diccion/ritmo`.
+- `proposal_service._check_style_with_llm` registra estos datos en `variant_evaluation` mediante `diagnostics_logger.log_post_metrics`.
+- Justificación: el flujo anterior no ofrecía motivos de fallo, dificultando depuración y ajuste fino de estilo.

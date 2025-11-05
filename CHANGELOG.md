@@ -5,6 +5,21 @@
 - Instrumentación en embeddings_manager.py para cache lookup/generación
 - Pruebas unitarias de caché y fingerprint
 - CI (GitHub Actions) con pytest
+
+### 2025-11-05 — Reemplazo de Juez binario por Juez‑Calificador (Grader)
+Autor: TraeAI
+
+Propósito: Eliminar el juez binario (true/false) y capturar razonamiento y puntuaciones por pilar para diagnósticos.
+Justificación: El juez binario no explica por qué falla un borrador; se requiere trazabilidad.
+
+Cambios:
+- prompts/validation/style_judge_v1.md: Prompt reemplazado por versión JSON (cumple_contrato, razonamiento_principal, puntuacion_tono/diccion/ritmo).
+- proposal_service._check_style_with_llm: Parseo de JSON del Grader, logging de razonamiento y puntuaciones via diagnostics_logger.log_post_metrics; devuelve solo el booleano.
+- proposal_service._check_contract_requirements: Pasa contexto (piece_id, label, event_stage, variant_source) al Grader.
+- diagnostics_logger.log_post_metrics: Se agregan campos judge_reasoning, judge_tono, judge_diccion, judge_ritmo en el payload de variant_evaluation.
+- Documentación actualizada (este CHANGELOG, docs/GENERATION_WARDEN.md, docs/generation_config_inventory.md).
+
+Impacto: Se mantienen compatibilidades; los nuevos campos son opcionales en logs y no rompen consultas existentes. Tests: 16 passed, 6 warnings.
 - Docs: ARCHITECTURE_GCP.md, MAINTENANCE_SCALING.md, TECH_COMPARISON.md
 - Backfill Firestore desde Chroma (scripts/backfill_firestore_from_chroma.py)
 

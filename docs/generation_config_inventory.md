@@ -140,3 +140,12 @@ Nota operativa: `GOLDSET_NPZ_GCS_URI` se mantiene apuntando a `gs://xbot-473616-
 **Fecha:** 2025-11-05  
 **Autor:** Mei  
 **Justificación:** Evitar doble enforcement y contradicciones entre reglas heurísticas y el contrato, delegando la decisión binaria en un juez LLM más robusto y alineado con `<STYLE_CONTRACT>`.
+## Actualización 2025-11-05 — Juez-Calificador (Grader) JSON
+
+- El juez de estilo `validation/style_judge_v1.md` ahora exige salida JSON con:
+  - `cumple_contrato` (bool)
+  - `razonamiento_principal` (string)
+  - `puntuacion_tono`, `puntuacion_diccion`, `puntuacion_ritmo` (1-5)
+- `proposal_service._check_style_with_llm` parsea el JSON y emite logs estructurados vía `diagnostics_logger.log_post_metrics` incluyendo:
+  - `judge_reasoning`, `judge_tono`, `judge_diccion`, `judge_ritmo`
+- Razón del cambio: mejorar trazabilidad del porqué falla un borrador (diagnóstico rápido) sin romper compatibilidad.

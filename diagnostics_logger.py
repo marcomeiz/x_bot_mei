@@ -49,6 +49,11 @@ def log_post_metrics(
         "pipeline_version": PIPELINE_VERSION,
         "variant_source": extra.get("variant_source", "gen"),
         "event_stage": extra.get("event_stage"),
+        # Grader Judge fields
+        "judge_reasoning": extra.get("judge_reasoning"),
+        "judge_tono": extra.get("judge_tono"),
+        "judge_diccion": extra.get("judge_diccion"),
+        "judge_ritmo": extra.get("judge_ritmo"),
     }
     preserve_none = {"similarity", "similarity_raw", "similarity_norm", "max_pair_id", "goldset_collection"}
     payload = {}

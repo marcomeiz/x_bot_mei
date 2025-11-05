@@ -44,6 +44,7 @@ GOLDSET_COLLECTION_NAME_DEFAULT = os.getenv("GOLDSET_COLLECTION_NAME", "goldset_
 EXPECTED_NORMALIZER_VERSION = int(os.getenv("GOLDSET_NORMALIZER_VERSION", "1") or 1)
 GOLDSET_CLUSTER_COUNT = max(1, int(os.getenv("GOLDSET_CLUSTER_COUNT", "8") or 8))
 GOLDSET_NPZ_URI = os.getenv("GOLDSET_NPZ_GCS_URI", "").strip()
+GOLDSET_RANDOM_SEED = int(os.getenv("GOLDSET_RANDOM_SEED", "1337") or 1337)
 
 _NPZ_CACHE_PATH: Optional[Path] = None
 
@@ -462,7 +463,10 @@ def retrieve_goldset_examples_random(k: int = 3) -> List[str]:
         return []
     kk = max(1, min(int(k or 1), n))
     try:
-        return random.sample(_GOLDSET_TEXTS, kk)
+        # Deterministic sampling using fixed seed for reproducibility across runs
+        rng = random.Random(GOLDSET_RANDOM_SEED)
+        indices = rng.sample(range(n), kk)
+        return [_GOLDSET_TEXTS[i] for i in indices]
     except Exception:
         # Fallback: deterministic slice
         return _GOLDSET_TEXTS[:kk]
@@ -470,3 +474,33 @@ def retrieve_goldset_examples_random(k: int = 3) -> List[str]:
 
 # Uppercase alias to match requested naming in discussion
 retrieve_goldset_examples_RANDOM = retrieve_goldset_examples_random
+
+def retrieve_goldset_examples_random_meta(k: int = 3, seed: Optional[int] = None) -> List[dict]:
+    """Return k random goldset items with metadata.
+
+    Each item is a dict: {"idx": int, "id": str, "text": str, "collection": str}
+
+    - Uses a fixed seed by default (GOLDSET_RANDOM_SEED) for reproducibility.
+    - The "collection" field reflects the active goldset collection name.
+    """
+    _ensure_goldset_loaded()
+    n = len(_GOLDSET_TEXTS)
+    if n <= 0:
+        return []
+    kk = max(1, min(int(k or 1), n))
+    try:
+        rng = random.Random(int(seed) if seed is not None else GOLDSET_RANDOM_SEED)
+        indices = rng.sample(range(n), kk)
+    except Exception:
+        indices = list(range(kk))
+    items: List[dict] = []
+    coll = _ACTIVE_COLLECTION_NAME
+    for i in indices:
+        item = {
+            "idx": int(i),
+            "id": str(_GOLDSET_IDS[i] if 0 <= i < len(_GOLDSET_IDS) else f"npz_{i:05d}"),
+            "text": _GOLDSET_TEXTS[i],
+            "collection": coll,
+        }
+        items.append(item)
+    return items

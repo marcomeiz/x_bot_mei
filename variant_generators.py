@@ -37,7 +37,11 @@ from writing_rules import (
     _WORD_REGEX,
     BANNED_SUFFIXES,
 )
-from src.goldset import retrieve_goldset_examples_nn, retrieve_goldset_examples_random
+from src.goldset import (
+    retrieve_goldset_examples_nn,
+    retrieve_goldset_examples_random,
+    retrieve_goldset_examples_random_meta,
+)
 
 
 @dataclass(frozen=True)
@@ -1265,14 +1269,15 @@ def generate_all_variants(
 
     # Override inline prompt with externalized template
     try:
-        # Style-RAG: retrieve top-K nearest goldset examples by semantic similarity to the topic
+        # Style-RAG: retrieve random goldset examples to anchor purely on style (topic-agnostic)
         if gold_examples is None:
             _t0 = time.time()
             # Paso de prueba: desactivar búsqueda semántica y usar aleatoria
             # with Timer("g_goldset_nn_retrieve", labels={"scope": "variants", "k": 3}):
             #     gold_examples = retrieve_goldset_examples_nn(topic_abstract or "", k=3)
-            with Timer("g_goldset_random_retrieve", labels={"scope": "variants", "k": 3}):
-                gold_examples = retrieve_goldset_examples_random(k=3)
+            with Timer("g_goldset_random_retrieve", labels={"scope": "variants", "k": 5}):
+                _meta_items = retrieve_goldset_examples_random_meta(k=5)
+                gold_examples = [it["text"] for it in _meta_items]
             _elapsed_ms = round((time.time() - _t0) * 1000, 2)
             logger.info(
                 "[RAG] Retrieved %s RANDOM goldset examples for prompt in %.2fms",
@@ -1286,7 +1291,7 @@ def generate_all_variants(
                     {
                         "metric": "g_goldset_random_retrieve",
                         "scope": "variants",
-                        "k": 3,
+                        "k": 5,
                         "count": len(gold_examples),
                         "elapsed_ms": _elapsed_ms,
                     },
@@ -1294,7 +1299,32 @@ def generate_all_variants(
             except Exception:
                 pass
 
-        gold_block = _format_gold_examples_for_prompt(gold_examples, limit=3)
+            # Logging estructurado de las anclas usadas (id, texto íntegro, scope)
+            try:
+                examples_payload = []
+                for it in _meta_items:
+                    examples_payload.append(
+                        {
+                            "idx": it.get("idx"),
+                            "id": it.get("id"),
+                            "text": it.get("text"),
+                            "scope": "variants",
+                            "collection": it.get("collection"),
+                        }
+                    )
+                diagnostics.info(
+                    "style_rag_examples",
+                    {
+                        "scope": "variants",
+                        "k": 5,
+                        "count": len(examples_payload),
+                        "examples": examples_payload,
+                    },
+                )
+            except Exception:
+                pass
+
+        gold_block = _format_gold_examples_for_prompt(gold_examples, limit=5)
         if not gold_block.strip():
             gold_block = "- (No reference examples available; rely on contract.)"
 
@@ -1683,8 +1713,9 @@ def generate_comment_reply(
     # Paso de prueba: desactivar búsqueda semántica y usar aleatoria
     # with Timer("g_goldset_nn_retrieve", labels={"scope": "comments", "k": 3}):
     #     gold_examples = retrieve_goldset_examples_nn(excerpt, k=3)
-    with Timer("g_goldset_random_retrieve", labels={"scope": "comments", "k": 3}):
-        gold_examples = retrieve_goldset_examples_random(k=3)
+    with Timer("g_goldset_random_retrieve", labels={"scope": "comments", "k": 5}):
+        _meta_items = retrieve_goldset_examples_random_meta(k=5)
+        gold_examples = [it["text"] for it in _meta_items]
     _elapsed_ms = round((time.time() - _t0) * 1000, 2)
     try:
         diagnostics.info(
@@ -1692,9 +1723,34 @@ def generate_comment_reply(
             {
                 "metric": "g_goldset_random_retrieve",
                 "scope": "comments",
-                "k": 3,
+                "k": 5,
                 "count": len(gold_examples),
                 "elapsed_ms": _elapsed_ms,
+            },
+        )
+    except Exception:
+        pass
+
+    # Logging estructurado de las anclas usadas (id, texto íntegro, scope)
+    try:
+        examples_payload = []
+        for it in _meta_items:
+            examples_payload.append(
+                {
+                    "idx": it.get("idx"),
+                    "id": it.get("id"),
+                    "text": it.get("text"),
+                    "scope": "comments",
+                    "collection": it.get("collection"),
+                }
+            )
+        diagnostics.info(
+            "style_rag_examples",
+            {
+                "scope": "comments",
+                "k": 5,
+                "count": len(examples_payload),
+                "examples": examples_payload,
             },
         )
     except Exception:
@@ -1707,7 +1763,7 @@ def generate_comment_reply(
         max_angles=TAIL_SAMPLING_COUNT,
     )
     tail_block = _format_tail_angles_for_prompt(tail_angles) or "No tail angles surfaced; rely on doctrinal instincts."
-    gold_block = _format_gold_examples_for_prompt(gold_examples) or "Anchors unavailable. Mirror the contract tone precisely."
+    gold_block = _format_gold_examples_for_prompt(gold_examples, limit=5) or "Anchors unavailable. Mirror the contract tone precisely."
     # Emit diagnostics to validate anchor block presence/format during smoke tests
     try:
         diagnostics.info(

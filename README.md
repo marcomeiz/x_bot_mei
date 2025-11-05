@@ -1,4 +1,4 @@
-# x_bot_mei
+# x_bot_mei --
 
 **Estado del Sistema: Estable y Optimizado (Octubre 2025)**
 

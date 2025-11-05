@@ -1,0 +1,4396 @@
+[
+  {
+    "insertId": "690b9e5b00077c3b8f1b85e7",
+    "httpRequest": {
+      "requestMethod": "POST",
+      "requestUrl": "https://x-bot-mei-fi5yfc7dia-ew.a.run.app/8435570214:AAEZeWYFIkB5zroZoMDLRlz09Nst63dr_ds",
+      "requestSize": "691",
+      "status": 200,
+      "responseSize": "125",
+      "remoteIp": "91.108.5.35",
+      "serverIp": "34.143.73.2",
+      "latency": "4.722788664s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:30.759537Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/631927a8e1f75768677a539392b3cdbd",
+    "receiveTimestamp": "2025-11-05T18:58:35.497609641Z",
+    "spanId": "851ec0e85aca857d",
+    "traceSampled": true
+  },
+  {
+    "textPayload": "---- ESTA ES LA PUTA VERSIÓN NUEVA DEL CÓDIGO: v_FINAL ----",
+    "insertId": "690b9e5700035cd8087e9382",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:31.220376Z",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T18:58:31.223186246Z"
+  },
+  {
+    "insertId": "690b9e5700035d33752fe771",
+    "jsonPayload": {
+      "logging.googleapis.com/diagnostic": {
+        "instrumentation_source": [
+          {
+            "version": "3.12.1",
+            "name": "python"
+          }
+        ]
+      }
+    },
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:31.220467Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "google.cloud.logging_v2.handlers.structured_log",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/usr/local/lib/python3.11/site-packages/google/cloud/logging_v2/handlers/structured_log.py",
+      "line": "149",
+      "function": "emit_instrumentation_info"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:31.222994371Z"
+  },
+  {
+    "insertId": "690b9e5700035d4d2e494cd9",
+    "jsonPayload": {
+      "message": "DIAG_STRUCTURED_OK",
+      "ts": "2025-11-05T18:58:31.219331Z"
+    },
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:31.220493Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "logging_bootstrap"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/logging_bootstrap.py",
+      "line": "12",
+      "function": "<module>"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:31.222994371Z"
+  },
+  {
+    "textPayload": "Contrato de copywriter cargado correctamente desde '/app/copywriter_contract_hormozi.md'.",
+    "insertId": "690b9e5b00051cb022bb0de9",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:35.335024Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/persona.py",
+      "line": "51",
+      "function": "get_style_contract_text"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:35.554233370Z"
+  },
+  {
+    "textPayload": "Pautas de revisión final cargadas desde '/app/config/final_review_guidelines.md'.",
+    "insertId": "690b9e5b0005341eb5056a0d",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:35.341022Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/persona.py",
+      "line": "81",
+      "function": "get_final_guidelines_text"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:35.554233370Z"
+  },
+  {
+    "textPayload": "Inicializando cliente HTTP de ChromaDB (host='x-chroma-295511624125.europe-west1.run.app', port=443, ssl=True)…",
+    "insertId": "690b9e5b00074510ec8a1b4e",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:35.476432Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/embeddings_manager.py",
+      "line": "251",
+      "function": "get_chroma_client"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:35.554233370Z"
+  },
+  {
+    "textPayload": "Update recibido: {'update_id': 960471525, 'message': {'message_id': 4797, 'from': {'id': 1119810722, 'is_bot': False, 'first_name': 'Marco', 'last_name': 'Mei', 'username': 'marco_mei', 'language_code': 'en'}, 'chat': {'id': 1119810722, 'first_name': 'Marco', 'last_name': 'Mei', 'username': 'marco_mei', 'type': 'private'}, 'date': 1762369110, 'text': '/g', 'entities': [{'offset': 0, 'length': 2, 'type': 'bot_command'}]}}",
+    "insertId": "690b9e5b00076d099b9f7b75",
+    "httpRequest": {
+      "requestMethod": "POST",
+      "requestUrl": "http://x-bot-mei-fi5yfc7dia-ew.a.run.app/8435570214:AAEZeWYFIkB5zroZoMDLRlz09Nst63dr_ds",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:35.486665Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "trace": "projects/xbot-473616/traces/631927a8e1f75768677a539392b3cdbd",
+    "sourceLocation": {
+      "file": "/app/bot.py",
+      "line": "186",
+      "function": "_process_update"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:35.554233370Z",
+    "spanId": "851ec0e85aca857d",
+    "traceSampled": true
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Comando '/g' recibido.",
+    "insertId": "690b9e5b00076d4ce06c5118",
+    "httpRequest": {
+      "requestMethod": "POST",
+      "requestUrl": "http://x-bot-mei-fi5yfc7dia-ew.a.run.app/8435570214:AAEZeWYFIkB5zroZoMDLRlz09Nst63dr_ds",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:35.486732Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "trace": "projects/xbot-473616/traces/631927a8e1f75768677a539392b3cdbd",
+    "sourceLocation": {
+      "file": "/app/bot.py",
+      "line": "193",
+      "function": "_process_update"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:35.554233370Z",
+    "spanId": "851ec0e85aca857d",
+    "traceSampled": true
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Job encolado (queue=1/12).",
+    "insertId": "690b9e5b000773aa5bf8809f",
+    "httpRequest": {
+      "requestMethod": "POST",
+      "requestUrl": "http://x-bot-mei-fi5yfc7dia-ew.a.run.app/8435570214:AAEZeWYFIkB5zroZoMDLRlz09Nst63dr_ds",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:35.488362Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "trace": "projects/xbot-473616/traces/631927a8e1f75768677a539392b3cdbd",
+    "sourceLocation": {
+      "file": "/app/bot.py",
+      "line": "169",
+      "function": "_schedule_generation"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:35.554233370Z",
+    "spanId": "851ec0e85aca857d",
+    "traceSampled": true
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Iniciando nuevo ciclo de generación.",
+    "insertId": "690b9e5b00077818f0561718",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:35.489496Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/proposal_service.py",
+      "line": "75",
+      "function": "do_the_work"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:35.554233370Z"
+  },
+  {
+    "insertId": "690b9e5b00078e6239e93bf9",
+    "jsonPayload": {
+      "source": "fallback",
+      "event": "TOPIC_SELECTED",
+      "topic_id": "seed:profit-first"
+    },
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:35.495202Z",
+    "severity": "WARNING",
+    "labels": {
+      "python_logger": "diagnostics",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/diagnostics_logger.py",
+      "line": "92",
+      "function": "warn"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:35.554233370Z"
+  },
+  {
+    "textPayload": "[METRIC] {\"metric\": \"g_find_topic\", \"value\": 5.58, \"ts\": 1762369115, \"chat_id\": 1119810722, \"error\": false}",
+    "insertId": "690b9e5b00078fbdd03fcfcc",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:35.495549Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/metrics.py",
+      "line": "47",
+      "function": "record_metric"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:35.554233370Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Fuente del tema: fallback (ID: seed:profit-first)",
+    "insertId": "690b9e5b000790eb9c256bd0",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:35.495851Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/proposal_service.py",
+      "line": "95",
+      "function": "do_the_work"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:35.554233370Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Tema seleccionado (ID: seed:profit-first). Abstract: 'Profit First accounting for solo founders: cash buckets, owner's pay, runway dis...'",
+    "insertId": "690b9e5b000790fe39444a81",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:35.495870Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/proposal_service.py",
+      "line": "200",
+      "function": "propose_tweet"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:35.554233370Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Telegram API call successful: sendMessage",
+    "insertId": "690b9e5c000745a521ea8bc4",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:36.476581Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/telegram_client.py",
+      "line": "220",
+      "function": "_post"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:36.554644230Z"
+  },
+  {
+    "textPayload": "ICP cargado correctamente desde '/app/config/icp.md'.",
+    "insertId": "690b9e5e0001389c0d27810b",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:38.080028Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/persona.py",
+      "line": "66",
+      "function": "get_icp_text"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:38.220846871Z"
+  },
+  {
+    "textPayload": "Iniciando comprobación de similitud en memoria.",
+    "insertId": "690b9e5e000138b274139e13",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:38.080050Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/core_generator.py",
+      "line": "210",
+      "function": "_log_similarity"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:38.220846871Z"
+  },
+  {
+    "insertId": "690b9e65000da62e4e993490",
+    "httpRequest": {
+      "requestMethod": "GET",
+      "requestUrl": "https://x-chroma-295511624125.europe-west1.run.app/api/v1/tenants/default_tenant",
+      "requestSize": "318",
+      "status": 200,
+      "responseSize": "125",
+      "userAgent": "python-requests/2.32.5",
+      "remoteIp": "2600:1900:0:4305::a01",
+      "serverIp": "2600:1900:4242:200::",
+      "latency": "0.006099200s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "service_name": "x-chroma",
+        "revision_name": "x-chroma-00002-wn7",
+        "configuration_name": "x-chroma"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:45.880276Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/e12f8df45157aa91d8719df696d73f85",
+    "receiveTimestamp": "2025-11-05T18:58:45.897276901Z",
+    "spanId": "2fdee7f48b52a369",
+    "traceSampled": true
+  },
+  {
+    "textPayload": "INFO:     [05-11-2025 18:58:45] 169.254.169.126:7152 - \"GET /api/v1/tenants/default_tenant HTTP/1.1\" 200",
+    "insertId": "690b9e65000da1bd3e4541a5",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "service_name": "x-chroma",
+        "revision_name": "x-chroma-00002-wn7",
+        "configuration_name": "x-chroma"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:45.893373Z",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T18:58:45.897142957Z"
+  },
+  {
+    "insertId": "690b9e6600014cc710d51bf7",
+    "httpRequest": {
+      "requestMethod": "GET",
+      "requestUrl": "https://x-chroma-295511624125.europe-west1.run.app/api/v1/databases/default_database?tenant=default_tenant",
+      "requestSize": "344",
+      "status": 200,
+      "responseSize": "197",
+      "userAgent": "python-requests/2.32.5",
+      "remoteIp": "2600:1900:0:4305::a01",
+      "serverIp": "2600:1900:4242:200::",
+      "latency": "0.005314440s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-chroma",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-chroma",
+        "location": "europe-west1",
+        "revision_name": "x-chroma-00002-wn7"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:46.078862Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/eb86e6e3499f7fced8719df696d73f26",
+    "receiveTimestamp": "2025-11-05T18:58:46.233180061Z",
+    "spanId": "49104930645d0ed5"
+  },
+  {
+    "textPayload": "INFO:     [05-11-2025 18:58:46] 169.254.169.126:7156 - \"GET /api/v1/databases/default_database?tenant=default_tenant HTTP/1.1\" 200",
+    "insertId": "690b9e66000149f730f67e54",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-chroma",
+        "service_name": "x-chroma",
+        "revision_name": "x-chroma-00002-wn7"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:46.084471Z",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T18:58:46.231123736Z"
+  },
+  {
+    "textPayload": "Failed to send telemetry event ClientStartEvent: capture() takes 1 positional argument but 3 were given",
+    "insertId": "690b9e660004397c21cae14f",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:46.276860Z",
+    "severity": "ERROR",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "chromadb.telemetry.product.posthog"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/usr/local/lib/python3.11/site-packages/chromadb/telemetry/product/posthog.py",
+      "line": "59",
+      "function": "_direct_capture"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:46.558158091Z"
+  },
+  {
+    "insertId": "690b9e690007779d65914c00",
+    "httpRequest": {
+      "requestMethod": "POST",
+      "requestUrl": "https://x-chroma-295511624125.europe-west1.run.app/api/v1/collections?tenant=default_tenant&database=default_database",
+      "requestSize": "460",
+      "status": 200,
+      "responseSize": "264",
+      "userAgent": "python-requests/2.32.5",
+      "remoteIp": "2600:1900:0:4305::a01",
+      "serverIp": "2600:1900:4245:200::",
+      "latency": "0.007858140s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-chroma",
+        "project_id": "xbot-473616",
+        "revision_name": "x-chroma-00002-wn7",
+        "location": "europe-west1",
+        "service_name": "x-chroma"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:49.478750Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/fb488b8d469e5127ee4722562422aa75",
+    "receiveTimestamp": "2025-11-05T18:58:49.563174152Z",
+    "spanId": "34ed498e12ca6cb0"
+  },
+  {
+    "textPayload": "INFO:     [05-11-2025 18:58:49] 169.254.169.126:7164 - \"POST /api/v1/collections?tenant=default_tenant&database=default_database HTTP/1.1\" 200",
+    "insertId": "690b9e690007740fbb868506",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-chroma",
+        "location": "europe-west1",
+        "revision_name": "x-chroma-00002-wn7",
+        "configuration_name": "x-chroma",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:49.488463Z",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T18:58:49.559911411Z"
+  },
+  {
+    "insertId": "690b9e69000f158b85a57a72",
+    "httpRequest": {
+      "requestMethod": "GET",
+      "requestUrl": "https://x-chroma-295511624125.europe-west1.run.app/api/v1/collections/748ccdb9-e11e-41a6-b26a-32c7ec08a03f/count",
+      "requestSize": "349",
+      "status": 200,
+      "responseSize": "100",
+      "userAgent": "python-requests/2.32.5",
+      "remoteIp": "2600:1900:0:4305::a01",
+      "serverIp": "2600:1900:4245:200::",
+      "latency": "0.008485389s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "revision_name": "x-chroma-00002-wn7",
+        "location": "europe-west1",
+        "configuration_name": "x-chroma",
+        "service_name": "x-chroma"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:49.978622Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/464fcc7e9e6a0219ee4722562422af16",
+    "receiveTimestamp": "2025-11-05T18:58:50.226647744Z",
+    "spanId": "8a0d8f26de5b4bcf"
+  },
+  {
+    "insertId": "690b9e69000f2a0fcde4023d",
+    "httpRequest": {
+      "requestMethod": "POST",
+      "requestUrl": "https://x-chroma-295511624125.europe-west1.run.app/api/v1/collections?tenant=default_tenant&database=default_database",
+      "requestSize": "460",
+      "status": 200,
+      "responseSize": "265",
+      "userAgent": "python-requests/2.32.5",
+      "remoteIp": "2600:1900:0:4305::a01",
+      "serverIp": "2600:1900:4240:200::",
+      "latency": "0.006345110s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "revision_name": "x-chroma-00002-wn7",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-chroma",
+        "service_name": "x-chroma"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:49.985810Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/0d25c36ebc46cc715c49158e03ca3eab",
+    "receiveTimestamp": "2025-11-05T18:58:50.226647744Z",
+    "spanId": "338c44d9fdcfd80b"
+  },
+  {
+    "textPayload": "INFO:     [05-11-2025 18:58:49] 169.254.169.126:17170 - \"GET /api/v1/collections/748ccdb9-e11e-41a6-b26a-32c7ec08a03f/count HTTP/1.1\" 200",
+    "insertId": "690b9e69000f121520fb2acb",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-chroma",
+        "project_id": "xbot-473616",
+        "revision_name": "x-chroma-00002-wn7",
+        "service_name": "x-chroma",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:49.987669Z",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T18:58:50.227522518Z"
+  },
+  {
+    "textPayload": "INFO:     [05-11-2025 18:58:49] 169.254.169.126:17180 - \"POST /api/v1/collections?tenant=default_tenant&database=default_database HTTP/1.1\" 200",
+    "insertId": "690b9e69000f25e7eb18c811",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "configuration_name": "x-chroma",
+        "revision_name": "x-chroma-00002-wn7",
+        "project_id": "xbot-473616",
+        "service_name": "x-chroma"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:49.992743Z",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T18:58:50.227522518Z"
+  },
+  {
+    "textPayload": "Memoria vacía; sin comprobación de similitud.",
+    "insertId": "690b9e6a000129b68e00b328",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:50.076214Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/core_generator.py",
+      "line": "218",
+      "function": "_log_similarity"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:50.230647324Z"
+  },
+  {
+    "textPayload": "Intento de generación de IA 1/3…",
+    "insertId": "690b9e6a000129ca3c190f57",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:50.076234Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/core_generator.py",
+      "line": "343",
+      "function": "generate_tweet_from_topic"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:50.230647324Z"
+  },
+  {
+    "insertId": "690b9e6a0009113ec3d262cf",
+    "httpRequest": {
+      "requestMethod": "POST",
+      "requestUrl": "https://x-chroma-295511624125.europe-west1.run.app/api/v1/collections/b31bb009-1d29-4c77-8d0f-e0c3a2570f6d/get",
+      "requestSize": "493",
+      "status": 200,
+      "responseSize": "182",
+      "userAgent": "python-requests/2.32.5",
+      "remoteIp": "2600:1900:0:4305::a01",
+      "serverIp": "2600:1900:4240:200::",
+      "latency": "0.006785560s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "configuration_name": "x-chroma",
+        "service_name": "x-chroma",
+        "project_id": "xbot-473616",
+        "revision_name": "x-chroma-00002-wn7"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:50.583779Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/aa84f4cc3948030e5c49158e03ca30a0",
+    "receiveTimestamp": "2025-11-05T18:58:50.894254101Z",
+    "spanId": "54024f64839eaee0"
+  },
+  {
+    "textPayload": "INFO:     [05-11-2025 18:58:50] 169.254.169.126:17194 - \"POST /api/v1/collections/b31bb009-1d29-4c77-8d0f-e0c3a2570f6d/get HTTP/1.1\" 200",
+    "insertId": "690b9e6a00090dd899fa7ca2",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-chroma-00002-wn7",
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "configuration_name": "x-chroma",
+        "service_name": "x-chroma"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:50.593368Z",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T18:58:50.895124702Z"
+  },
+  {
+    "textPayload": "Usando colección de tópicos: 'topics_collection_3072'",
+    "insertId": "690b9e6a000a52a542980cef",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:50.676517Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/embeddings_manager.py",
+      "line": "277",
+      "function": "get_topics_collection"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:50.889774503Z"
+  },
+  {
+    "insertId": "690b9e6a000da1fbb0dff59f",
+    "httpRequest": {
+      "requestMethod": "POST",
+      "requestUrl": "https://x-chroma-295511624125.europe-west1.run.app/api/v1/collections?tenant=default_tenant&database=default_database",
+      "requestSize": "465",
+      "status": 200,
+      "responseSize": "269",
+      "userAgent": "python-requests/2.32.5",
+      "remoteIp": "2600:1900:0:4305::a01",
+      "serverIp": "2600:1900:4240:200::",
+      "latency": "0.008492559s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-chroma-00002-wn7",
+        "configuration_name": "x-chroma",
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "service_name": "x-chroma"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:50.883323Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/7b62d12ab1a287995c49158e03ca34bd",
+    "receiveTimestamp": "2025-11-05T18:58:51.804431460Z",
+    "spanId": "e1700e99cd1a915d"
+  },
+  {
+    "textPayload": "INFO:     [05-11-2025 18:58:50] 169.254.169.126:17202 - \"POST /api/v1/collections?tenant=default_tenant&database=default_database HTTP/1.1\" 200",
+    "insertId": "690b9e6a000d9e26cde363bc",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "revision_name": "x-chroma-00002-wn7",
+        "service_name": "x-chroma",
+        "configuration_name": "x-chroma"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:50.892454Z",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T18:58:51.225254614Z"
+  },
+  {
+    "insertId": "690b9e6b0004781fb9bc8655",
+    "httpRequest": {
+      "requestMethod": "POST",
+      "requestUrl": "https://x-chroma-295511624125.europe-west1.run.app/api/v1/collections/551cc020-7f25-4800-9daf-a7d07d4455fc/get",
+      "requestSize": "493",
+      "status": 200,
+      "responseSize": "182",
+      "userAgent": "python-requests/2.32.5",
+      "remoteIp": "2600:1900:0:4305::a01",
+      "serverIp": "2600:1900:4240:200::",
+      "latency": "0.007914500s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-chroma",
+        "configuration_name": "x-chroma",
+        "revision_name": "x-chroma-00002-wn7",
+        "project_id": "xbot-473616",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:51.283697Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/eba24e4ce7efa3f4cf2f842d51c9fed4",
+    "receiveTimestamp": "2025-11-05T18:58:51.560257659Z",
+    "spanId": "525859652e1f0324"
+  },
+  {
+    "textPayload": "INFO:     [05-11-2025 18:58:51] 169.254.169.126:17218 - \"POST /api/v1/collections/551cc020-7f25-4800-9daf-a7d07d4455fc/get HTTP/1.1\" 200",
+    "insertId": "690b9e6b00047569834d077e",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-chroma",
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "revision_name": "x-chroma-00002-wn7",
+        "configuration_name": "x-chroma"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:51.292201Z",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T18:58:51.558902376Z"
+  },
+  {
+    "textPayload": "Warmup: insuficientes embeddings precomputados en topics; no se generarán en caliente (faltan=200).",
+    "insertId": "690b9e6b0005bd9dc5350f62",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:51.376221Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/bot.py",
+      "line": "96",
+      "function": "_warmup_anchors"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:51.555840070Z"
+  },
+  {
+    "textPayload": "warmup_ok=False, warmed=0",
+    "insertId": "690b9e6b0005bdb3c10324a9",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T18:58:51.376243Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/bot.py",
+      "line": "98",
+      "function": "_warmup_anchors"
+    },
+    "receiveTimestamp": "2025-11-05T18:58:51.555840070Z"
+  },
+  {
+    "textPayload": "Goldset NPZ descargado desde gs://xbot-473616-x-bot-mei-db/goldset/goldset_v2_audited.npz a /tmp/goldset_npz/xbot-473616-x-bot-mei-db_goldset_goldset_v2_audited.npz.",
+    "insertId": "690b9e75000d5e59c2b4a5f5",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T18:59:01.876121Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/src/goldset.py",
+      "line": "140",
+      "function": "_resolve_goldset_npz_path"
+    },
+    "receiveTimestamp": "2025-11-05T18:59:01.879631922Z"
+  },
+  {
+    "insertId": "690b9e77000743264aabde24",
+    "jsonPayload": {
+      "goldset_collection": "goldset_v2_audited",
+      "count": 21,
+      "npz_uri": "gs://xbot-473616-x-bot-mei-db/goldset/goldset_v2_audited.npz",
+      "emb_dim": 3072,
+      "message": "GOLDSET_NPZ_LOADED"
+    },
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T18:59:03.475942Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "diagnostics"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/diagnostics_logger.py",
+      "line": "8",
+      "function": "emit_structured"
+    },
+    "receiveTimestamp": "2025-11-05T18:59:03.546799622Z"
+  },
+  {
+    "insertId": "690b9e770007433c0a8f37e6",
+    "jsonPayload": {
+      "count": 21,
+      "emb_dim": 3072,
+      "normalizer_version": 1,
+      "collection_name": "goldset_v2_audited",
+      "event": "DIAG_GOLDSET_READY"
+    },
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T18:59:03.475964Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "diagnostics"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/diagnostics_logger.py",
+      "line": "8",
+      "function": "emit_structured"
+    },
+    "receiveTimestamp": "2025-11-05T18:59:03.546799622Z"
+  },
+  {
+    "textPayload": "GOLDSET_READY name=goldset_v2_audited count=21 emb_dim=3072 normalizer_version=1",
+    "insertId": "690b9e7700074349a7e151d9",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T18:59:03.475977Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/src/goldset.py",
+      "line": "74",
+      "function": "_emit_ready"
+    },
+    "receiveTimestamp": "2025-11-05T18:59:03.546799622Z"
+  },
+  {
+    "textPayload": "[METRIC] {\"metric\": \"g_goldset_random_retrieve\", \"value\": 13399.72, \"ts\": 1762369143, \"scope\": \"variants\", \"k\": 5, \"error\": false}",
+    "insertId": "690b9e7700074db6fd9b92fa",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T18:59:03.478646Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/metrics.py",
+      "line": "47",
+      "function": "record_metric"
+    },
+    "receiveTimestamp": "2025-11-05T18:59:03.546799622Z"
+  },
+  {
+    "textPayload": "[RAG] Retrieved 5 random goldset examples for prompt in 13399.87ms",
+    "insertId": "690b9e7700074dc718a6bba6",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T18:59:03.478663Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/variant_generators.py",
+      "line": "1287",
+      "function": "generate_all_variants"
+    },
+    "receiveTimestamp": "2025-11-05T18:59:03.546799622Z"
+  },
+  {
+    "textPayload": "[DIAG] anchors_count=5",
+    "insertId": "690b9e7700074dd3c3dcdd43",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T18:59:03.478675Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/variant_generators.py",
+      "line": "1299",
+      "function": "generate_all_variants"
+    },
+    "receiveTimestamp": "2025-11-05T18:59:03.546799622Z"
+  },
+  {
+    "insertId": "690b9e7800012bdefc609d07",
+    "jsonPayload": {
+      "topic_preview": "Profit First accounting for solo founders: cash buckets, owner's pay, runway discipline",
+      "gold_block_preview": "1. Everyone starts as a victim - some people stay there longer than others. And some people never stop.\n2. The higher you go. The better you are, the better the opportunities you have to say no to. You feel regret because you’re imagining t",
+      "anchors_count": 5,
+      "event": "generation_prompt_gold_block"
+    },
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T18:59:04.076766Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "diagnostics"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/diagnostics_logger.py",
+      "line": "82",
+      "function": "info"
+    },
+    "receiveTimestamp": "2025-11-05T18:59:04.211382048Z"
+  },
+  {
+    "textPayload": "Generating all variants via single-call multi-length prompt...",
+    "insertId": "690b9e7800012c1e706fc7a1",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T18:59:04.076830Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/variant_generators.py",
+      "line": "1324",
+      "function": "generate_all_variants"
+    },
+    "receiveTimestamp": "2025-11-05T18:59:04.211382048Z"
+  },
+  {
+    "textPayload": "[2025-11-05 18:59:14 +0000] [1] [INFO] Handling signal: term",
+    "insertId": "690b9e8200043f56fd733352",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00478-8qc",
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T18:59:14.278358Z",
+    "labels": {
+      "instanceId": "001477829697d141573ee62685f7fa3542bc15eb3723eafbb462c4fcb3e90b03a922d69a4d5427304ee23bcddbb5d49cba751eee04574fd841eb50f5f96fcdec55cada98bd6c28823f819a4cff21"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-05T18:59:14.298210422Z"
+  },
+  {
+    "textPayload": "[2025-11-05 18:59:14 +0000] [10] [INFO] Worker exiting (pid: 10)",
+    "insertId": "690b9e8200044199420947d2",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00478-8qc",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T18:59:14.278937Z",
+    "labels": {
+      "instanceId": "001477829697d141573ee62685f7fa3542bc15eb3723eafbb462c4fcb3e90b03a922d69a4d5427304ee23bcddbb5d49cba751eee04574fd841eb50f5f96fcdec55cada98bd6c28823f819a4cff21"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-05T18:59:14.613906220Z"
+  },
+  {
+    "textPayload": "[2025-11-05 18:59:15 +0000] [1] [INFO] Shutting down: Master",
+    "insertId": "690b9e830002bfc0e5222e79",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00478-8qc",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T18:59:15.180160Z",
+    "labels": {
+      "instanceId": "001477829697d141573ee62685f7fa3542bc15eb3723eafbb462c4fcb3e90b03a922d69a4d5427304ee23bcddbb5d49cba751eee04574fd841eb50f5f96fcdec55cada98bd6c28823f819a4cff21"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-05T18:59:15.280349172Z"
+  },
+  {
+    "textPayload": "HTTP Request: POST https://openrouter.ai/api/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "insertId": "690b9eaa000d75dbd15729db",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T18:59:54.882139Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "httpx",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/usr/local/lib/python3.11/site-packages/httpx/_client.py",
+      "line": "1025",
+      "function": "_send_single_request"
+    },
+    "receiveTimestamp": "2025-11-05T18:59:54.888747361Z"
+  },
+  {
+    "textPayload": "[PERF] Single-call for all variants took 70.60 seconds.",
+    "insertId": "690b9eb0000a4ea005f939d6",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:00.675488Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/variant_generators.py",
+      "line": "1380",
+      "function": "generate_all_variants"
+    },
+    "receiveTimestamp": "2025-11-05T19:00:00.879191166Z"
+  },
+  {
+    "textPayload": "[METRIC] {\"metric\": \"g_llm_single_call\", \"value\": 70599.28, \"ts\": 1762369200, \"model\": \"x-ai/grok-4-fast\", \"error\": false}",
+    "insertId": "690b9eb0000a4eb981c583e6",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:00.675513Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/metrics.py",
+      "line": "47",
+      "function": "record_metric"
+    },
+    "receiveTimestamp": "2025-11-05T19:00:00.879191166Z"
+  },
+  {
+    "textPayload": "Intento 1: variantes generadas (con 0 errores).",
+    "insertId": "690b9eb0000a4ec7fc83d452",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:00.675527Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/core_generator.py",
+      "line": "360",
+      "function": "generate_tweet_from_topic"
+    },
+    "receiveTimestamp": "2025-11-05T19:00:00.879191166Z"
+  },
+  {
+    "textPayload": "[METRIC] {\"metric\": \"g_generate_variants\", \"value\": 83100.68, \"ts\": 1762369200, \"chat_id\": 1119810722, \"error\": false}",
+    "insertId": "690b9eb0000a4f98b27c58f1",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:00.675736Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/metrics.py",
+      "line": "47",
+      "function": "record_metric"
+    },
+    "receiveTimestamp": "2025-11-05T19:00:00.879191166Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Draft A pre-check (215 chars):\nYou mix all your cash in one account and wonder why you're broke. Profit First fixes that: split into buckets—profit (10%), tax (15%), owner's pay (50%), ops (25%). Pay yourself first. Your runway doubles overnight.",
+    "insertId": "690b9eb0000a4faa0a34a658",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:00.675754Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/proposal_service.py",
+      "line": "292",
+      "function": "propose_tweet"
+    },
+    "receiveTimestamp": "2025-11-05T19:00:00.879191166Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Draft B pre-check (280 chars):\nSolo founders treat business cash like personal slush funds. Bad move. Use Profit First: four buckets. Stash 10% in profit before anything else. Set owner's pay at 50% of revenue—don't skip it. Track runway monthly. I did this; went from 3 months cash to 9 without raising prices.",
+    "insertId": "690b9eb0000a501c42139e76",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:00.675868Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/proposal_service.py",
+      "line": "292",
+      "function": "propose_tweet"
+    },
+    "receiveTimestamp": "2025-11-05T19:00:00.879191166Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Draft C pre-check (392 chars):\nRunning solo? Your money's a mess because it's all in one pot. Profit First demands buckets: Profit (10%—untouchable growth fund), Tax (15%—no surprises), Owner's Pay (50%—eat first, or burn out), Operating Expenses (25%—tighten here). Discipline your runway: review weekly, cut leaks. I ignored this early; nearly folded. Now? 18 months buffer, sleeping better. Start today—bank it separate.",
+    "insertId": "690b9eb0000a507dcd01fb54",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:00.675965Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/proposal_service.py",
+      "line": "292",
+      "function": "propose_tweet"
+    },
+    "receiveTimestamp": "2025-11-05T19:00:00.879191166Z"
+  },
+  {
+    "insertId": "kjenkjf23pybf",
+    "jsonPayload": {
+      "url": "https://x-bot-mei-fi5yfc7dia-ew.a.run.app/stats?token=HLbvskyiO97iuf-yRSHWVujA1sBa9_Jf",
+      "targetType": "HTTP",
+      "scheduledTime": "2025-11-05T19:00:00.821325Z",
+      "@type": "type.googleapis.com/google.cloud.scheduler.logging.AttemptStarted",
+      "jobName": "projects/xbot-473616/locations/europe-west1/jobs/x-bot-mei-keepalive"
+    },
+    "resource": {
+      "type": "cloud_scheduler_job",
+      "labels": {
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "job_id": "x-bot-mei-keepalive"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:00.825527659Z",
+    "severity": "INFO",
+    "logName": "projects/xbot-473616/logs/cloudscheduler.googleapis.com%2Fexecutions",
+    "receiveTimestamp": "2025-11-05T19:00:00.825527659Z"
+  },
+  {
+    "insertId": "690b9eb5000ec9f39acf00c6",
+    "httpRequest": {
+      "requestMethod": "GET",
+      "requestUrl": "https://x-bot-mei-fi5yfc7dia-ew.a.run.app/stats?token=HLbvskyiO97iuf-yRSHWVujA1sBa9_Jf",
+      "requestSize": "430",
+      "status": 200,
+      "responseSize": "150",
+      "userAgent": "Google-Cloud-Scheduler",
+      "remoteIp": "34.116.40.40",
+      "serverIp": "34.143.78.2",
+      "latency": "0.101592995s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:05.855826Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/91d83c2058f1521b3d754ed5278ba05e",
+    "receiveTimestamp": "2025-11-05T19:00:05.971507386Z",
+    "spanId": "d264ca8bf9101c32",
+    "traceSampled": true
+  },
+  {
+    "textPayload": "Usando colección de tópicos: 'topics_collection_3072'",
+    "insertId": "690b9eb5000d47e9afcf949e",
+    "httpRequest": {
+      "requestMethod": "GET",
+      "requestUrl": "http://x-bot-mei-fi5yfc7dia-ew.a.run.app/stats?token=HLbvskyiO97iuf-yRSHWVujA1sBa9_Jf",
+      "userAgent": "Google-Cloud-Scheduler",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:05.870377Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "trace": "projects/xbot-473616/traces/91d83c2058f1521b3d754ed5278ba05e",
+    "sourceLocation": {
+      "file": "/app/embeddings_manager.py",
+      "line": "277",
+      "function": "get_topics_collection"
+    },
+    "receiveTimestamp": "2025-11-05T19:00:05.877849765Z",
+    "spanId": "d264ca8bf9101c32",
+    "traceSampled": true
+  },
+  {
+    "insertId": "690b9eb5000db6351330fb52",
+    "httpRequest": {
+      "requestMethod": "POST",
+      "requestUrl": "https://x-chroma-295511624125.europe-west1.run.app/api/v1/collections?tenant=default_tenant&database=default_database",
+      "requestSize": "463",
+      "status": 200,
+      "responseSize": "269",
+      "userAgent": "python-requests/2.32.5",
+      "remoteIp": "2600:1900:0:4305::a01",
+      "serverIp": "2600:1900:4240:200::",
+      "latency": "0.008250810s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-chroma",
+        "configuration_name": "x-chroma",
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "revision_name": "x-chroma-00002-wn7"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:05.882552Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/632af6969e62cd8ba344cb54cd049e4d",
+    "receiveTimestamp": "2025-11-05T19:00:05.903079370Z",
+    "spanId": "e5cf4e32b882c6e2",
+    "traceSampled": true
+  },
+  {
+    "textPayload": "INFO:     [05-11-2025 19:00:05] 169.254.169.126:44958 - \"POST /api/v1/collections?tenant=default_tenant&database=default_database HTTP/1.1\" 200",
+    "insertId": "690b9eb5000db12cf4588260",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "service_name": "x-chroma",
+        "revision_name": "x-chroma-00002-wn7",
+        "configuration_name": "x-chroma"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:05.897324Z",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T19:00:05.901099576Z"
+  },
+  {
+    "insertId": "690b9eb5000e10a80ae864da",
+    "httpRequest": {
+      "requestMethod": "GET",
+      "requestUrl": "https://x-chroma-295511624125.europe-west1.run.app/api/v1/collections/551cc020-7f25-4800-9daf-a7d07d4455fc/count",
+      "requestSize": "349",
+      "status": 200,
+      "responseSize": "100",
+      "userAgent": "python-requests/2.32.5",
+      "remoteIp": "2600:1900:0:4305::a01",
+      "serverIp": "2600:1900:4240:200::",
+      "latency": "0.005458880s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-chroma-00002-wn7",
+        "service_name": "x-chroma",
+        "location": "europe-west1",
+        "configuration_name": "x-chroma",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:05.914682Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/bdecd76e1466ef1fa344cb54cd04974e",
+    "receiveTimestamp": "2025-11-05T19:00:06.234199180Z",
+    "spanId": "d30d3ce8c27b24f7"
+  },
+  {
+    "textPayload": "INFO:     [05-11-2025 19:00:05] 169.254.169.126:44972 - \"GET /api/v1/collections/551cc020-7f25-4800-9daf-a7d07d4455fc/count HTTP/1.1\" 200",
+    "insertId": "690b9eb5000e0d379f29ebe9",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-chroma-00002-wn7",
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "service_name": "x-chroma",
+        "configuration_name": "x-chroma"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:05.920887Z",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T19:00:06.233965923Z"
+  },
+  {
+    "insertId": "690b9eb5000e65c0c7d29f25",
+    "httpRequest": {
+      "requestMethod": "POST",
+      "requestUrl": "https://x-chroma-295511624125.europe-west1.run.app/api/v1/collections?tenant=default_tenant&database=default_database",
+      "requestSize": "459",
+      "status": 200,
+      "responseSize": "264",
+      "userAgent": "python-requests/2.32.5",
+      "remoteIp": "2600:1900:0:4305::a01",
+      "serverIp": "2600:1900:4240:200::",
+      "latency": "0.007552279s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-chroma",
+        "location": "europe-west1",
+        "revision_name": "x-chroma-00002-wn7",
+        "service_name": "x-chroma",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:05.933818Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/e8deb8995f6c57dfa344cb54cd049cb5",
+    "receiveTimestamp": "2025-11-05T19:00:06.234199180Z",
+    "spanId": "572f3995acb51020"
+  },
+  {
+    "textPayload": "INFO:     [05-11-2025 19:00:05] 169.254.169.126:44982 - \"POST /api/v1/collections?tenant=default_tenant&database=default_database HTTP/1.1\" 200",
+    "insertId": "690b9eb5000e626709dc953b",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-chroma-00002-wn7",
+        "configuration_name": "x-chroma",
+        "service_name": "x-chroma",
+        "location": "europe-west1",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:05.942695Z",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T19:00:06.233965923Z"
+  },
+  {
+    "insertId": "690b9eb5000eba071892fad6",
+    "httpRequest": {
+      "requestMethod": "GET",
+      "requestUrl": "https://x-chroma-295511624125.europe-west1.run.app/api/v1/collections/748ccdb9-e11e-41a6-b26a-32c7ec08a03f/count",
+      "requestSize": "350",
+      "status": 200,
+      "responseSize": "100",
+      "userAgent": "python-requests/2.32.5",
+      "remoteIp": "2600:1900:0:4305::a01",
+      "serverIp": "2600:1900:4240:200::",
+      "latency": "0.004303210s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "revision_name": "x-chroma-00002-wn7",
+        "project_id": "xbot-473616",
+        "service_name": "x-chroma",
+        "configuration_name": "x-chroma"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:05.959619Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/6fccf4ee8ebfa657a344cb54cd04904f",
+    "receiveTimestamp": "2025-11-05T19:00:06.234199180Z",
+    "spanId": "4c393b78cdcbb602"
+  },
+  {
+    "textPayload": "INFO:     [05-11-2025 19:00:05] 169.254.169.126:44996 - \"GET /api/v1/collections/748ccdb9-e11e-41a6-b26a-32c7ec08a03f/count HTTP/1.1\" 200",
+    "insertId": "690b9eb5000eb6cfc5d12632",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-chroma",
+        "revision_name": "x-chroma-00002-wn7",
+        "location": "europe-west1",
+        "configuration_name": "x-chroma",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:05.964303Z",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T19:00:06.233965923Z"
+  },
+  {
+    "insertId": "1y76y9if3o0fel",
+    "jsonPayload": {
+      "url": "https://x-bot-mei-fi5yfc7dia-ew.a.run.app/stats?token=HLbvskyiO97iuf-yRSHWVujA1sBa9_Jf",
+      "@type": "type.googleapis.com/google.cloud.scheduler.logging.AttemptFinished",
+      "jobName": "projects/xbot-473616/locations/europe-west1/jobs/x-bot-mei-keepalive",
+      "targetType": "HTTP",
+      "debugInfo": "URL_CRAWLED. Original HTTP response code number = 200"
+    },
+    "httpRequest": {
+      "status": 200
+    },
+    "resource": {
+      "type": "cloud_scheduler_job",
+      "labels": {
+        "project_id": "xbot-473616",
+        "job_id": "x-bot-mei-keepalive",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:05.975810551Z",
+    "severity": "INFO",
+    "logName": "projects/xbot-473616/logs/cloudscheduler.googleapis.com%2Fexecutions",
+    "receiveTimestamp": "2025-11-05T19:00:05.975810551Z"
+  },
+  {
+    "textPayload": "HTTP Request: POST https://openrouter.ai/api/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "insertId": "690b9ebb0008aa8f21a9695d",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T19:00:11.567951Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "httpx"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/usr/local/lib/python3.11/site-packages/httpx/_client.py",
+      "line": "1025",
+      "function": "_send_single_request"
+    },
+    "receiveTimestamp": "2025-11-05T19:00:11.870218849Z"
+  },
+  {
+    "textPayload": "HTTP Request: POST https://openrouter.ai/api/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "insertId": "690b9f3700010813310efa57",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:02:15.067603Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "httpx",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/usr/local/lib/python3.11/site-packages/httpx/_client.py",
+      "line": "1025",
+      "function": "_send_single_request"
+    },
+    "receiveTimestamp": "2025-11-05T19:02:15.071524936Z"
+  },
+  {
+    "insertId": "690b9f3700094a6fc9b28e76",
+    "jsonPayload": {
+      "min_required": 0,
+      "event": "variant_evaluation",
+      "judge_tono": 2,
+      "similarity_raw": null,
+      "goldset_collection": "goldset_norm_v1",
+      "pipeline_version": "legacy_v1",
+      "judge_diccion": 4,
+      "judge_ritmo": 3,
+      "similarity_norm": null,
+      "max_pair_id": null,
+      "variant": "short",
+      "piece_id": "seed:profit-first",
+      "draft_text": "You mix all your cash in one account and wonder why you're broke. Profit First fixes that: split into buckets—profit (10%), tax (15%), owner's pay (50%), ops (25%). Pay yourself first. Your runway doubles overnight.",
+      "judge_reasoning": "El borrador no cumple con el pilar 1 de la tonalidad, ya que presenta una explicación demasiado técnica sin el tono directo y crítico esperado. Además, no incorpora el elemento humano permitido según el pilar 4.",
+      "event_stage": "PRE",
+      "passed": false,
+      "similarity": null
+    },
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T19:02:15.608879Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "diagnostics",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/diagnostics_logger.py",
+      "line": "8",
+      "function": "emit_structured"
+    },
+    "receiveTimestamp": "2025-11-05T19:02:15.738068690Z"
+  },
+  {
+    "textPayload": "HTTP Request: POST https://openrouter.ai/api/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "insertId": "690b9f420006766409258b9d",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:02:26.423524Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "httpx"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/usr/local/lib/python3.11/site-packages/httpx/_client.py",
+      "line": "1025",
+      "function": "_send_single_request"
+    },
+    "receiveTimestamp": "2025-11-05T19:02:26.728861333Z"
+  },
+  {
+    "textPayload": "HTTP Request: POST https://openrouter.ai/api/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "insertId": "690b9fb6000ebfc8bcc0ac2e",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T19:04:22.966600Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "httpx",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/usr/local/lib/python3.11/site-packages/httpx/_client.py",
+      "line": "1025",
+      "function": "_send_single_request"
+    },
+    "receiveTimestamp": "2025-11-05T19:04:22.972694016Z"
+  },
+  {
+    "insertId": "690b9fb7000421b24cabfebd",
+    "jsonPayload": {
+      "similarity": null,
+      "min_required": 0,
+      "draft_text": "Solo founders treat business cash like personal slush funds. Bad move. Use Profit First: four buckets. Stash 10% in profit before anything else. Set owner's pay at 50% of revenue—don't skip it. Track runway monthly. I did this; went from 3 months cash to 9 without raising prices.",
+      "variant": "mid",
+      "judge_reasoning": "El borrador cumple con los principios clave del contrato, incluyendo el uso de lenguaje directo y la presentación de evidencia práctica.",
+      "judge_tono": 4,
+      "similarity_raw": null,
+      "pipeline_version": "legacy_v1",
+      "judge_diccion": 5,
+      "max_pair_id": null,
+      "similarity_norm": null,
+      "piece_id": "seed:profit-first",
+      "goldset_collection": "goldset_norm_v1",
+      "event": "variant_evaluation",
+      "passed": true,
+      "event_stage": "PRE",
+      "judge_ritmo": 4
+    },
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:04:23.270770Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "diagnostics",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/diagnostics_logger.py",
+      "line": "8",
+      "function": "emit_structured"
+    },
+    "receiveTimestamp": "2025-11-05T19:04:23.304256292Z"
+  },
+  {
+    "textPayload": "HTTP Request: POST https://openrouter.ai/api/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "insertId": "690b9fc1000e35591e5374db",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:04:33.931161Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "httpx",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/usr/local/lib/python3.11/site-packages/httpx/_client.py",
+      "line": "1025",
+      "function": "_send_single_request"
+    },
+    "receiveTimestamp": "2025-11-05T19:04:33.961932204Z"
+  },
+  {
+    "textPayload": "HTTP Request: POST https://openrouter.ai/api/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "insertId": "690ba03700001afef266f7da",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:31.006910Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "httpx"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/usr/local/lib/python3.11/site-packages/httpx/_client.py",
+      "line": "1025",
+      "function": "_send_single_request"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:31.011377070Z"
+  },
+  {
+    "insertId": "690ba0370007f7b3361c3f2a",
+    "jsonPayload": {
+      "max_pair_id": null,
+      "judge_ritmo": 5,
+      "judge_tono": 4,
+      "variant": "long",
+      "similarity_raw": null,
+      "event": "variant_evaluation",
+      "draft_text": "Running solo? Your money's a mess because it's all in one pot. Profit First demands buckets: Profit (10%—untouchable growth fund), Tax (15%—no surprises), Owner's Pay (50%—eat first, or burn out), Operating Expenses (25%—tighten here). Discipline your runway: review weekly, cut leaks. I ignored this early; nearly folded. Now? 18 months buffer, sleeping better. Start today—bank it separate.",
+      "pipeline_version": "legacy_v1",
+      "event_stage": "PRE",
+      "judge_diccion": 5,
+      "similarity_norm": null,
+      "goldset_collection": "goldset_norm_v1",
+      "piece_id": "seed:profit-first",
+      "passed": true,
+      "judge_reasoning": "El borrador cumple con los principios clave del contrato, incluyendo el uso de lenguaje directo y el enfado en la responsabilidad del lector. Sin embargo, falta una sensibilidad humana permitida según el contrato.",
+      "min_required": 0,
+      "similarity": null
+    },
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:31.522163Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "diagnostics",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/diagnostics_logger.py",
+      "line": "8",
+      "function": "emit_structured"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:31.678227480Z"
+  },
+  {
+    "textPayload": "[METRIC] {\"metric\": \"g_check_contract_style_llm\", \"value\": 390845.85, \"ts\": 1762369591, \"chat_id\": 1119810722, \"error\": false}",
+    "insertId": "690ba0370007f7cb3264deb9",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:31.522187Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/metrics.py",
+      "line": "47",
+      "function": "record_metric"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:31.678227480Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Telegram API call successful: sendMessage",
+    "insertId": "690ba039000435dbded1bf46",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:33.275931Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/telegram_client.py",
+      "line": "220",
+      "function": "_post"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:33.342987234Z"
+  },
+  {
+    "textPayload": "[METRIC] {\"metric\": \"g_send_warning_contract_retry\", \"value\": 1953.61, \"ts\": 1762369593, \"chat_id\": 1119810722, \"error\": false}",
+    "insertId": "690ba039000a4d589cb7519a",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:33.675160Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/metrics.py",
+      "line": "47",
+      "function": "record_metric"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:34.011805708Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Generación fallida para el mismo tema (intento 1/2).",
+    "insertId": "690ba039000a4d89ae01cc0e",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:33.675209Z",
+    "severity": "WARNING",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/proposal_service.py",
+      "line": "113",
+      "function": "do_the_work"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:34.011805708Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Tema seleccionado (ID: seed:profit-first). Abstract: 'Profit First accounting for solo founders: cash buckets, owner's pay, runway dis...'",
+    "insertId": "690ba039000a4dcc3d87e732",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "location": "europe-west1",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:33.675276Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/proposal_service.py",
+      "line": "200",
+      "function": "propose_tweet"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:34.011805708Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Telegram API call successful: sendMessage",
+    "insertId": "690ba03b000743d51ff1ef44",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "location": "europe-west1",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:35.476117Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/telegram_client.py",
+      "line": "220",
+      "function": "_post"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:35.673350172Z"
+  },
+  {
+    "textPayload": "Iniciando comprobación de similitud en memoria.",
+    "insertId": "690ba03b000bd562e9a5d94e",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:35.775522Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/core_generator.py",
+      "line": "210",
+      "function": "_log_similarity"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:36.006647538Z"
+  },
+  {
+    "insertId": "690ba03d000931236f479d0c",
+    "httpRequest": {
+      "requestMethod": "POST",
+      "requestUrl": "https://x-chroma-295511624125.europe-west1.run.app/api/v1/collections?tenant=default_tenant&database=default_database",
+      "requestSize": "459",
+      "status": 200,
+      "responseSize": "264",
+      "userAgent": "python-requests/2.32.5",
+      "remoteIp": "2600:1900:0:4305::a01",
+      "serverIp": "2600:1900:4242:200::",
+      "latency": "0.011386768s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-chroma",
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "revision_name": "x-chroma-00002-wn7",
+        "configuration_name": "x-chroma"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:37.581251Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/f29109c57af24a0305f7197b155a58f5",
+    "receiveTimestamp": "2025-11-05T19:06:37.607339985Z",
+    "spanId": "65bd3719688d1dfd",
+    "traceSampled": true
+  },
+  {
+    "textPayload": "INFO:     [05-11-2025 19:06:37] 169.254.169.126:40604 - \"POST /api/v1/collections?tenant=default_tenant&database=default_database HTTP/1.1\" 200",
+    "insertId": "690ba03d00092aacc4ff45a7",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-chroma",
+        "location": "europe-west1",
+        "configuration_name": "x-chroma",
+        "project_id": "xbot-473616",
+        "revision_name": "x-chroma-00002-wn7"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:37.600748Z",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T19:06:39.042825612Z"
+  },
+  {
+    "insertId": "690ba03d000f230cbfc840e5",
+    "httpRequest": {
+      "requestMethod": "GET",
+      "requestUrl": "https://x-chroma-295511624125.europe-west1.run.app/api/v1/collections/748ccdb9-e11e-41a6-b26a-32c7ec08a03f/count",
+      "requestSize": "349",
+      "status": 200,
+      "responseSize": "100",
+      "userAgent": "python-requests/2.32.5",
+      "remoteIp": "2600:1900:0:4305::a01",
+      "serverIp": "2600:1900:4242:200::",
+      "latency": "0.008394700s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "configuration_name": "x-chroma",
+        "location": "europe-west1",
+        "revision_name": "x-chroma-00002-wn7",
+        "service_name": "x-chroma"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:37.982572Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/51882d7ce056731405f7197b155a570f",
+    "receiveTimestamp": "2025-11-05T19:06:38.272146923Z",
+    "spanId": "a722197fa3b7e440"
+  },
+  {
+    "textPayload": "INFO:     [05-11-2025 19:06:37] 169.254.169.126:40614 - \"GET /api/v1/collections/748ccdb9-e11e-41a6-b26a-32c7ec08a03f/count HTTP/1.1\" 200",
+    "insertId": "690ba03d000f1f1c6f09b9c6",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-chroma",
+        "service_name": "x-chroma",
+        "project_id": "xbot-473616",
+        "revision_name": "x-chroma-00002-wn7",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:37.991004Z",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T19:06:38.270584990Z"
+  },
+  {
+    "textPayload": "Memoria vacía; sin comprobación de similitud.",
+    "insertId": "690ba03e00012861f479b58c",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:38.075873Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/core_generator.py",
+      "line": "218",
+      "function": "_log_similarity"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:38.337680691Z"
+  },
+  {
+    "textPayload": "Intento de generación de IA 1/3…",
+    "insertId": "690ba03e0001287491877ece",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:38.075892Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/core_generator.py",
+      "line": "343",
+      "function": "generate_tweet_from_topic"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:38.337680691Z"
+  },
+  {
+    "textPayload": "[METRIC] {\"metric\": \"g_goldset_random_retrieve\", \"value\": 0.05, \"ts\": 1762369598, \"scope\": \"variants\", \"k\": 5, \"error\": false}",
+    "insertId": "690ba03e00012a2ef01cbf2d",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:38.076334Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/metrics.py",
+      "line": "47",
+      "function": "record_metric"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:38.337680691Z"
+  },
+  {
+    "textPayload": "[RAG] Retrieved 5 random goldset examples for prompt in 0.51ms",
+    "insertId": "690ba03e0002aede128f8c9b",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:38.175838Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/variant_generators.py",
+      "line": "1287",
+      "function": "generate_all_variants"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:38.337680691Z"
+  },
+  {
+    "textPayload": "[DIAG] anchors_count=5",
+    "insertId": "690ba03e0002af0ecdebb11b",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:38.175886Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/variant_generators.py",
+      "line": "1299",
+      "function": "generate_all_variants"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:38.337680691Z"
+  },
+  {
+    "insertId": "690ba03e000a52a147642c6d",
+    "jsonPayload": {
+      "topic_preview": "Profit First accounting for solo founders: cash buckets, owner's pay, runway discipline",
+      "gold_block_preview": "1. Relationship advice I’d give to my younger self: - Pick someone you’d go to war with - Judge off your worst days, not your best days - Be…\n2. If you always feel like a victim, it’s probably because the main character in your story is som",
+      "anchors_count": 5,
+      "event": "generation_prompt_gold_block"
+    },
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:38.676513Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "diagnostics"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/diagnostics_logger.py",
+      "line": "82",
+      "function": "info"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:39.005140876Z"
+  },
+  {
+    "textPayload": "Generating all variants via single-call multi-length prompt...",
+    "insertId": "690ba03e000bd3e3c17fe6f2",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:38.775139Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/variant_generators.py",
+      "line": "1324",
+      "function": "generate_all_variants"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:39.005140876Z"
+  },
+  {
+    "textPayload": "HTTP Request: POST https://openrouter.ai/api/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "insertId": "690ba03f000c5e92ab506fc5",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:39.810642Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "httpx",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/usr/local/lib/python3.11/site-packages/httpx/_client.py",
+      "line": "1025",
+      "function": "_send_single_request"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:40.004993141Z"
+  },
+  {
+    "textPayload": "[PERF] Single-call for all variants took 6.66 seconds.",
+    "insertId": "690ba044000b3c0a7b2d562b",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:44.736266Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/variant_generators.py",
+      "line": "1380",
+      "function": "generate_all_variants"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:45.001947927Z"
+  },
+  {
+    "textPayload": "[METRIC] {\"metric\": \"g_llm_single_call\", \"value\": 6659.67, \"ts\": 1762369604, \"model\": \"x-ai/grok-4-fast\", \"error\": false}",
+    "insertId": "690ba044000b3c1ee7efd423",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:44.736286Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/metrics.py",
+      "line": "47",
+      "function": "record_metric"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:45.001947927Z"
+  },
+  {
+    "textPayload": "Intento 1: variantes generadas (con 0 errores).",
+    "insertId": "690ba044000b3c2aff8e7a8c",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:44.736298Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/core_generator.py",
+      "line": "360",
+      "function": "generate_tweet_from_topic"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:45.001947927Z"
+  },
+  {
+    "textPayload": "[METRIC] {\"metric\": \"g_generate_variants\", \"value\": 9159.98, \"ts\": 1762369604, \"chat_id\": 1119810722, \"error\": false}",
+    "insertId": "690ba044000b3c3615ff6d73",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:44.736310Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/metrics.py",
+      "line": "47",
+      "function": "record_metric"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:45.001947927Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Draft A pre-check (251 chars):\nSolo founder? Stop treating your business like a personal ATM. Profit First flips the script: Divide cash into buckets – 50% owner's pay first, 10% profit, 15% tax, 25% ops. You eat before the machine does. Runway? It stretches when you stop guessing.",
+    "insertId": "690ba044000b3c434eeedf12",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:44.736323Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/proposal_service.py",
+      "line": "292",
+      "function": "propose_tweet"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:45.001947927Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Draft B pre-check (283 chars):\nChaos in your solo hustle? Cash vanishes because you pay bills first, yourself last. Truth: Profit First demands buckets – separate accounts for profit (5-10%), owner's pay (50%), taxes (15%), ops (30%). I did this; runway jumped from 3 to 9 months. Discipline beats hope every time.",
+    "insertId": "690ba044000b3c4f7d976dc6",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:44.736335Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/proposal_service.py",
+      "line": "292",
+      "function": "propose_tweet"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:45.001947927Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Draft C pre-check (424 chars):\nYou're grinding as a solo founder, but your bank account's a black hole. No runway, no future. Profit First fixes it: Split every deposit into buckets right away. Owner's pay: 50% – you get fed first, or the beast starves. Profit: 10% parked, untouchable. Tax: 15% set aside. Ops: the rest. I ignored this early; burned out in 6 months. Now? 18-month runway on half the revenue. Face the math: Pay yourself or pay the price.",
+    "insertId": "690ba044000b3c774ceb9fe3",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:44.736375Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/proposal_service.py",
+      "line": "292",
+      "function": "propose_tweet"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:45.001947927Z"
+  },
+  {
+    "textPayload": "HTTP Request: POST https://openrouter.ai/api/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "insertId": "690ba04f00084f7174b8ae37",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T19:06:55.544625Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "httpx",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/usr/local/lib/python3.11/site-packages/httpx/_client.py",
+      "line": "1025",
+      "function": "_send_single_request"
+    },
+    "receiveTimestamp": "2025-11-05T19:06:55.657561256Z"
+  },
+  {
+    "textPayload": "time=\"05/11/2025 07:07:43.502694\" severity=INFO message=\"Starting a garbage collection run.\"",
+    "insertId": "690ba07f0007b0561c01393b",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T19:07:43.503894Z",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2F%2Fvar%2Flog%2Fsystem",
+    "receiveTimestamp": "2025-11-05T19:07:43.511354910Z"
+  },
+  {
+    "textPayload": "time=\"05/11/2025 07:07:43.559881\" severity=INFO message=\"Garbage collection succeeded after deleted 0 objects in 56.989078ms.\"",
+    "insertId": "690ba07f00088e991d13f0b3",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:07:43.560793Z",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2F%2Fvar%2Flog%2Fsystem",
+    "receiveTimestamp": "2025-11-05T19:07:43.840220746Z"
+  },
+  {
+    "textPayload": "HTTP Request: POST https://openrouter.ai/api/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "insertId": "690ba0c30003f8583408dcb3",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:08:51.260184Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "httpx"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/usr/local/lib/python3.11/site-packages/httpx/_client.py",
+      "line": "1025",
+      "function": "_send_single_request"
+    },
+    "receiveTimestamp": "2025-11-05T19:08:51.264586745Z"
+  },
+  {
+    "insertId": "690ba0c300096814a944c08d",
+    "jsonPayload": {
+      "similarity_norm": null,
+      "judge_diccion": 5,
+      "similarity_raw": null,
+      "event": "variant_evaluation",
+      "piece_id": "seed:profit-first",
+      "judge_ritmo": 3,
+      "max_pair_id": null,
+      "judge_reasoning": "El borrador falla en el pilar de la estructura, ya que no sigue el patrón Hook–Truth–Proof–Resolution y carece de una clara resolución final.",
+      "pipeline_version": "legacy_v1",
+      "variant": "short",
+      "draft_text": "Solo founder? Stop treating your business like a personal ATM. Profit First flips the script: Divide cash into buckets – 50% owner's pay first, 10% profit, 15% tax, 25% ops. You eat before the machine does. Runway? It stretches when you stop guessing.",
+      "event_stage": "PRE",
+      "similarity": null,
+      "min_required": 0,
+      "goldset_collection": "goldset_norm_v1",
+      "passed": false,
+      "judge_tono": 4
+    },
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:08:51.616468Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "diagnostics",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/diagnostics_logger.py",
+      "line": "8",
+      "function": "emit_structured"
+    },
+    "receiveTimestamp": "2025-11-05T19:08:51.931276106Z"
+  },
+  {
+    "textPayload": "HTTP Request: POST https://openrouter.ai/api/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "insertId": "690ba0ce0009b3eee4954d1f",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:09:02.635886Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "httpx",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/usr/local/lib/python3.11/site-packages/httpx/_client.py",
+      "line": "1025",
+      "function": "_send_single_request"
+    },
+    "receiveTimestamp": "2025-11-05T19:09:02.923437241Z"
+  },
+  {
+    "insertId": "1x4oo60f6ff2wp",
+    "jsonPayload": {
+      "@type": "type.googleapis.com/google.cloud.scheduler.logging.AttemptStarted",
+      "scheduledTime": "2025-11-05T19:10:00.971672Z",
+      "jobName": "projects/xbot-473616/locations/europe-west1/jobs/x-bot-mei-keepalive",
+      "url": "https://x-bot-mei-fi5yfc7dia-ew.a.run.app/stats?token=HLbvskyiO97iuf-yRSHWVujA1sBa9_Jf",
+      "targetType": "HTTP"
+    },
+    "resource": {
+      "type": "cloud_scheduler_job",
+      "labels": {
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "job_id": "x-bot-mei-keepalive"
+      }
+    },
+    "timestamp": "2025-11-05T19:10:00.976531927Z",
+    "severity": "INFO",
+    "logName": "projects/xbot-473616/logs/cloudscheduler.googleapis.com%2Fexecutions",
+    "receiveTimestamp": "2025-11-05T19:10:00.976531927Z"
+  },
+  {
+    "insertId": "690ba10e0001975c4214f155",
+    "httpRequest": {
+      "requestMethod": "GET",
+      "requestUrl": "https://x-bot-mei-fi5yfc7dia-ew.a.run.app/stats?token=HLbvskyiO97iuf-yRSHWVujA1sBa9_Jf",
+      "requestSize": "431",
+      "status": 200,
+      "responseSize": "150",
+      "userAgent": "Google-Cloud-Scheduler",
+      "remoteIp": "34.116.40.7",
+      "serverIp": "34.143.77.2",
+      "latency": "0.097860219s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:10:05.999565Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/5bf87bb15cbe2db566a116255cf256e7",
+    "receiveTimestamp": "2025-11-05T19:10:06.111175068Z",
+    "spanId": "6cf62a440ad8f9e0",
+    "traceSampled": true
+  },
+  {
+    "textPayload": "Usando colección de tópicos: 'topics_collection_3072'",
+    "insertId": "690ba10e000023f85b77eeb8",
+    "httpRequest": {
+      "requestMethod": "GET",
+      "requestUrl": "http://x-bot-mei-fi5yfc7dia-ew.a.run.app/stats?token=HLbvskyiO97iuf-yRSHWVujA1sBa9_Jf",
+      "userAgent": "Google-Cloud-Scheduler",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T19:10:06.009208Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "trace": "projects/xbot-473616/traces/5bf87bb15cbe2db566a116255cf256e7",
+    "sourceLocation": {
+      "file": "/app/embeddings_manager.py",
+      "line": "277",
+      "function": "get_topics_collection"
+    },
+    "receiveTimestamp": "2025-11-05T19:10:06.015126906Z",
+    "spanId": "6cf62a440ad8f9e0",
+    "traceSampled": true
+  },
+  {
+    "insertId": "690ba10e00008f65420f37dc",
+    "httpRequest": {
+      "requestMethod": "POST",
+      "requestUrl": "https://x-chroma-295511624125.europe-west1.run.app/api/v1/collections?tenant=default_tenant&database=default_database",
+      "requestSize": "465",
+      "status": 200,
+      "responseSize": "269",
+      "userAgent": "python-requests/2.32.5",
+      "remoteIp": "2600:1900:0:4305::a01",
+      "serverIp": "2600:1900:4242:200::",
+      "latency": "0.008926170s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-chroma",
+        "revision_name": "x-chroma-00002-wn7",
+        "service_name": "x-chroma",
+        "location": "europe-west1",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:10:06.019363Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/39794bb1f902b135f1ccf911555b21e2",
+    "receiveTimestamp": "2025-11-05T19:10:06.042209366Z",
+    "spanId": "1c1a599d762f156e",
+    "traceSampled": true
+  },
+  {
+    "textPayload": "INFO:     [05-11-2025 19:10:06] 169.254.169.126:53266 - \"POST /api/v1/collections?tenant=default_tenant&database=default_database HTTP/1.1\" 200",
+    "insertId": "690ba10e00008df947ca899f",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "service_name": "x-chroma",
+        "configuration_name": "x-chroma",
+        "location": "europe-west1",
+        "revision_name": "x-chroma-00002-wn7"
+      }
+    },
+    "timestamp": "2025-11-05T19:10:06.036345Z",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T19:10:06.040379087Z"
+  },
+  {
+    "insertId": "690ba10e0000dd6872537cca",
+    "httpRequest": {
+      "requestMethod": "GET",
+      "requestUrl": "https://x-chroma-295511624125.europe-west1.run.app/api/v1/collections/551cc020-7f25-4800-9daf-a7d07d4455fc/count",
+      "requestSize": "349",
+      "status": 200,
+      "responseSize": "100",
+      "userAgent": "python-requests/2.32.5",
+      "remoteIp": "2600:1900:0:4305::a01",
+      "serverIp": "2600:1900:4242:200::",
+      "latency": "0.008313240s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "service_name": "x-chroma",
+        "revision_name": "x-chroma-00002-wn7",
+        "configuration_name": "x-chroma"
+      }
+    },
+    "timestamp": "2025-11-05T19:10:06.047249Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/8a9ff183c6fd8d12f1ccf911555b2e23",
+    "receiveTimestamp": "2025-11-05T19:10:06.373767637Z",
+    "spanId": "d75c43e25b2638dc"
+  },
+  {
+    "textPayload": "INFO:     [05-11-2025 19:10:06] 169.254.169.126:53276 - \"GET /api/v1/collections/551cc020-7f25-4800-9daf-a7d07d4455fc/count HTTP/1.1\" 200",
+    "insertId": "690ba10e0000da0209f44978",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "revision_name": "x-chroma-00002-wn7",
+        "configuration_name": "x-chroma",
+        "service_name": "x-chroma"
+      }
+    },
+    "timestamp": "2025-11-05T19:10:06.055810Z",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T19:10:06.375117776Z"
+  },
+  {
+    "insertId": "690ba10e00013b1dd6639b99",
+    "httpRequest": {
+      "requestMethod": "POST",
+      "requestUrl": "https://x-chroma-295511624125.europe-west1.run.app/api/v1/collections?tenant=default_tenant&database=default_database",
+      "requestSize": "459",
+      "status": 200,
+      "responseSize": "264",
+      "userAgent": "python-requests/2.32.5",
+      "remoteIp": "2600:1900:0:4305::a01",
+      "serverIp": "2600:1900:4242:200::",
+      "latency": "0.010076740s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "revision_name": "x-chroma-00002-wn7",
+        "configuration_name": "x-chroma",
+        "service_name": "x-chroma",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:10:06.068986Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/7fd7d2c481b03c21f1ccf911555b20dc",
+    "receiveTimestamp": "2025-11-05T19:10:06.373767637Z",
+    "spanId": "37e8f4442e082984"
+  },
+  {
+    "textPayload": "INFO:     [05-11-2025 19:10:06] 169.254.169.126:53290 - \"POST /api/v1/collections?tenant=default_tenant&database=default_database HTTP/1.1\" 200",
+    "insertId": "690ba10e00013788d1684c3f",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-chroma",
+        "configuration_name": "x-chroma",
+        "revision_name": "x-chroma-00002-wn7",
+        "location": "europe-west1",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:10:06.079752Z",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T19:10:06.375117776Z"
+  },
+  {
+    "insertId": "690ba10e0001862b284e5ff8",
+    "httpRequest": {
+      "requestMethod": "GET",
+      "requestUrl": "https://x-chroma-295511624125.europe-west1.run.app/api/v1/collections/748ccdb9-e11e-41a6-b26a-32c7ec08a03f/count",
+      "requestSize": "350",
+      "status": 200,
+      "responseSize": "100",
+      "userAgent": "python-requests/2.32.5",
+      "remoteIp": "2600:1900:0:4305::a01",
+      "serverIp": "2600:1900:4242:200::",
+      "latency": "0.004872770s",
+      "protocol": "HTTP/1.1"
+    },
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-chroma-00002-wn7",
+        "configuration_name": "x-chroma",
+        "service_name": "x-chroma",
+        "location": "europe-west1",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:10:06.093161Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Frequests",
+    "trace": "projects/xbot-473616/traces/84ff1bf7eccfabbcf1ccf911555b25f7",
+    "receiveTimestamp": "2025-11-05T19:10:06.373767637Z",
+    "spanId": "8e6fd1712591998f"
+  },
+  {
+    "textPayload": "INFO:     [05-11-2025 19:10:06] 169.254.169.126:53302 - \"GET /api/v1/collections/748ccdb9-e11e-41a6-b26a-32c7ec08a03f/count HTTP/1.1\" 200",
+    "insertId": "690ba10e0001824d6d5193bb",
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "service_name": "x-chroma",
+        "project_id": "xbot-473616",
+        "revision_name": "x-chroma-00002-wn7",
+        "configuration_name": "x-chroma"
+      }
+    },
+    "timestamp": "2025-11-05T19:10:06.098893Z",
+    "labels": {
+      "instanceId": "00147782968abbb1196be45bb9c114c85eeced8cbceb7d3fe4f11cc9330e350fdccbbc2a82354a70dbc35ae86c24bf0a8c5949e7436efc419d0235d8fa14fb0af1eeea74edc036aedefb28a5e31150"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2025-11-05T19:10:06.375117776Z"
+  },
+  {
+    "insertId": "pkvbinf1bsz80",
+    "jsonPayload": {
+      "targetType": "HTTP",
+      "debugInfo": "URL_CRAWLED. Original HTTP response code number = 200",
+      "jobName": "projects/xbot-473616/locations/europe-west1/jobs/x-bot-mei-keepalive",
+      "url": "https://x-bot-mei-fi5yfc7dia-ew.a.run.app/stats?token=HLbvskyiO97iuf-yRSHWVujA1sBa9_Jf",
+      "@type": "type.googleapis.com/google.cloud.scheduler.logging.AttemptFinished"
+    },
+    "httpRequest": {
+      "status": 200
+    },
+    "resource": {
+      "type": "cloud_scheduler_job",
+      "labels": {
+        "job_id": "x-bot-mei-keepalive",
+        "project_id": "xbot-473616",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:10:06.110083487Z",
+    "severity": "INFO",
+    "logName": "projects/xbot-473616/logs/cloudscheduler.googleapis.com%2Fexecutions",
+    "receiveTimestamp": "2025-11-05T19:10:06.110083487Z"
+  },
+  {
+    "textPayload": "HTTP Request: POST https://openrouter.ai/api/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "insertId": "690ba142000cd6972d99e9af",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:10:58.841367Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "httpx"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/usr/local/lib/python3.11/site-packages/httpx/_client.py",
+      "line": "1025",
+      "function": "_send_single_request"
+    },
+    "receiveTimestamp": "2025-11-05T19:10:58.846515482Z"
+  },
+  {
+    "insertId": "690ba14300064e47a6f77666",
+    "jsonPayload": {
+      "similarity": null,
+      "similarity_raw": null,
+      "piece_id": "seed:profit-first",
+      "judge_diccion": 5,
+      "similarity_norm": null,
+      "event_stage": "PRE",
+      "passed": true,
+      "judge_reasoning": "El borrador cumple con los principios del contrato, manteniendo un tono directo y una estructura clara. No muestra signos de tono empático excesivo ni lenguaje complicado.",
+      "min_required": 0,
+      "judge_ritmo": 5,
+      "draft_text": "Chaos in your solo hustle? Cash vanishes because you pay bills first, yourself last. Truth: Profit First demands buckets – separate accounts for profit (5-10%), owner's pay (50%), taxes (15%), ops (30%). I did this; runway jumped from 3 to 9 months. Discipline beats hope every time.",
+      "max_pair_id": null,
+      "variant": "mid",
+      "judge_tono": 5,
+      "pipeline_version": "legacy_v1",
+      "goldset_collection": "goldset_norm_v1",
+      "event": "variant_evaluation"
+    },
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:10:59.413255Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "diagnostics"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/diagnostics_logger.py",
+      "line": "8",
+      "function": "emit_structured"
+    },
+    "receiveTimestamp": "2025-11-05T19:10:59.513768990Z"
+  },
+  {
+    "textPayload": "HTTP Request: POST https://openrouter.ai/api/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "insertId": "690ba14e0001dea4702dbab7",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:11:10.122532Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "httpx"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/usr/local/lib/python3.11/site-packages/httpx/_client.py",
+      "line": "1025",
+      "function": "_send_single_request"
+    },
+    "receiveTimestamp": "2025-11-05T19:11:10.124394586Z"
+  },
+  {
+    "textPayload": "HTTP Request: POST https://openrouter.ai/api/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "insertId": "690ba1c20002abbea6000f6d",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:06.175038Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "httpx"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/usr/local/lib/python3.11/site-packages/httpx/_client.py",
+      "line": "1025",
+      "function": "_send_single_request"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:06.180700496Z"
+  },
+  {
+    "insertId": "690ba1c200074110d256e147",
+    "jsonPayload": {
+      "variant": "long",
+      "draft_text": "You're grinding as a solo founder, but your bank account's a black hole. No runway, no future. Profit First fixes it: Split every deposit into buckets right away. Owner's pay: 50% – you get fed first, or the beast starves. Profit: 10% parked, untouchable. Tax: 15% set aside. Ops: the rest. I ignored this early; burned out in 6 months. Now? 18-month runway on half the revenue. Face the math: Pay yourself or pay the price.",
+      "judge_tono": 4,
+      "goldset_collection": "goldset_norm_v1",
+      "min_required": 0,
+      "pipeline_version": "legacy_v1",
+      "event_stage": "PRE",
+      "event": "variant_evaluation",
+      "passed": true,
+      "similarity_raw": null,
+      "judge_diccion": 5,
+      "max_pair_id": null,
+      "piece_id": "seed:profit-first",
+      "judge_ritmo": 4,
+      "judge_reasoning": "El borrador cumple con los principios clave del contrato, incluyendo el tono directo, la estructura clara y la inclusión de una prueba tangible.",
+      "similarity": null,
+      "similarity_norm": null
+    },
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "location": "europe-west1",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:06.475408Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "diagnostics",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/diagnostics_logger.py",
+      "line": "8",
+      "function": "emit_structured"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:06.512995217Z"
+  },
+  {
+    "textPayload": "[METRIC] {\"metric\": \"g_check_contract_style_llm\", \"value\": 381699.87, \"ts\": 1762369986, \"chat_id\": 1119810722, \"error\": false}",
+    "insertId": "690ba1c2000741276f49d27d",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:06.475431Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/metrics.py",
+      "line": "47",
+      "function": "record_metric"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:06.512995217Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Telegram API call successful: sendMessage",
+    "insertId": "690ba1c400043810f863210f",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:08.276496Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/telegram_client.py",
+      "line": "220",
+      "function": "_post"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:08.510224862Z"
+  },
+  {
+    "textPayload": "[METRIC] {\"metric\": \"g_send_warning_contract_retry\", \"value\": 1900.84, \"ts\": 1762369988, \"chat_id\": 1119810722, \"error\": false}",
+    "insertId": "690ba1c40008c833e99cd969",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:08.575539Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/metrics.py",
+      "line": "47",
+      "function": "record_metric"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:08.843225536Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Generación fallida para el mismo tema (intento 2/2).",
+    "insertId": "690ba1c40008c84bd9154f58",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:08.575563Z",
+    "severity": "WARNING",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/proposal_service.py",
+      "line": "113",
+      "function": "do_the_work"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:08.843225536Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Generación fallida tras todos los reintentos. Permitiremos similitud para el mismo tema.",
+    "insertId": "690ba1c40008c928ae8fb5eb",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:08.575784Z",
+    "severity": "WARNING",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/proposal_service.py",
+      "line": "120",
+      "function": "do_the_work"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:08.843225536Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Tema seleccionado (ID: seed:profit-first). Abstract: 'Profit First accounting for solo founders: cash buckets, owner's pay, runway dis...'",
+    "insertId": "690ba1c40008c93afd39b8fb",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:08.575802Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/proposal_service.py",
+      "line": "200",
+      "function": "propose_tweet"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:08.843225536Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Telegram API call successful: sendMessage",
+    "insertId": "690ba1c600055fa728263f0e",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:10.352167Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/telegram_client.py",
+      "line": "220",
+      "function": "_post"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:10.507438197Z"
+  },
+  {
+    "textPayload": "Saltando comprobación de similitud por 'ignore_similarity=True'.",
+    "insertId": "690ba1c6000a4fa8a00286e3",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:10.675752Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/core_generator.py",
+      "line": "207",
+      "function": "_log_similarity"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:10.840710245Z"
+  },
+  {
+    "textPayload": "Intento de generación de IA 1/3…",
+    "insertId": "690ba1c6000a4fbedd3fa647",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:10.675774Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/core_generator.py",
+      "line": "343",
+      "function": "generate_tweet_from_topic"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:10.840710245Z"
+  },
+  {
+    "textPayload": "[METRIC] {\"metric\": \"g_goldset_random_retrieve\", \"value\": 0.05, \"ts\": 1762369990, \"scope\": \"variants\", \"k\": 5, \"error\": false}",
+    "insertId": "690ba1c6000a57923e11cf1e",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:10.677778Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "bot_logger",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/metrics.py",
+      "line": "47",
+      "function": "record_metric"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:10.840710245Z"
+  },
+  {
+    "textPayload": "[RAG] Retrieved 5 random goldset examples for prompt in 0.26ms",
+    "insertId": "690ba1c6000a57a62b3339ac",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:10.677798Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/variant_generators.py",
+      "line": "1287",
+      "function": "generate_all_variants"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:10.840710245Z"
+  },
+  {
+    "textPayload": "[DIAG] anchors_count=5",
+    "insertId": "690ba1c6000a57b46363302a",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:10.677812Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/variant_generators.py",
+      "line": "1299",
+      "function": "generate_all_variants"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:10.840710245Z"
+  },
+  {
+    "insertId": "690ba1c70002bd2bc1ed9683",
+    "jsonPayload": {
+      "event": "generation_prompt_gold_block",
+      "gold_block_preview": "1. You're right. You had it harder. You started with less. Bad things happened to you. But believing those things limit you prevents you from…\n2. No matter what your goal is, you will suffer to achieve it. So pick a goal big enough it’s wor",
+      "topic_preview": "Profit First accounting for solo founders: cash buckets, owner's pay, runway discipline",
+      "anchors_count": 5
+    },
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:11.179499Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "diagnostics"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/diagnostics_logger.py",
+      "line": "82",
+      "function": "info"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:11.507942022Z"
+  },
+  {
+    "textPayload": "Generating all variants via single-call multi-length prompt...",
+    "insertId": "690ba1c70002bd4101702aa8",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "project_id": "xbot-473616"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:11.179521Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/variant_generators.py",
+      "line": "1324",
+      "function": "generate_all_variants"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:11.507942022Z"
+  },
+  {
+    "textPayload": "HTTP Request: POST https://openrouter.ai/api/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "insertId": "690ba1c800066e05f96cedb5",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:12.421381Z",
+    "severity": "INFO",
+    "labels": {
+      "python_logger": "httpx",
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/usr/local/lib/python3.11/site-packages/httpx/_client.py",
+      "line": "1025",
+      "function": "_send_single_request"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:12.507433754Z"
+  },
+  {
+    "textPayload": "[PERF] Single-call for all variants took 8.73 seconds.",
+    "insertId": "690ba1cf0006263961d153dd",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:19.403001Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/variant_generators.py",
+      "line": "1380",
+      "function": "generate_all_variants"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:19.502342487Z"
+  },
+  {
+    "textPayload": "[METRIC] {\"metric\": \"g_llm_single_call\", \"value\": 8726.6, \"ts\": 1762369999, \"model\": \"x-ai/grok-4-fast\", \"error\": false}",
+    "insertId": "690ba1cf0006264e35e2515c",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:19.403022Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/metrics.py",
+      "line": "47",
+      "function": "record_metric"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:19.502342487Z"
+  },
+  {
+    "textPayload": "Intento 1: variantes generadas (con 0 errores).",
+    "insertId": "690ba1cf0006265b2ab3dbf3",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:19.403035Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/core_generator.py",
+      "line": "360",
+      "function": "generate_tweet_from_topic"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:19.502342487Z"
+  },
+  {
+    "textPayload": "[METRIC] {\"metric\": \"g_generate_variants\", \"value\": 8926.58, \"ts\": 1762369999, \"chat_id\": 1119810722, \"error\": false}",
+    "insertId": "690ba1cf0006266903b04db1",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:19.403049Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/metrics.py",
+      "line": "47",
+      "function": "record_metric"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:19.502342487Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Draft A pre-check (207 chars):\nYour solo hustle dies from cash chaos because you spend everything on 'ops' and pray for leftovers. Profit First fixes it: Bucket 10% for profit, 50% for owner's pay right away. No more guessing your runway.",
+    "insertId": "690ba1cf0006267631a80aea",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "service_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "location": "europe-west1",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:19.403062Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/proposal_service.py",
+      "line": "292",
+      "function": "propose_tweet"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:19.502342487Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Draft B pre-check (367 chars):\nStop treating your bank account like a black hole. As a solo founder, you leak money on shiny tools and forget yourself. Implement Profit First: Split every dollar into buckets—profit first (10%), your pay (50%), taxes (15%), ops (25%). This forces runway discipline. Last month, I stretched three months of runway into six by paying myself consistently. You can too.",
+    "insertId": "690ba1cf000626e7075c281b",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "location": "europe-west1",
+        "service_name": "x-bot-mei"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:19.403175Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/proposal_service.py",
+      "line": "292",
+      "function": "propose_tweet"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:19.502342487Z"
+  },
+  {
+    "textPayload": "[CHAT_ID: 1119810722] Draft C pre-check (650 chars):\nYou started solo because you hate bosses, but now your own chaos is the boss killing you. No systems mean no profit—just endless grind. Profit First changes that: Before touching a dime, allocate from every client payment. Buckets: 10% profit (untouchable, builds wealth), 50% owner's pay (pay yourself like an employee, no starving artist BS), 15% taxes (no surprises), 25% ops (only what's left). This enforces runway discipline—track it monthly, cut fat when buckets dip. I ignored this for a year, burned $20k in 'emergencies.' Now? Six months runway minimum, and I'm sleeping. Face the math: Without buckets, you're gambling. Set yours up today.",
+    "insertId": "690ba1cf000628e1120b5b96",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "configuration_name": "x-bot-mei",
+        "revision_name": "x-bot-mei-00479-9vl",
+        "project_id": "xbot-473616",
+        "service_name": "x-bot-mei",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:19.403681Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "bot_logger"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/app/proposal_service.py",
+      "line": "292",
+      "function": "propose_tweet"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:19.502342487Z"
+  },
+  {
+    "textPayload": "HTTP Request: POST https://openrouter.ai/api/v1/chat/completions \"HTTP/1.1 200 OK\"",
+    "insertId": "690ba1da000567423d596165",
+    "httpRequest": {},
+    "resource": {
+      "type": "cloud_run_revision",
+      "labels": {
+        "revision_name": "x-bot-mei-00479-9vl",
+        "service_name": "x-bot-mei",
+        "project_id": "xbot-473616",
+        "configuration_name": "x-bot-mei",
+        "location": "europe-west1"
+      }
+    },
+    "timestamp": "2025-11-05T19:13:30.354114Z",
+    "severity": "INFO",
+    "labels": {
+      "instanceId": "001477829669e23e8c5be9d12e60de0da6d75f479dee6da16e5f090fbd342f39c4af61883a852215fb4a0b8accc44398e1d2041c205556445e4f152396baff44c360a047feb2a13595e97bbc32f555",
+      "python_logger": "httpx"
+    },
+    "logName": "projects/xbot-473616/logs/run.googleapis.com%2Fstderr",
+    "sourceLocation": {
+      "file": "/usr/local/lib/python3.11/site-packages/httpx/_client.py",
+      "line": "1025",
+      "function": "_send_single_request"
+    },
+    "receiveTimestamp": "2025-11-05T19:13:30.492324976Z"
+  }
+]

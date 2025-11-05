@@ -325,8 +325,8 @@ class ProposalService:
                 piece_id=topic_id,
                 log_stage="PRE",
             )
-        all_passed_pre = bool(check_results_pre) and all(check_results_pre)
-        if not all_passed_pre:
+        at_least_one_passed_pre = bool(check_results_pre) and any(check_results_pre)
+        if not at_least_one_passed_pre:
             if ignore_similarity:
                 self.telegram.send_message(
                     chat_id,
@@ -337,8 +337,8 @@ class ProposalService:
             with Timer("g_send_warning_contract_retry", labels={"chat_id": chat_id}):
                 self.telegram.send_message(chat_id, get_message("contract_retry"))
             return False
-        if all_passed_pre:
-            logger.info("[CONTROL] Todos los drafts pasaron (PRE). Enviando al usuario.")
+        if at_least_one_passed_pre:
+            logger.info("[CONTROL] Al menos un draft pasó la validación (PRE). Enviando al usuario.")
 
         available_a = bool(draft_a)
         available_b = bool(draft_b)
@@ -361,20 +361,16 @@ class ProposalService:
             )
             return False
 
-        # Labeling logic as per user suggestion
-        def get_label(text: str) -> str:
-            length = len(text)
-            if length < 170: return "short"
-            if 170 <= length <= 230: return "mid"
-            return "long"
-
+        # The 'labeled_drafts' dictionary maps the generation labels (short, mid, long)
+        # to the corresponding draft content. This ensures consistency with the
+        # generation process, where draft_a is 'short', draft_b is 'mid', etc.
         labeled_drafts: Dict[str, str] = {}
         if draft_a:
-            labeled_drafts[get_label(draft_a)] = draft_a
+            labeled_drafts["short"] = draft_a
         if draft_b:
-            labeled_drafts[get_label(draft_b)] = draft_b
+            labeled_drafts["mid"] = draft_b
         if draft_c:
-            labeled_drafts[get_label(draft_c)] = draft_c
+            labeled_drafts["long"] = draft_c
 
         payload = DraftPayload(
             draft_a=draft_a or None, 
@@ -487,8 +483,8 @@ class ProposalService:
         if LOG_GENERATED_VARIANTS:
             for label, text in draft_map.items():
                 logger.info("[CHAT_ID: %s] Draft %s generated (%s chars):\n%s", chat_id, label, len((text or "")), text or "<vacío>")
-        all_passed_post = bool(check_results_post) and all(check_results_post)
-        if not all_passed_post:
+        at_least_one_passed_post = bool(check_results_post) and any(check_results_post)
+        if not at_least_one_passed_post:
             if ignore_similarity:
                 self.telegram.send_message(
                     chat_id,
@@ -520,8 +516,8 @@ class ProposalService:
             except Exception:
                 logger.debug("Diag logging (contract retry) skipped due to an error.")
             return False
-        if all_passed_post:
-            logger.info("[CONTROL] Todos los drafts pasaron (POST). Enviando al usuario.")
+        if at_least_one_passed_post:
+            logger.info("[CONTROL] Al menos un draft pasó la validación (POST). Enviando al usuario.")
 
         if LOG_GENERATED_VARIANTS:
             for label, text in draft_map.items():
@@ -539,6 +535,13 @@ class ProposalService:
             labels=labeled_drafts,
             errors=variant_errors,
         )
+
+        # Add LLM Judge validation summary to the message
+        if check_results_post:
+            judge_labels = ["A", "B", "C"]
+            summary_parts = [f"{label}: {'✅' if passed else '❌'}" for label, passed in zip(judge_labels, check_results_post)]
+            summary_line = " | ".join(summary_parts)
+            message_text += f"\n\n<b>LLM Judge:</b> {summary_line}"
 
         # Resumen final de variantes
         try:

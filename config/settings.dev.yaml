@@ -15,3 +15,13 @@ prompts_dir: prompts
 log_prompts: false
 log_prompts_full: false
 log_provider_decisions: false
+
+variant_lengths:
+  short:
+    max: 150
+  mid:
+    min: 180
+    max: 220
+  long:
+    min: 240
+    max: 280

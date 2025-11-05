@@ -356,6 +356,11 @@ def _get_cluster_anchors() -> List[Tuple[np.ndarray, str]]:
 
 
 def retrieve_goldset_examples(query: str, k: int = 3) -> List[str]:
+    """Deprecated: use retrieve_goldset_examples_nn for full nearest-neighbor search.
+
+    This function returns cluster anchor texts closest to the query.
+    Kept for backward compatibility; prefer NN for higher-fidelity style RAG.
+    """
     anchors = _get_cluster_anchors()
     if not anchors:
         return _GOLDSET_TEXTS[:k]
@@ -385,5 +390,59 @@ def retrieve_goldset_examples(query: str, k: int = 3) -> List[str]:
         return [text for _, text in anchors[:k]]
 
     scored = [(float(vector @ centroid), text) for centroid, text in anchors]
+    scored.sort(key=lambda item: item[0], reverse=True)
+    return [text for _, text in scored[:k]]
+
+
+def retrieve_goldset_examples_nn(query: str, k: int = 3, min_similarity: float = 0.0) -> List[str]:
+    """Nearest-neighbor retrieval across ALL goldset embeddings.
+
+    - Embeds the query using the same pipeline as similarity checks.
+    - Computes cosine similarity against each goldset vector.
+    - Returns top-k texts sorted by similarity, optionally filtering by a minimum similarity.
+    - Falls back to cluster anchors if the query embedding is missing or dimension-mismatched.
+    """
+    _ensure_goldset_loaded()
+
+    normalized = normalize_for_embedding(query or "")
+    try:
+        qvec = get_embedding(normalized, generate_if_missing=True)
+    except Exception as exc:
+        emit_structured({"message": "GOLDSET_QUERY_EMBED_FAIL", "error": str(exc)})
+        qvec = []
+
+    if not qvec:
+        return retrieve_goldset_examples(query, k=k)
+
+    try:
+        qarr = np.array(qvec, dtype=float)
+    except Exception:
+        return retrieve_goldset_examples(query, k=k)
+
+    if qarr.shape[0] != _GOLDSET_EMB_DIM:
+        emit_structured(
+            {
+                "message": "GOLDSET_QUERY_DIM_MISMATCH",
+                "query_dim": int(qarr.shape[0]),
+                "emb_dim": int(_GOLDSET_EMB_DIM),
+            }
+        )
+        return retrieve_goldset_examples(query, k=k)
+
+    qnorm = _normalize_vector(qarr)
+    # Compute cosine similarity using dot since both are normalized
+    gold_vectors = [np.array(vec, dtype=float) for vec in _GOLDSET_EMBEDDINGS]
+    gold_norms = [
+        _normalize_vector(vec) if np.linalg.norm(vec) > 0 else vec for vec in gold_vectors
+    ]
+    scored: List[Tuple[float, str]] = []
+    for vec, text in zip(gold_norms, _GOLDSET_TEXTS):
+        sim = float(np.dot(qnorm, vec))
+        if sim >= min_similarity:
+            scored.append((sim, text))
+
+    if not scored:
+        return retrieve_goldset_examples(query, k=k)
+
     scored.sort(key=lambda item: item[0], reverse=True)
     return [text for _, text in scored[:k]]

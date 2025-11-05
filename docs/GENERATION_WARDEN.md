@@ -67,7 +67,8 @@ LOG_WARDEN_FAILURE_REASON=true
 - File: `variant_generators.py` (function `generate_all_variants`)
 - Messages:
   - System includes `<STYLE_CONTRACT>`, `<ICP>`, `<FINAL_REVIEW_GUIDELINES>`.
-  - User loads `prompts/generation/all_variants.md`.
+- User loads `prompts/generation/all_variants.md`.
+  - Reference voice anchors: injected via Style‑RAG NN (`retrieve_goldset_examples_nn`) using the topic abstract embedding to select Top‑K closest gold examples.
 - Steps:
   1) LLM returns `{short,mid,long}` (retry enforces schema if needed).
   2) Warden cleaning + validation (see below).
@@ -110,6 +111,8 @@ LOG_WARDEN_FAILURE_REASON=true
 
 - El chequeo de similitud de las variantes usa el goldset, no los tópicos.
   - Implementación: `ProposalService._check_contract_requirements` usa `get_goldset_similarity_details(draft, generate_if_missing=True)` para obtener similitud raw/norm + id del match.
+  - Recuperación de anchors para generación/comentarios: `src/goldset.retrieve_goldset_examples_nn(query, k)` realiza búsqueda nn sobre todos los embeddings del goldset; `retrieve_goldset_examples` queda deprecated (solo anclas de clúster).
+  - Prompt `prompts/generation/all_variants.md` ahora acepta `{gold_examples_block}` como entrada directa desde `variant_generators`.
 - Si por cualquier motivo el embedding falla y la similitud es `None`, no se bloquea por ese motivo (se mantiene la sugerencia), pero se recomienda revisar logs de `[EMB]`.
 
 ## ChromaDB

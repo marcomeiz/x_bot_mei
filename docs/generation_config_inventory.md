@@ -96,3 +96,18 @@ Notas de uso:
 - `variant_source` se pasa vía `extra` al logger: por defecto `gen`; usar `refine` cuando la variante haya sido reescrita y `derive` cuando provenga de derivación/compresión/expansión.
 
 Actualizar este documento tras cada etapa para mantener trazabilidad.
+
+**Cambio:** Inyección Style-RAG de ejemplos del goldset por similitud semántica (NN) en `variant_generators.generate_all_variants` y `generate_comment_reply`.  
+**Fecha:** 2025-11-05  
+**Autor:** AI assistant  
+**Justificación:** Sustituir selección fija/aleatoria por recuperación Top-K de ejemplos más cercanos al tópico para reforzar la voz con contexto específico y elevar la similitud de embedding.
+
+**Cambio:** Ajuste del prompt `prompts/generation/all_variants.md` para aceptar `{gold_examples_block}` desde el loader y evitar lógica Jinja dentro de la plantilla.  
+**Fecha:** 2025-11-05  
+**Autor:** AI assistant  
+**Justificación:** Simplificar inyección de anchors desde código y prevenir render parcial cuando falten ejemplos, manteniendo control del formato en `variant_generators`.
+
+**Cambio:** Marcar como deprecado `src/goldset.retrieve_goldset_examples` y recomendar `retrieve_goldset_examples_nn`.  
+**Fecha:** 2025-11-05  
+**Autor:** AI assistant  
+**Justificación:** Consolidar la recuperación en un solo método NN para evitar divergencias y asegurar consistencia entre generación y comentarios.

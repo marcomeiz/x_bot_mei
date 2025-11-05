@@ -35,7 +35,7 @@ from writing_rules import (
     _WORD_REGEX,
     BANNED_SUFFIXES,
 )
-from src.goldset import retrieve_goldset_examples
+from src.goldset import retrieve_goldset_examples_nn
 
 
 @dataclass(frozen=True)
@@ -1263,14 +1263,28 @@ def generate_all_variants(
 
     # Override inline prompt with externalized template
     try:
+        # Style-RAG: retrieve top-K nearest goldset examples by semantic similarity to the topic
+        if gold_examples is None:
+            with_timer_start = time.time()
+            gold_examples = retrieve_goldset_examples_nn(topic_abstract or "", k=3)
+            logger.info(
+                "[RAG] Retrieved %s goldset examples for prompt in %.2fs",
+                len(gold_examples),
+                time.time() - with_timer_start,
+            )
+
+        gold_block = _format_gold_examples_for_prompt(gold_examples, limit=3)
+        if not gold_block.strip():
+            gold_block = "- (No reference examples available; rely on contract.)"
+
         prompts_dir = AppSettings.load().prompts_dir
         user_prompt = load_prompt(prompts_dir, "generation/all_variants").render(
             topic_abstract=topic_abstract,
-            gold_examples=gold_examples or [],
+            gold_examples_block=gold_block,
         )
-    except Exception:
+    except Exception as exc:
         # Fallback to the inline prompt above if loading fails
-        pass
+        logger.warning("Failed to load/render external prompt: %s. Using inline.", exc)
 
     logger.info("Generating all variants via single-call multi-length prompt...")
 
@@ -1631,7 +1645,8 @@ def generate_comment_reply(
     rng = random.Random(hash(source_text) & 0xFFFFFFFF)
     excerpt = _compact_text(source_text, limit=1200)
     key_terms = _extract_key_terms(excerpt)
-    gold_examples = retrieve_goldset_examples(excerpt, k=3)
+    # Use NN retrieval to anchor the comment with semantically closest goldset examples
+    gold_examples = retrieve_goldset_examples_nn(excerpt, k=3)
     tail_angles = _verbalized_tail_sampling(
         topic_abstract=excerpt,
         context=context,

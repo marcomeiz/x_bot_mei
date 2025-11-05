@@ -46,3 +46,6 @@ processed_pdfs/
 .idea/
 .vscode/
 Thumbs.db
+
+data/**/*.npz
+

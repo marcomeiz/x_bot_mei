@@ -8,12 +8,12 @@ from urllib.parse import quote
 
 from callback_parser import CallbackAction, CallbackType, parse_callback
 from core_generator import (
-    find_relevant_topic,
     generate_tweet_from_topic,
     find_topic_by_id,
     generate_comment_from_text,
     CommentSkip,
 )
+from src.topics_repo import get_topic_or_fallback
 from draft_repository import DraftPayload, DraftRepository
 from embeddings_manager import get_embedding, get_memory_collection
 from evaluation import evaluate_draft
@@ -75,16 +75,22 @@ class ProposalService:
             self.telegram.send_message(chat_id, JOB_TIMEOUT_MESSAGE)
             return
 
+        # Seleccionar tema: usar repositorio con fallback (nunca None)
         with Timer("g_find_topic", labels={"chat_id": chat_id}):
-            topic = find_relevant_topic()
-        if not topic:
-            logger.warning("[CHAT_ID: %s] No hay temas disponibles para generar.", chat_id)
-            self.telegram.send_message(
-                chat_id,
-                get_message("no_topics_available"),
-                reply_markup=self.telegram.get_new_tweet_keyboard(),
-            )
-            return
+            selected = get_topic_or_fallback(str(chat_id))
+        # Normalizar al contrato esperado por propose_tweet
+        topic = {
+            "abstract": selected.get("text"),
+            "topic_id": selected.get("id"),
+            "source_pdf": None,
+            "source": selected.get("source"),
+        }
+        logger.info(
+            "[CHAT_ID: %s] Fuente del tema: %s (ID: %s)",
+            chat_id,
+            topic.get("source"),
+            topic.get("topic_id"),
+        )
 
         for gen_try in range(1, per_topic_gen_retries + 2):  # +1 intento base
             if _deadline_exceeded():

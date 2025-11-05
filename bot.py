@@ -21,6 +21,7 @@ from telegram_client import TelegramClient
 
 # Warmup/health imports
 from embeddings_manager import get_chroma_client, get_topics_collection, get_embedding
+from src.topics_repo import get_health as get_topics_health
 
 load_dotenv()
 
@@ -373,6 +374,24 @@ def health_embeddings():
         return payload, 200
     except Exception:
         return {"ok": False, "error": "server_error"}, 500
+
+
+@app.route("/collections/topics/health")
+def topics_health():
+    """Salud de la colección de temas.
+
+    Devuelve 200 siempre con:
+    - exists: bool
+    - count: int
+    - emb_dim: int | None
+    """
+    try:
+        h = get_topics_health()
+        # Especificación: devolver solo los campos de salud, sin "ok"
+        return {"exists": bool(h.get("exists")), "count": int(h.get("count") or 0), "emb_dim": h.get("emb_dim")}, 200
+    except Exception:
+        # Degradación controlada: 200 con estado mínimo
+        return {"exists": False, "count": 0, "emb_dim": None}, 200
 
 
 @app.route("/eval/score_line", methods=["POST"])

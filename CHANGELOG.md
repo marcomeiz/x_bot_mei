@@ -93,6 +93,15 @@
 - Removed usage of `retrieve_goldset_examples_random_meta` and its associated `g_goldset_random_retrieve` diagnostics.
 - Kept `anchors_count` visibility log but without an "expected=5" assertion.
 - This confirms the test’s conclusion: the goldset quality/coverage is the real issue; generation is back to topic-aware NN anchoring.
+
+## 2025-11-05 - Style-RAG anchors: RANDOM k=5 (Active)
+Autor: Marco Mei
+Propósito: Reforzar la señal de estilo tomando 5 ejemplos aleatorios del goldset auditado (21 vectores) en generación y comentarios.
+Justificación: Con el goldset v2 depurado, la aleatoriedad reduce sesgo por tópico y mantiene voz doctrinal más fuerte.
+
+- variant_generators: cambia a `retrieve_goldset_examples_random(k=5)` con telemetría `g_goldset_random_retrieve` y logs de `anchors_count`.
+- src/goldset.py: reintroduce `retrieve_goldset_examples_random(k)` sobre el NPZ activo.
+- Deploy: `GOLDSET_NPZ_GCS_URI` se mantiene apuntando a `gs://xbot-473616-x-bot-mei-db/goldset/goldset_v2_audited.npz` en Cloud Run (cloudbuild y script manual actualizados).
 ## 2025-11-05 - Auditoría Goldset (UMAP + HDBSCAN)
 Autor: Marco Mei
 Propósito: Descontaminar el goldset identificando y reteniendo únicamente el cluster principal de "la voz".

@@ -111,3 +111,10 @@ Actualizar este documento tras cada etapa para mantener trazabilidad.
 **Fecha:** 2025-11-05  
 **Autor:** AI assistant  
 **Justificación:** Consolidar la recuperación en un solo método NN para evitar divergencias y asegurar consistencia entre generación y comentarios.
+
+**Cambio:** Revertir a recuperación aleatoria `src/goldset.retrieve_goldset_examples_random(k=5)` como método activo en generación/comentarios.  
+**Fecha:** 2025-11-05  
+**Autor:** Marco Mei  
+**Justificación:** Con el goldset auditado (21 vectores), usar 5 anchors aleatorios refuerza la señal de estilo y mantiene alta coherencia doctrinal.
+
+Nota operativa: `GOLDSET_NPZ_GCS_URI` se mantiene apuntando a `gs://xbot-473616-x-bot-mei-db/goldset/goldset_v2_audited.npz` en Cloud Run (deploy scripts actualizados).

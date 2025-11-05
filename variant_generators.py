@@ -38,7 +38,7 @@ from writing_rules import (
     BANNED_SUFFIXES,
 )
 from src.goldset import (
-    retrieve_goldset_examples_nn,
+    retrieve_goldset_examples_random,
 )
 
 
@@ -1267,14 +1267,14 @@ def generate_all_variants(
 
     # Override inline prompt with externalized template
     try:
-        # Style-RAG: retrieve semantically closest goldset examples (topic-aware)
+        # Style-RAG: retrieve random goldset examples to enforce a stronger voice signal
         if gold_examples is None:
             _t0 = time.time()
-            with Timer("g_goldset_nn_retrieve", labels={"scope": "variants", "k": 3}):
-                gold_examples = retrieve_goldset_examples_nn(topic_abstract or "", k=3)
+            with Timer("g_goldset_random_retrieve", labels={"scope": "variants", "k": 5}):
+                gold_examples = retrieve_goldset_examples_random(k=5)
             _elapsed_ms = round((time.time() - _t0) * 1000, 2)
             logger.info(
-                "[RAG] Retrieved %s NN goldset examples for prompt in %.2fms",
+                "[RAG] Retrieved %s random goldset examples for prompt in %.2fms",
                 len(gold_examples),
                 _elapsed_ms,
             )
@@ -1669,13 +1669,13 @@ def generate_comment_reply(
     rng = random.Random(hash(source_text) & 0xFFFFFFFF)
     excerpt = _compact_text(source_text, limit=1200)
     key_terms = _extract_key_terms(excerpt)
-    # Use NN retrieval to anchor the comment with semantically closest goldset examples
+    # Style-RAG: use random retrieval for a stronger voice anchor (k=5)
     _t0 = time.time()
-    with Timer("g_goldset_nn_retrieve", labels={"scope": "comments", "k": 3}):
-        gold_examples = retrieve_goldset_examples_nn(excerpt, k=3)
+    with Timer("g_goldset_random_retrieve", labels={"scope": "comments", "k": 5}):
+        gold_examples = retrieve_goldset_examples_random(k=5)
     _elapsed_ms = round((time.time() - _t0) * 1000, 2)
     logger.info(
-        "[RAG] Retrieved %s NN goldset examples for comment in %.2fms",
+        "[RAG] Retrieved %s random goldset examples for comment in %.2fms",
         len(gold_examples),
         _elapsed_ms,
     )

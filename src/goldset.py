@@ -1,6 +1,7 @@
 import json
 import math
 import os
+import random
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -469,3 +470,20 @@ def retrieve_goldset_examples_nn(query: str, k: int = 3, min_similarity: float =
     scored.sort(key=lambda item: item[0], reverse=True)
     return [text for _, text in scored[:k]]
 
+
+def retrieve_goldset_examples_random(k: int = 5) -> List[str]:
+    """Random retrieval of goldset examples.
+
+    - Loads the goldset if needed.
+    - Returns k randomly sampled texts from the active goldset.
+    - If k exceeds the available texts, returns all.
+    """
+    _ensure_goldset_loaded()
+    if not _GOLDSET_TEXTS:
+        return []
+    n = min(k, len(_GOLDSET_TEXTS))
+    try:
+        idxs = random.sample(range(len(_GOLDSET_TEXTS)), n)
+    except ValueError:
+        idxs = list(range(n))
+    return [_GOLDSET_TEXTS[i] for i in idxs]

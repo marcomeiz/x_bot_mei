@@ -68,7 +68,7 @@ LOG_WARDEN_FAILURE_REASON=true
 - Messages:
   - System includes `<STYLE_CONTRACT>`, `<ICP>`, `<FINAL_REVIEW_GUIDELINES>`.
 - User loads `prompts/generation/all_variants.md`.
-  - Reference voice anchors: injected via Style‑RAG NN (`retrieve_goldset_examples_nn`) using the topic abstract embedding to select Top‑K closest gold examples.
+  - Reference voice anchors: injected via Style‑RAG RANDOM (`retrieve_goldset_examples_random(k=5)`) selecting 5 examples from the audited goldset v2.
 - Steps:
   1) LLM returns `{short,mid,long}` (retry enforces schema if needed).
   2) Warden cleaning + validation (see below).
@@ -111,7 +111,12 @@ LOG_WARDEN_FAILURE_REASON=true
 
 - El chequeo de similitud de las variantes usa el goldset, no los tópicos.
   - Implementación: `ProposalService._check_contract_requirements` usa `get_goldset_similarity_details(draft, generate_if_missing=True)` para obtener similitud raw/norm + id del match.
-  - Recuperación de anchors para generación/comentarios: `src/goldset.retrieve_goldset_examples_nn(query, k)` realiza búsqueda nn sobre todos los embeddings del goldset; `retrieve_goldset_examples` queda deprecated (solo anclas de clúster).
+  - Recuperación de anchors para generación/comentarios: ACTUALMENTE se usa selección aleatoria `src/goldset.retrieve_goldset_examples_random(k=5)` (audited v2, 21 vectores). El método NN (`retrieve_goldset_examples_nn(query, k)`) permanece disponible pero no es el predeterminado.
+
+> Cambio: Switch de NN a aleatorio (k=5) para anchors de Style‑RAG.
+> Fecha: 2025-11-05
+> Autor: Marco Mei
+> Justificación: Con un goldset depurado (21 vectores), tomar 5 anchors aleatorios refuerza la voz doctrinal y reduce el sesgo del tópico.
   - Prompt `prompts/generation/all_variants.md` ahora acepta `{gold_examples_block}` como entrada directa desde `variant_generators`.
 - Si por cualquier motivo el embedding falla y la similitud es `None`, no se bloquea por ese motivo (se mantiene la sugerencia), pero se recomienda revisar logs de `[EMB]`.
 

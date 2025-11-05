@@ -33,6 +33,9 @@
 - Logs estructurados: `diagnostics_logger.log_post_metrics` conserva siempre `similarity`, añade `similarity_raw`, `similarity_norm`, `max_pair_id` y etiqueta `event_stage`.
   - Propósito: permitir filtros consistentes en Cloud Logging y diferenciar entre medición preliminar y definitiva.
   - Justificación: las consultas fallaban cuando el campo se omitía; ahora siempre aparece (null o valor real) junto con metadatos extendidos.
+- Etapas de evaluación: `_check_contract_requirements` reporta `event_stage` como `PRE`/`POST` para alinear con las consultas operativas.
+  - Propósito: facilitar dashboards que distinguen entre chequeo inicial y evaluación final.
+  - Justificación: los analistas rastrean explícitamente `POST`; el valor `final` no coincidía con los filtros desplegados.
   - Autor: AI assistant (codex-cli).
   - Fecha: 2025-11-05.
 

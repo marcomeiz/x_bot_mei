@@ -306,7 +306,7 @@ class ProposalService:
                     "long": draft_c,
                 },
                 piece_id=topic_id,
-                log_stage="pre",
+                log_stage="PRE",
             )
         if blocking_contract:
             if ignore_similarity:
@@ -475,7 +475,7 @@ class ProposalService:
             draft_map,
             piece_id=topic_id,
             variant_sources=variant_sources_map,
-            log_stage="final",
+            log_stage="POST",
         )
         if LOG_GENERATED_VARIANTS:
             for label, text in draft_map.items():

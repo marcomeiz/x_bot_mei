@@ -134,15 +134,16 @@ def _resolve_goldset_npz_path() -> Path:
         return GOLDSET_EMBED_PATH
 
 
-def _load_embeddings_from_npz(path: Path) -> Optional[Tuple[List[str], List[str], List[Sequence[float]], Dict[str, object]]]:
+def _load_embeddings_from_npz(path: Path, *, npz_uri: Optional[str] = None) -> Tuple[List[str], List[str], List[Sequence[float]], Dict[str, object]]:
+    label = npz_uri or str(path)
     if not path.exists():
-        _emit_goldset_error("npz_missing", path=str(path))
-        return None
+        _emit_goldset_error("npz_missing", path=str(path), uri=npz_uri)
+        raise FileNotFoundError(f"Goldset NPZ not found: {path}")
     try:
         data = np.load(path, allow_pickle=True)
     except Exception as exc:
-        _emit_goldset_error("npz_read_failed", path=str(path), error=str(exc))
-        return None
+        _emit_goldset_error("npz_read_failed", path=str(path), uri=npz_uri, error=str(exc))
+        raise RuntimeError(f"Failed to read NPZ at {label}") from exc
     texts = data.get("texts")
     documents = data.get("documents")
     embeddings = data.get("embeddings")
@@ -152,8 +153,8 @@ def _load_embeddings_from_npz(path: Path) -> Optional[Tuple[List[str], List[str]
     texts_arr = texts if texts is not None else documents
     vectors_arr = embeddings if embeddings is not None else vectors
     if texts_arr is None or vectors_arr is None:
-        _emit_goldset_error("npz_missing_fields", path=str(path))
-        return None
+        _emit_goldset_error("npz_missing_fields", path=str(path), uri=npz_uri)
+        raise RuntimeError(f"NPZ missing expected fields: {label}")
     try:
         texts_list = texts_arr.tolist() if hasattr(texts_arr, "tolist") else list(texts_arr)
         decoded_texts = [t.decode("utf-8") if isinstance(t, bytes) else str(t) for t in texts_list]
@@ -175,10 +176,10 @@ def _load_embeddings_from_npz(path: Path) -> Optional[Tuple[List[str], List[str]
                 elif isinstance(meta_entry, dict):
                     meta = dict(meta_entry)
             except Exception as exc_meta:
-                _emit_goldset_error("npz_meta_parse_failed", path=str(path), error=str(exc_meta))
+                _emit_goldset_error("npz_meta_parse_failed", path=str(path), uri=npz_uri, error=str(exc_meta))
     except Exception as exc:
-        _emit_goldset_error("npz_parse_failed", path=str(path), error=str(exc))
-        return None
+        _emit_goldset_error("npz_parse_failed", path=str(path), uri=npz_uri, error=str(exc))
+        raise RuntimeError(f"Failed to parse NPZ contents for {label}") from exc
     return decoded_ids, decoded_texts, vectors_list, meta
 
 
@@ -262,20 +263,35 @@ def _get_gold_records() -> Tuple[List[str], List[str], List[Sequence[float]]]:
     env_uri = os.getenv("GOLDSET_NPZ_GCS_URI", "").strip()
     if env_uri:
         npz_path = _resolve_goldset_npz_path()
-        npz_data = _load_embeddings_from_npz(npz_path)
-        if npz_data:
-            ids, texts, embeddings, meta = npz_data
-            GOLDSET_IDS_CACHE, GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE = ids, texts, embeddings
-            collection_name = _derive_collection_name_from_meta(meta, _derive_collection_name_from_path(npz_path, GOLDSET_COLLECTION_NAME))
-            _set_active_collection(collection_name)
-            emb_dim = int(meta.get("emb_dim") or (len(embeddings[0]) if embeddings else 0) or 0) if meta else (len(embeddings[0]) if embeddings else 0)
-            normalizer_version = int(meta.get("normalizer_version") or EXPECTED_NORMALIZER_VERSION) if meta else EXPECTED_NORMALIZER_VERSION
-            _emit_goldset_ready(collection_name, len(texts), emb_dim, normalizer_version)
-            logger.info("Goldset embeddings loaded from NPZ (%s).", npz_path)
-            return ids, texts, embeddings
-        _emit_goldset_error("npz_load_failed", uri=env_uri)
-        GOLDSET_IDS_CACHE, GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE = [], [], []
-        return GOLDSET_IDS_CACHE, GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE
+        try:
+            ids, texts, embeddings, meta = _load_embeddings_from_npz(npz_path, npz_uri=env_uri)
+        except Exception as exc:
+            emit_structured(
+                {
+                    "message": "GOLDSET_NPZ_LOAD_FAILED",
+                    "npz_uri": env_uri,
+                    "error": str(exc),
+                }
+            )
+            _emit_goldset_error("npz_load_failed", uri=env_uri, error=str(exc))
+            raise
+        GOLDSET_IDS_CACHE, GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE = ids, texts, embeddings
+        collection_name = _derive_collection_name_from_meta(meta, _derive_collection_name_from_path(npz_path, GOLDSET_COLLECTION_NAME))
+        _set_active_collection(collection_name)
+        emb_dim = int(meta.get("emb_dim") or (len(embeddings[0]) if embeddings else 0) or 0) if meta else (len(embeddings[0]) if embeddings else 0)
+        normalizer_version = int(meta.get("normalizer_version") or EXPECTED_NORMALIZER_VERSION) if meta else EXPECTED_NORMALIZER_VERSION
+        emit_structured(
+            {
+                "message": "GOLDSET_NPZ_LOADED",
+                "goldset_collection": collection_name,
+                "count": len(texts),
+                "emb_dim": emb_dim,
+                "npz_uri": env_uri,
+            }
+        )
+        _emit_goldset_ready(collection_name, len(texts), emb_dim, normalizer_version)
+        logger.info("Goldset embeddings loaded from NPZ (%s).", npz_path)
+        return ids, texts, embeddings
 
     chroma_data = _load_embeddings_from_chroma()
     if chroma_data:
@@ -290,7 +306,11 @@ def _get_gold_records() -> Tuple[List[str], List[str], List[Sequence[float]]]:
         return ids, texts, embeddings
 
     npz_path = _resolve_goldset_npz_path()
-    npz_data = _load_embeddings_from_npz(npz_path)
+    try:
+        npz_data = _load_embeddings_from_npz(npz_path)
+    except Exception as exc:
+        _emit_goldset_error("npz_load_failed", path=str(npz_path), error=str(exc))
+        npz_data = None
     if npz_data:
         ids, texts, embeddings, meta = npz_data
         GOLDSET_IDS_CACHE, GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE = ids, texts, embeddings

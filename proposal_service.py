@@ -12,6 +12,7 @@ from urllib.parse import quote
 from callback_parser import CallbackAction, CallbackType, parse_callback
 from core_generator import (
     generate_tweet_from_topic,
+    find_topic_by_id,
     generate_comment_from_text,
     CommentSkip,
 )

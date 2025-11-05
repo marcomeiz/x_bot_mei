@@ -1,0 +1,15 @@
+comment_guardrails:
+  enforce_no_commas: true
+  enforce_no_and_or: true
+  words_per_line:
+    min: 5
+    max: 12
+  mid_chars:
+    min: 180
+    max: 230
+  long_chars:
+    min: 240
+    max: 280
+  suspend_guardrails: false
+  minimal_mode: false
+  forbidden_em_dash: "—"

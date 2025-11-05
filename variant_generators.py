@@ -89,109 +89,7 @@ def _contrast_analysis_prompt():
     return load_prompt(prompts_dir, "generation/contrast_analysis")
 
 
-DEFAULT_WARDEN_GUARDRAILS = {
-    "enforce_no_commas": True,
-    "enforce_no_and_or": True,
-    "words_per_line": {"min": 5, "max": 12},
-    "mid_chars": {"min": 180, "max": 230},
-    "long_chars": {"min": 240, "max": 280},
-    "suspend_guardrails": False,
-    "minimal_mode": False,
-    "forbidden_em_dash": "—",
-}
 
-
-def _merge_guardrail_defaults(target: Dict[str, object], source: Dict[str, object]) -> None:
-    for key, value in source.items():
-        if isinstance(value, dict) and isinstance(target.get(key), dict):
-            _merge_guardrail_defaults(target[key], value)  # type: ignore[arg-type]
-        else:
-            target[key] = value
-
-
-def _default_warden_config_path() -> Path:
-    env_path = os.getenv("WARDEN_CONFIG_PATH")
-    if env_path:
-        return Path(env_path)
-    return Path(__file__).resolve().parent / "config" / "warden.yaml"
-
-
-@lru_cache(maxsize=1)
-def _load_guardrail_config() -> Dict[str, object]:
-    config = copy.deepcopy(DEFAULT_WARDEN_GUARDRAILS)
-    path = _default_warden_config_path()
-    try:
-        with open(path, "r", encoding="utf-8") as fh:
-            raw = yaml.safe_load(fh) or {}
-        if isinstance(raw, dict):
-            payload = raw.get("comment_guardrails") if "comment_guardrails" in raw else raw
-            if isinstance(payload, dict):
-                _merge_guardrail_defaults(config, payload)
-            else:
-                logger.warning("Warden config at %s must map keys to values; ignoring custom section.", path)
-        else:
-            logger.warning("Warden config at %s must be a mapping; using defaults.", path)
-    except FileNotFoundError:
-        logger.info("Warden config not found at %s. Using defaults.", path)
-    except Exception as exc:
-        logger.warning("Failed to load warden config from %s: %s. Using defaults.", path, exc)
-    return config
-
-
-def _env_bool_override(var_name: str, current: bool) -> bool:
-    value = os.getenv(var_name)
-    if value is None:
-        return current
-    normalized = value.strip().lower()
-    if not normalized:
-        return current
-    return normalized in {"1", "true", "yes", "y"}
-
-
-def _env_int_override(var_name: str, current: int) -> int:
-    value = os.getenv(var_name)
-    if value is None:
-        return current
-    try:
-        return int(value)
-    except ValueError:
-        logger.warning("Invalid integer for %s=%s. Keeping %s.", var_name, value, current)
-        return current
-
-
-def _env_str_override(var_name: str, current: str) -> str:
-    value = os.getenv(var_name)
-    if value is None or value == "":
-        return current
-    return value
-
-
-def _cfg_int(value: object, default: int) -> int:
-    try:
-        return int(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return default
-
-
-_guardrail_cfg = _load_guardrail_config()
-
-ENFORCE_NO_COMMAS = _env_bool_override("ENFORCE_NO_COMMAS", bool(_guardrail_cfg.get("enforce_no_commas", True)))
-ENFORCE_NO_AND_OR = _env_bool_override("ENFORCE_NO_AND_OR", bool(_guardrail_cfg.get("enforce_no_and_or", True)))
-
-words_cfg = _guardrail_cfg.get("words_per_line", {}) if isinstance(_guardrail_cfg.get("words_per_line"), dict) else {}
-mid_cfg = _guardrail_cfg.get("mid_chars", {}) if isinstance(_guardrail_cfg.get("mid_chars"), dict) else {}
-long_cfg = _guardrail_cfg.get("long_chars", {}) if isinstance(_guardrail_cfg.get("long_chars"), dict) else {}
-
-WARDEN_WPL_LO = _env_int_override("WARDEN_WORDS_PER_LINE_LO", _cfg_int(words_cfg.get("min"), 5))
-WARDEN_WPL_HI = _env_int_override("WARDEN_WORDS_PER_LINE_HI", _cfg_int(words_cfg.get("max"), 12))
-MID_MIN = _env_int_override("MID_MIN", _cfg_int(mid_cfg.get("min"), 180))
-MID_MAX = _env_int_override("MID_MAX", _cfg_int(mid_cfg.get("max"), 230))
-LONG_MIN = _env_int_override("LONG_MIN", _cfg_int(long_cfg.get("min"), 240))
-LONG_MAX = _env_int_override("LONG_MAX", _cfg_int(long_cfg.get("max"), 280))
-
-SUSPEND_GUARDRAILS = _env_bool_override("SUSPEND_GUARDRAILS", bool(_guardrail_cfg.get("suspend_guardrails", False)))
-WARDEN_MINIMAL = _env_bool_override("WARDEN_MINIMAL", bool(_guardrail_cfg.get("minimal_mode", False)))
-FORBIDDEN_EM_DASH = _env_str_override("FORBIDDEN_EM_DASH", str(_guardrail_cfg.get("forbidden_em_dash", "—")))
 
 
 STOPWORDS = get_stopwords()
@@ -220,270 +118,35 @@ SPANISH_HINTS = {
 }
 END_PUNCT = re.compile(r"[.!?]$")
 
-def _one_sentence_per_line(text: str) -> bool:
-    lines = [l.strip() for l in text.splitlines() if l.strip()]
-    if not lines:
-        return False
-    for l in lines:
-        if not END_PUNCT.search(l):
-            return False
-        if re.search(r"[.!?].+?[.!?]", l):
-            return False
-    return True
-
-def _avg_words_per_line_between(text: str, lo: int = WARDEN_WPL_LO, hi: int = WARDEN_WPL_HI) -> bool:
-    lines = [l.strip() for l in text.splitlines() if l.strip()]
-    if not lines:
-        return False
-    for l in lines:
-        words = re.findall(r"\b[\w']+\b", l)
-        if not (lo <= len(words) <= hi):
-            return False
-    return True
-
-def _english_only(text: str) -> bool:
-    # Si hay caracteres claramente no ingleses (acentos/ñ), no es inglés
-    if NON_ENGLISH_CHARS.search(text):
-        return False
-    # Heurística: si aparecen tokens comunes del español aun sin acentos, considerar no inglés
-    tokens = re.findall(r"\b[\w']+\b", text.lower())
-    if any(tok in SPANISH_HINTS for tok in tokens):
-        return False
-    return True
-
-def _no_banned_language(text: str) -> Optional[str]:
-    if HEDGING_REGEX.search(text):
-        return "hedging"
-    if CLICHE_REGEX.search(text):
-        return "cliche"
-    if HYPE_REGEX.search(text):
-        return "hype"
-    return None
-
-def _range_ok(label: str, s: str) -> bool:
-    n = len(s)
-    if label == "short":
-        return n <= 160
-    if label == "mid":
-        return MID_MIN <= n <= MID_MAX
-    if label == "long":
-        return LONG_MIN <= n <= LONG_MAX
-    return n < 280
-
-def _pick_hooks_for_variants(rng: random.Random, count: int) -> List[int]:
-    """Return indices into HOOK_GUIDELINES ensuring variety."""
-    population = list(range(len(HOOK_GUIDELINES)))
-    if count >= len(population):
-        rng.shuffle(population)
-        return population[:count]
-    return rng.sample(population, count)
 
 
-def _build_shared_rules() -> str:
-    return (
-        "Common guardrails for every variant:\n"
-        f"{hook_menu()}\n"
-        "- First sentence MUST deploy the chosen hook in ≤8 words (unless the format overrides it).\n"
-        f"{visual_anchor_prompt()}"
-        f"{words_blocklist_prompt()}"
-        f"{comma_guard_prompt()}"
-        f"{conjunction_guard_prompt()}"
-        "- Zero emojis, hashtags, or Spanish. English only.\n"
-        "- Everything under 280 characters.\n"
-        f"{closing_rule_prompt()}"
-    )
 
 
-def _format_block(label: str, format_text: str, hook_name: str, allow_analogy: bool) -> str:
-    analogy_line = (
-        "- Optional: include one tight analogy if it uses drawable imagery (max one short clause).\n"
-        if allow_analogy
-        else "- Do NOT use analogies in this variant.\n"
-    )
-    return (
-        f"Variant {label} guardrails:\n"
-        f"- Hook type: {hook_name}. Show it in the first 3 words.\n"
-        f"{format_text}"
-        f"{analogy_line}"
-        "- Prefer verbs and nouns over adjectives. If a descriptor isn't measurable, replace it with an action.\n"
-    )
 
 
-def _enforce_variant_compliance(
-    label: str,
-    draft: str,
-    format_profile: Optional[FormatProfile],
-    allow_analogy: bool,
-) -> None:
-    issues = detect_banned_elements(draft)
-    # Honor ENV toggles for commas and conjunctions at enforcement time
-    if not ENFORCE_NO_COMMAS:
-        issues = [i for i in issues if "uses commas" not in i]
-    if not ENFORCE_NO_AND_OR:
-        issues = [i for i in issues if "uses conjunction" not in i]
-    if issues:
-        raise StyleRejection(f"Variant {label} rejected: {', '.join(issues)}.")
-
-    if format_profile:
-        is_valid, reason = validate_format(draft, format_profile)
-        if not is_valid:
-            if format_profile.mandatory:
-                raise StyleRejection(f"Variant {label} broke mandatory format '{format_profile.name}': {reason}.")
-            else:
-                logger.warning(f"Variant {label} did not fully comply with optional format '{format_profile.name}': {reason}. Allowing to pass.")
-
-    analogy_hits = count_analogy_markers(draft)
-    if allow_analogy:
-        if analogy_hits > 1:
-            raise StyleRejection(f"Variant {label} uses too many analogies ({analogy_hits}).")
-    else:
-        if analogy_hits:
-            raise StyleRejection(f"Variant {label} must not use analogies.")
 
 
-DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
-    {
-        "key": "contrast_statement",
-        "name": "Contrast Statement",
-        "pattern": (
-            "Present two opposing ideas to create an instant reveal. Invalidate a common approach (Don't do X), then "
-            "present a stronger alternative (Do Y) — position Y as the obvious solution."
-        ),
-    },
-    {
-        "key": "perspective_reframe",
-        "name": "Perspective Reframe",
-        "pattern": (
-            "Start with a universal truth the reader recognizes. Introduce a twist that reframes it — turn a negative "
-            "(struggle) into a necessary element for a positive outcome (victory)."
-        ),
-    },
-    {
-        "key": "friction_reduction",
-        "name": "Friction Reduction Argument",
-        "pattern": (
-            "Directly address analysis paralysis or fear to start. Break an intimidating goal into an absurdly small, "
-            "manageable first step that motivates immediate action."
-        ),
-    },
-    {
-        "key": "identity_redefinition",
-        "name": "Identity Redefinition",
-        "pattern": (
-            "Dismantle a limiting label (e.g., 'I'm not a salesperson'). Replace it with a simpler, authentic requirement "
-            "that feels attainable and aligned with the reader's identity."
-        ),
-    },
-    {
-        "key": "parallel_contrast_aphorism",
-        "name": "Parallel Contrast Aphorism",
-        "pattern": (
-            "Use parallel, aphoristic contrast to juxtapose two ideas. Start from a familiar saying (If A is B), then "
-            "present a surprising counterpart (then C is D). Keep symmetry and punch."
-        ),
-    },
-    {
-        "key": "demonstrative_principle",
-        "name": "Demonstrative Principle",
-        "pattern": (
-            "Teach a copywriting rule by showing. Contrast a 'bad' version (feature) with a 'good' version (benefit), "
-            "then conclude with the principle demonstrated."
-        ),
-    },
-    {
-        "key": "counterintuitive_principle",
-        "name": "Counterintuitive Principle",
-        "pattern": (
-            "State a counterintuitive rule as a near-universal law that challenges a popular belief. Push the reader to "
-            "adopt a more effective method by reframing the goal."
-        ),
-    },
-    {
-        "key": "process_promise",
-        "name": "Process Promise",
-        "pattern": (
-            "Validate the reader's frustration: change isn't instant. Offer a future promise — tiny, consistent effort adds up "
-            "to a total transformation. Encourage patience and trust in the process."
-        ),
-    },
-    {
-        "key": "common_villain_exposure",
-        "name": "Common Villain Exposure",
-        "pattern": (
-            "Recreate a recognizable negative scenario the reader detests. Expose and criticize the shared villain to build "
-            "instant trust, positioning the writer as an ally."
-        ),
-    },
-    {
-        "key": "hidden_benefits_reveal",
-        "name": "Hidden Benefits Reveal",
-        "pattern": (
-            "Start with a promise to reveal the non-obvious value of an action. Use a short list to enumerate specific, "
-            "unexpected benefits — make the abstract tangible."
-        ),
-    },
-    {
-        "key": "values_manifesto",
-        "name": "Values Manifesto",
-        "pattern": (
-            "Redefine a popular idea with a value hierarchy in a compact list. Use A > B comparisons to prioritize deep "
-            "principles over superficial alternatives."
-        ),
-    },
-    {
-        "key": "delayed_gratification_formula",
-        "name": "Delayed Gratification Formula",
-        "pattern": (
-            "State a direct cause-effect between present sacrifice and future reward. Structure like: Do the hard thing today, "
-            "get the desired outcome tomorrow. Motivate disciplined action."
-        ),
-    },
-    {
-        "key": "excuse_invalidation",
-        "name": "Excuse Invalidation",
-        "pattern": (
-            "Identify a common external excuse (the blamed villain). Then absolve it and redirect responsibility to an internal "
-            "action or inaction, empowering the reader."
-        ),
-    },
-    {
-        "key": "revealing_definition",
-        "name": "Revealing Definition",
-        "pattern": (
-            "Redefine a known concept with a sharp metaphor that reveals its overlooked essence, raising its perceived value."
-        ),
-    },
-    {
-        "key": "fundamental_maxim",
-        "name": "Fundamental Maxim",
-        "pattern": (
-            "Present a core principle as a non-negotiable rule of the domain. Reset priorities by exposing the true hierarchy."
-        ),
-    },
-    {
-        "key": "paradox_statement",
-        "name": "Paradoxical Statement",
-        "pattern": (
-            "Drop a claim that sounds self-contradictory to break the reader's pattern. Hook curiosity, then resolve the paradox "
-            "with a practical reason that proves the rule."
-        ),
-    },
-]
 
 
-POST_CATEGORIES_PATH = os.getenv(
-    "POST_CATEGORIES_PATH",
-    os.path.join(os.path.abspath(os.path.dirname(__file__)), "config", "post_categories.json"),
-)
 
-BULLET_CATEGORIES = {
-    "hidden_benefits_reveal",
-    "values_manifesto",
-    "demonstrative_principle",
-    "friction_reduction",
-}
 
-_CACHED_POST_CATEGORIES: List[Dict[str, str]] = []
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 TAIL_SAMPLING_COUNT = int(os.getenv("TAIL_SAMPLING_COUNT", "3") or 3)
 
@@ -521,208 +184,32 @@ REVIEWER_PROFILES: List[Dict[str, str]] = [
 SENTENCE_SPLIT_REGEX = re.compile(r"(?<=[.!?])\s+")
 
 
-def load_post_categories() -> List[Dict[str, str]]:
-    global _CACHED_POST_CATEGORIES
-    if _CACHED_POST_CATEGORIES:
-        return _CACHED_POST_CATEGORIES
-    try:
-        if POST_CATEGORIES_PATH and os.path.exists(POST_CATEGORIES_PATH):
-            with open(POST_CATEGORIES_PATH, "r", encoding="utf-8") as f:
-                data = f.read().strip()
-                if data:
-                    import json
-
-                    parsed = json.loads(data)
-                    valid = []
-                    for item in parsed:
-                        if not isinstance(item, dict):
-                            continue
-                        key = (item.get("key") or "").strip()
-                        name = (item.get("name") or "").strip()
-                        pattern = (item.get("pattern") or "").strip()
-                        structure = (item.get("structure") or "").strip()
-                        why = (item.get("why") or "").strip()
-                        if key and name and pattern:
-                            valid.append(
-                                {
-                                    "key": key,
-                                    "name": name,
-                                    "pattern": pattern,
-                                    "structure": structure,
-                                    "why": why,
-                                }
-                            )
-                    if valid:
-                        _CACHED_POST_CATEGORIES = valid
-                        logger.info(f"Loaded {len(valid)} post categories from JSON.")
-                        return _CACHED_POST_CATEGORIES
-    except Exception as exc:
-        logger.warning(f"Failed to load post categories from '{POST_CATEGORIES_PATH}': {exc}")
-    _CACHED_POST_CATEGORIES = DEFAULT_POST_CATEGORIES
-    return _CACHED_POST_CATEGORIES
 
 
-def pick_random_post_category() -> Dict[str, str]:
-    return random.choice(load_post_categories())
 
 
-def ensure_under_limit_via_llm(
-    text: str,
-    model: str,
-    limit: int = 280,
-    attempts: int = 4,
-) -> str:
-    attempt = 0
-    best = text
-    while attempt < attempts:
-        attempt += 1
-        prompt = (
-            f"Rewrite the text so the TOTAL characters are <= {limit}. Preserve meaning and readability. "
-            f"Do NOT add quotes, emojis or hashtags. Prefer short words and compact phrasing. Return ONLY JSON: "
-            f'{{"text": "<final text under {limit} chars>"}}. Text must be <= {limit} characters.\n\n'
-            f"TEXT: {best}"
-        )
-        try:
-            data = llm.chat_json(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "You are a ruthless editor returning strict JSON only."},
-                    {"role": "user", "content": prompt},
-                ],
-                temperature=0.25,
-            )
-            candidate = (data or {}).get("text") if isinstance(data, dict) else None
-            if isinstance(candidate, str) and candidate.strip():
-                candidate = candidate.strip()
-                if len(candidate) <= limit:
-                    return candidate
-                best = candidate
-        except Exception:
-            continue
-    return best
 
 
-def _compact_text(text: str, limit: int = 1200) -> str:
-    cleaned = re.sub(r"\s+", " ", (text or "")).strip()
-    if len(cleaned) <= limit:
-        return cleaned
-    cut = cleaned[:limit].rstrip()
-    if " " in cut:
-        cut = cut[: cut.rfind(" ")].rstrip()
-    return cut + "…"
 
 
-def _ensure_question_at_end(text: str) -> str:
-    stripped = text.rstrip()
-    if stripped.endswith("?"):
-        return stripped[:-1] + "."
-    return stripped.rstrip(".!") + "."
 
 
-def ensure_char_range_via_llm(text: str, model: str, lo: int, hi: int) -> str:
-    """Attempt to rewrite text to fit within [lo, hi] characters while preserving punch and V3.1 tone.
 
-    Returns the best candidate (may still be out of range if provider fails).
-    """
-    text = (text or "").strip()
-    if not text:
-        return text
-    best = text
-    try:
-        prompt = (
-            f"Rewrite the text to keep brutal, street-smart tone and fit between {lo} and {hi} characters.\n"
-            "- One sentence per line. Keep short, punchy lines.\n"
-            "- No commas. No hashtags. English only.\n"
-            "Return ONLY the rewritten text.\n\n"
-            f"TEXT:\n{text}"
-        )
-        data = llm.chat_text(
-            model=model,
-            messages=[
-                {"role": "system", "content": "You are a ruthless editor returning plain text only."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.3,
-        )
-        candidate = (data or "").strip()
-        if candidate:
-            best = candidate
-    except Exception:
-        return best
-    return best
+
+
+
+
+
 
 
 # --- Adaptive helpers (lightweight rewrites) ---
-def compress_to_short(text: str, model: str) -> str:
-    """Rewrite text toward short variant limits (<=160 chars) while preserving tone.
-
-    Uses ensure_char_range_via_llm with an upper bound of 160 characters.
-    """
-    text = (text or "").strip()
-    if not text:
-        return ""
-    return ensure_char_range_via_llm(text, model, 0, 160)
 
 
-def expand_to_long(text: str, model: str) -> str:
-    """Rewrite text toward long variant limits (240–280 chars) while preserving tone.
-
-    Uses ensure_char_range_via_llm with bounds 240–280 characters.
-    """
-    text = (text or "").strip()
-    if not text:
-        return ""
-    return ensure_char_range_via_llm(text, model, 240, 280)
 
 
-def regenerate_single_variant(
-    label: str,
-    topic_abstract: str,
-    context: PromptContext,
-    settings: GenerationSettings,
-) -> Optional[str]:
-    """Ask the LLM to generate only one variant (short/mid/long) with V3.1 voice and target char range.
 
-    Returns the draft string or None on failure.
-    """
-    label = label.lower().strip()
-    if label not in {"short", "mid", "long"}:
-        return None
-    lo, hi = (0, 160) if label == "short" else ((180, 230) if label == "mid" else (240, 280))
-    sys = (
-        "You are a world-class ghostwriter. Follow the style contract and ICP exactly. "
-        "Return ONLY strict JSON."
-        "\n\n<STYLE_CONTRACT>\n" + context.contract + "\n</STYLE_CONTRACT>\n\n"
-        "Audience ICP:\n<ICP>\n" + context.icp + "\n</ICP>\n\n"
-        "<FINAL_REVIEW_GUIDELINES>\n" + context.final_guidelines + "\n</FINAL_REVIEW_GUIDELINES>"
-    )
-    user = (
-        f"Generate ONLY the '{label}' tweet draft for the topic below.\n"
-        f"- Preserve VOICE V3.1 (brutal, street-smart, zero polite).\n"
-        f"- English only. No hashtags. No commas.\n"
-        f"- Aim for {lo}–{hi} characters (hard target).\n\n"
-        f"Topic:\n{topic_abstract}\n\n"
-        "Return JSON ONLY: {\n"
-        f"  \"{label}\": \"...\"\n"
-        "}"
-    )
-    try:
-        data = llm.chat_json(
-            model=settings.generation_model,
-            messages=[
-                {"role": "system", "content": sys},
-                {"role": "user", "content": user},
-            ],
-            temperature=max(0.0, min(1.0, settings.generation_temperature)),
-        )
-        if not isinstance(data, dict):
-            return None
-        draft = str(data.get(label) or "").strip()
-        if not draft:
-            return None
-        return draft
-    except Exception:
-        return None
+
+
 
 
 def _limit_lines(text: str, max_lines: int = 2) -> str:
@@ -934,33 +421,7 @@ def _extract_key_terms(text: str, max_terms: int = 6) -> List[str]:
     return key_terms
 
 
-def _build_ab_prompt(
-    topic_abstract: str,
-    context: PromptContext,
-    shared_rules: str,
-    variant_blocks: List[str],
-) -> str:
-    sections = [
-        "You are a ghostwriter. Your task is to write TWO distinct alternatives for a tweet based on the topic below. "
-        "Obey the contract, the ICP, and the formatting guardrails exactly. No extra narration.",
-        "**Contract for style and tone:**",
-        context.contract,
-        "---",
-        "**Complementary polish guardrails (do not override the contract/ICP):**",
-        context.final_guidelines,
-        "---",
-        f"**Topic:** {topic_abstract}",
-        shared_rules,
-    ]
-    sections.extend(variant_blocks)
-    sections.append(
-        "**CRITICAL OUTPUT REQUIREMENTS:**\n"
-        "- Provide two high-quality, distinct alternatives in English.\n"
-        "- Respect the assigned format and hook for each variant.\n"
-        "- Both alternatives MUST be under 280 characters.\n"
-        "- Output will be parsed automatically. Do not add labels like [A] or [B]."
-    )
-    return "\n\n".join(sections)
+
 
 
 def _build_system_message(context: PromptContext) -> str:
@@ -979,97 +440,10 @@ def _build_system_message(context: PromptContext) -> str:
     )
 
 
-def _refine_single_tweet_style(raw_text: str, model: str, context: PromptContext) -> str:
-    prompt = (
-        "Polish the text to hit a sharper NYC bar voice — smart, direct, slightly impatient — while preserving meaning.\n"
-        "Respect the existing sentence count and order. Do not merge or add sentences.\n"
-        "Do NOT add emojis, hashtags, or Spanish.\n\n"
-        "Amplifiers (must do):\n"
-        "- First sentence must stay a hard hook (no soft lead-ins).\n"
-        "- Every sentence must describe something drawable; add micro-visual detail if missing.\n"
-        "- **Metaphor Audit:** If any analogy is abstract or philosophical, replace it with a direct, literal statement.\n"
-        "- If you see commas or conjunctions 'and'/'or' (or 'y'/'o'), split the idea into separate sentences instead.\n"
-        "- Cut adverbs ending in 'mente' or dull '-ly' fillers. Remove words: bueno, bien, solo, entonces, ya.\n"
-        "- Prefer verbs and nouns over adjectives. If an adjective is vague, swap it for a concrete action/object.\n"
-        "- Keep the inspirational hammer in the final sentence.\n"
-        f"{comma_guard_prompt()}"
-        f"{conjunction_guard_prompt()}"
-        f"{visual_anchor_prompt()}"
-        f"{words_blocklist_prompt()}"
-        "- Keep under 280 characters.\n\n"
-        f"RAW TEXT: --- {raw_text} ---"
-    )
-    system_message = (
-        "You are a world-class ghostwriter rewriting text into a specific style. "
-        "Follow the style contract exactly. Keep it concise and punchy.\n\n"
-        "<STYLE_CONTRACT>\n"
-        + context.contract
-        + "\n</STYLE_CONTRACT>\n\n"
-        "Audience ICP:\n<ICP>\n"
-        + context.icp
-        + "\n</ICP>\n\n"
-        "Complementary polish rules (do not override the contract/ICP):\n<FINAL_REVIEW_GUIDELINES>\n"
-        + context.final_guidelines
-        + "\n</FINAL_REVIEW_GUIDELINES>"
-    )
-    try:
-        text = llm.chat_text(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.6,
-        )
-        return text
-    except Exception:
-        return raw_text
 
 
-def _refine_single_tweet_style_flexible(raw_text: str, model: str, context: PromptContext) -> str:
-    prompt = (
-        "Refine the text while keeping the meaning, format, and cadence intact. Maintain the same number of sentences or bullet strikes.\n"
-        "Voice = NYC bar: smart, direct, a bit impatient. No emojis, no hashtags, no Spanish.\n\n"
-        "Amplifiers:\n"
-        "- Keep the opening punch stronger than before — hook in ≤8 words if format allows.\n"
-        "- Each sentence must be drawable and rooted in physical detail.\n"
-        "- **Metaphor Audit:** If any analogy is abstract or philosophical, replace it with a direct, literal statement.\n"
-        "- Remove commas and conjunctions 'and'/'or' ('y'/'o'). Split thoughts into separate sentences instead.\n"
-        "- Delete adverbs ending in 'mente' or filler '-ly' words. Ban: bueno, bien, solo, entonces, ya.\n"
-        "- Use actions/items instead of adjectives. If an adjective is vague, replace it.\n"
-        "- Ensure the final sentence is the inspirational hammer, no cheese.\n"
-        f"{comma_guard_prompt()}"
-        f"{conjunction_guard_prompt()}"
-        f"{visual_anchor_prompt()}"
-        f"{words_blocklist_prompt()}"
-        "- Keep the total under 280 characters.\n\n"
-        f"RAW TEXT: --- {raw_text} ---"
-    )
-    system_message = (
-        "You are a world-class ghostwriter rewriting text into a specific style. "
-        "Follow the style contract exactly, EXCEPT paragraph-count rules are explicitly overridden for this variant.\n\n"
-        "<STYLE_CONTRACT>\n"
-        + context.contract
-        + "\n</STYLE_CONTRACT>\n\n"
-        "Audience ICP:\n<ICP>\n"
-        + context.icp
-        + "\n</ICP>\n\n"
-        "Complementary polish rules (do not override the contract/ICP):\n<FINAL_REVIEW_GUIDELINES>\n"
-        + context.final_guidelines
-        + "\n</FINAL_REVIEW_GUIDELINES>"
-    )
-    try:
-        text = llm.chat_text(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.6,
-        )
-        return text
-    except Exception:
-        return raw_text
+
+
 
 
 def generate_all_variants(

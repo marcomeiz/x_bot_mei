@@ -91,7 +91,7 @@ Consulta:
 - `generate_tweet_from_topic(abstract)`:
   - Entrada: `abstract: str`.
   - Salida: `{\"short\": str, \"mid\": str, \"long\": str}` todos ≤ 280; si algo falla, `{ \"error\": \"...\" }`.
-- `find_relevant_topic()` devuelve `{"topic_id", "abstract", "source_pdf"?}` o `None`.
+
 - Watchers escriben JSON de salida en `json/<pdf>.json` y añaden a Chroma.
 
 ## Estilo de Código y Commits

@@ -13,7 +13,7 @@ This note tracks every configuration surface that impacts tweet/comment generati
 - `config/warden.yaml` define toggles y rangos (commas, words/line, mid/long chars, minimal mode, em dash). ENV (`WARDEN_CONFIG_PATH`, `ENFORCE_NO_COMMAS`, etc.) siguen como overrides.
 - `config/lexicon.json` provee listas de palabras vetadas/sufijos/stopwords (consumido vía `src/lexicon.py` por `writing_rules` y `variant_generators`).
 - `config/style_audit.yaml` controla enforcement, rondas y umbrales del guardián de estilo (cargado vía `src/style_config.py` con overrides ENV).
-- `src/goldset.py` + `GOLDSET_MIN_SIMILARITY` verifican que cada borrador mantenga similitud mínima con el gold set.
+- `prompts/validation/style_judge_v1.md` define el juez LLM de cumplimiento estricto del contrato; `proposal_service._check_contract_requirements` lo usa para devolver `[True|False,...]` y el control aplica `all(results)`.
 
 ## 3. Runtime Messages
 - `config/messages.yaml` centraliza mensajes de usuario para bot/propuesta/avisos (cargado vía `src/messages.py`).
@@ -122,6 +122,11 @@ Actualizar este documento tras cada etapa para mantener trazabilidad.
 **Fecha:** 2025-11-05  
 **Autor:** Mei  
 **Justificación:** `_check_contract_and_goldset` devolvía `passed=true` para las tres variantes (sim ≥ 0.77) y, sin embargo, se enviaba "⚠️ Variantes no cumplen el contrato. Reintentando…"; ahora se calcula `all_passed` con `all(sim[label] ≥ GOLDSET_MIN_SIMILARITY)` y se procede al envío.
+
+**Cambio:** Sustitución de validación por similitud (cosine/goldset) por Juez LLM en `proposal_service._check_contract_requirements`.  
+**Fecha:** 2025-11-05  
+**Autor:** Mei  
+**Justificación:** El chequeo de similitud no garantiza cumplimiento estricto del contrato; el Juez LLM devuelve true/false por borrador y simplifica el flujo de control con `all(results)`.
 
 Nota operativa: `GOLDSET_NPZ_GCS_URI` se mantiene apuntando a `gs://xbot-473616-x-bot-mei-db/goldset/goldset_v2_audited.npz` en Cloud Run (deploy scripts actualizados).
 

@@ -107,10 +107,11 @@ LOG_WARDEN_FAILURE_REASON=true
   - `EMBED_MODEL=openai/text-embedding-3-large` (3072)
   - `GOLDSET_COLLECTION_NAME=goldset_norm_v1` + `GOLDSET_NORMALIZER_VERSION=1`
 
-### Goldset (similitud de estilo)
+### Validación de contrato (Juez LLM) y uso del Goldset
 
-- El chequeo de similitud de las variantes usa el goldset, no los tópicos.
-  - Implementación: `ProposalService._check_contract_requirements` usa `get_goldset_similarity_details(draft, generate_if_missing=True)` para obtener similitud raw/norm + id del match.
+- La validación de contrato/estilo de cada borrador ahora la realiza un Juez LLM dedicado.
+  - Implementación: `ProposalService._check_contract_requirements` carga el prompt `prompts/validation/style_judge_v1.md` y llama a `_check_style_with_llm(draft)` por variante; devuelve `[bool, bool, bool]` y el control usa `all(results)`.
+  - El goldset ya no se usa para bloquear en esta verificación; se mantiene para anclaje de estilo (Style‑RAG) y para telemetría al aprobar/publicar.
   - Recuperación de anchors para generación/comentarios: ACTUALMENTE se usa selección aleatoria `src/goldset.retrieve_goldset_examples_random(k=5)` (audited v2, 21 vectores). El método NN (`retrieve_goldset_examples_nn(query, k)`) permanece disponible pero no es el predeterminado.
 
 > Cambio: Switch de NN a aleatorio (k=5) para anchors de Style‑RAG.
@@ -139,7 +140,7 @@ LOG_WARDEN_FAILURE_REASON=true
 - Estricto: antes de publicar la propuesta, se genera el embedding de cada variante A/B/C para medir similitud contra el goldset (impacta coste/latencia).
 - Se registra en logs: `[GOLDSET] Draft <A|B|C> similarity=<score> (min=<umbral>)`.
 - En la aprobación (A/B/C) se mantiene la generación de embedding del tweet aprobado para guardarlo en `memory_collection`.
-  - Enforcement points: `ProposalService._check_contract_requirements` → `get_goldset_similarity_details(..., generate_if_missing=True)`.
+- Enforcement points: `ProposalService._check_contract_requirements` → `_check_style_with_llm()` usando `prompts/validation/style_judge_v1.md`.
 
 ### Embeddings: fingerprint y dimensión
 
@@ -217,14 +218,14 @@ Validation for each: `short ≤160`, `mid 180–230`, `long 240–280`; one sent
   - `g_goldset_retrieve`: carga de anchors/ejemplos del goldset.
   - `g_llm_single_call`: llamada LLM que genera A/B/C.
   - `g_generate_variants`: envoltura de generación (desde propuesta).
-  - `g_check_contract_and_goldset`: verificación de contrato + similitud goldset.
+  - `g_check_contract_style_llm`: verificación de contrato/estilo vía Juez LLM.
   - `g_send_proposal`: envío del mensaje de propuesta a Telegram.
   - `g_embed_memory_on_approval`, `g_memory_add`: embedding y persistencia al aprobar.
   - `g_send_*`: tiempos de mensajes de aviso/errores y prompts de publicación.
 
 Nota de control (2025-11-05):
-- Cuando todas las variantes presentes pasan el umbral mínimo de similitud del goldset, el sistema considera éxito y evita el mensaje de reintento de contrato.
-- Implementación: `ProposalService.propose_tweet` calcula `all_passed_pre/post = all(sim[label] >= GOLDSET_MIN_SIMILARITY)` sobre las variantes presentes y procede al envío en caso afirmativo.
+- Cuando el Juez LLM devuelve true para todas las variantes presentes, el sistema considera éxito y evita el mensaje de reintento de contrato.
+- Implementación: `ProposalService.propose_tweet` calcula `all_passed_pre/post = all(check_results)` sobre las variantes presentes y procede al envío en caso afirmativo.
 
 ## Resumen de variantes en logs
 

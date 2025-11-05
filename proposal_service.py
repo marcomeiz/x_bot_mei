@@ -19,6 +19,8 @@ from embeddings_manager import get_embedding, get_memory_collection
 from evaluation import evaluate_draft
 from logger_config import logger
 from prompt_context import build_prompt_context
+from persona import get_style_contract_text
+from src.prompt_loader import load_prompt
 from style_guard import StyleRejection
 from telegram_client import TelegramClient
 from llm_fallback import llm
@@ -308,8 +310,8 @@ class ProposalService:
                 self.telegram.send_message(chat_id, get_message("variants_similar_initial"))
             return False
 
-        with Timer("g_check_contract_and_goldset", labels={"chat_id": chat_id}):
-            compliance_warnings, blocking_contract, sims_pre = self._check_contract_requirements(
+        with Timer("g_check_contract_style_llm", labels={"chat_id": chat_id}):
+            check_results_pre = self._check_contract_requirements(
                 {
                     "short": draft_a,
                     "mid": draft_b,
@@ -318,17 +320,8 @@ class ProposalService:
                 piece_id=topic_id,
                 log_stage="PRE",
             )
-        # Si todas las variantes presentes pasan el umbral de similitud, considerar éxito y continuar
-        try:
-            present_pre = [lbl for lbl, txt in (("short", draft_a), ("mid", draft_b), ("long", draft_c)) if (txt or "").strip()]
-            pass_flags_pre = []
-            for lbl in present_pre:
-                simv = sims_pre.get(lbl) if isinstance(sims_pre, dict) else None
-                pass_flags_pre.append(bool(simv is not None and float(simv) >= GOLDSET_MIN_SIMILARITY))
-            all_passed_pre = bool(pass_flags_pre) and all(pass_flags_pre)
-        except Exception:
-            all_passed_pre = False
-        if blocking_contract and not all_passed_pre:
+        all_passed_pre = bool(check_results_pre) and all(check_results_pre)
+        if not all_passed_pre:
             if ignore_similarity:
                 self.telegram.send_message(
                     chat_id,
@@ -339,34 +332,8 @@ class ProposalService:
             with Timer("g_send_warning_contract_retry", labels={"chat_id": chat_id}):
                 self.telegram.send_message(chat_id, get_message("contract_retry"))
             return False
-        if not blocking_contract and compliance_warnings:
-            logger.info(
-                "[CHAT_ID: %s] Variantes con avisos de contrato: %s",
-                chat_id,
-                compliance_warnings,
-            )
-            if LOG_GENERATED_VARIANTS:
-                for label, warning in compliance_warnings.items():
-                    logger.warning("[CHAT_ID: %s] Draft %s contract check: %s", chat_id, label, warning)
-            for key, warning in compliance_warnings.items():
-                variant_errors[key] = (
-                    f"{warning} " + variant_errors[key]
-                ) if key in variant_errors else warning
         if all_passed_pre:
             logger.info("[CONTROL] Todos los drafts pasaron (PRE). Enviando al usuario.")
-        if compliance_warnings:
-            logger.info(
-                "[CHAT_ID: %s] Variantes con avisos de contrato: %s",
-                chat_id,
-                compliance_warnings,
-            )
-            if LOG_GENERATED_VARIANTS:
-                for label, warning in compliance_warnings.items():
-                    logger.warning("[CHAT_ID: %s] Draft %s contract check: %s", chat_id, label, warning)
-            for key, warning in compliance_warnings.items():
-                variant_errors[key] = (
-                    f"{warning} " + variant_errors[key]
-                ) if key in variant_errors else warning
 
         available_a = bool(draft_a)
         available_b = bool(draft_b)
@@ -506,7 +473,7 @@ class ProposalService:
             "mid": ("refine" if "B" in refined_labels else "gen"),
             "long": ("refine" if "C" in refined_labels else "gen"),
         }
-        compliance_warnings, blocking_contract, sims_map = self._check_contract_requirements(
+        check_results_post = self._check_contract_requirements(
             draft_map,
             piece_id=topic_id,
             variant_sources=variant_sources_map,
@@ -515,19 +482,8 @@ class ProposalService:
         if LOG_GENERATED_VARIANTS:
             for label, text in draft_map.items():
                 logger.info("[CHAT_ID: %s] Draft %s generated (%s chars):\n%s", chat_id, label, len((text or "")), text or "<vacío>")
-            for label, warning in compliance_warnings.items():
-                logger.warning("[CHAT_ID: %s] Draft %s contract check: %s", chat_id, label, warning)
-        # Evaluación explícita: éxito si TODAS las variantes presentes pasan el umbral
-        try:
-            present_post = [lbl for lbl, txt in draft_map.items() if (txt or "").strip()]
-            pass_flags_post = []
-            for lbl in present_post:
-                simv = sims_map.get(lbl) if isinstance(sims_map, dict) else None
-                pass_flags_post.append(bool(simv is not None and float(simv) >= GOLDSET_MIN_SIMILARITY))
-            all_passed_post = bool(pass_flags_post) and all(pass_flags_post)
-        except Exception:
-            all_passed_post = False
-        if blocking_contract and not all_passed_post:
+        all_passed_post = bool(check_results_post) and all(check_results_post)
+        if not all_passed_post:
             if ignore_similarity:
                 self.telegram.send_message(
                     chat_id,
@@ -541,7 +497,7 @@ class ProposalService:
                         drafts=draft_map,
                         evaluations=normalized_evals,
                         blocked=True,
-                        blocking_reason="contract_requirements_failed (no valid variants)",
+                        blocking_reason="style_llm_judge_failed (no valid variants)",
                     )
                 except Exception:
                     logger.debug("Diag logging (contract block) skipped due to an error.")
@@ -554,20 +510,13 @@ class ProposalService:
                     drafts=draft_map,
                     evaluations=normalized_evals,
                     blocked=True,
-                    blocking_reason="contract_requirements_failed (retry requested)",
+                    blocking_reason="style_llm_judge_failed (retry requested)",
                 )
             except Exception:
                 logger.debug("Diag logging (contract retry) skipped due to an error.")
             return False
         if all_passed_post:
             logger.info("[CONTROL] Todos los drafts pasaron (POST). Enviando al usuario.")
-        if compliance_warnings:
-            logger.info(
-                "[CHAT_ID: %s] Variantes con avisos de contrato: %s",
-                chat_id,
-                compliance_warnings,
-            )
-            variant_errors.update(compliance_warnings)
 
         if LOG_GENERATED_VARIANTS:
             for label, text in draft_map.items():
@@ -586,14 +535,10 @@ class ProposalService:
             errors=variant_errors,
         )
 
-        # Resumen final de variantes y similitud
+        # Resumen final de variantes
         try:
             ordered = [k for k in ("A", "B", "C") if draft_map.get(k)]
-            lines = []
-            for k in ordered:
-                sim = sims_map.get(k)
-                s = "NA" if sim is None else f"{sim:.3f}"
-                lines.append(f"  - {k} | sim={s} | {draft_map.get(k)}")
+            lines = [f"  - {k} | {draft_map.get(k)}" for k in ordered]
             if lines:
                 logger.info("[SUMMARY]\n%s", "\n".join(lines))
         except Exception:
@@ -759,117 +704,86 @@ class ProposalService:
         piece_id: Optional[str] = None,
         variant_sources: Optional[Dict[str, str]] = None,
         log_stage: str = "contract_check",
-    ) -> Tuple[Dict[str, str], bool, Dict[str, Optional[float]]]:
+    ) -> list[bool]:
         """
-        Evalúa requisitos del contrato para cada variante y decide si se debe bloquear.
+        Nuevo juez de estilo (LLM): valida cada borrador estrictamente contra el STYLE_CONTRACT.
 
-        Nuevo comportamiento: solo bloqueamos si TODAS las variantes presentes no cumplen
-        los requisitos mínimos (segunda persona y similitud mínima con goldset). Si al menos
-        una variante es válida, no bloqueamos y dejamos que se envíen las disponibles.
-
-        `log_stage` permite etiquetar el evento estructurado (pre/final/update) para que
-        Cloud Logging distinga entre el chequeo inicial y el definitivo con similitud real.
+        Devuelve una lista de booleanos en orden de inspección para los borradores presentes.
+        No emite avisos ni calcula similitud del goldset. La decisión de bloquear depende de
+        `all(results)` en el llamador.
         """
-        warnings: Dict[str, str] = {}
-        # Config del modelo de embeddings en runtime para diagnóstico
-        try:
-            s = AppSettings.load()
-            emb_model_runtime = getattr(s, "embed_model", None)
-        except Exception:
-            emb_model_runtime = None
-        sims: Dict[str, Optional[float]] = {}
-        any_valid = False
-
-        for label, text in drafts.items():
-            content = (text or "").strip()
+        results: list[bool] = []
+        # Normaliza el orden: short, mid, long si existen; si recibe A/B/C, los mapea
+        norm_map = {
+            "A": "short",
+            "B": "mid",
+            "C": "long",
+        }
+        ordered_labels = ["short", "mid", "long"]
+        # Construir un dict normalizado
+        norm_drafts: Dict[str, str] = {}
+        for lbl, txt in drafts.items():
+            key = norm_map.get(lbl, lbl)
+            norm_drafts[key] = txt
+        for key in ordered_labels:
+            content = (norm_drafts.get(key) or "").strip()
             if not content:
-                # Variante no presente; no aporta a validez ni genera aviso
                 continue
-
-            lower = content.lower()
-            speaks_to_you = bool(
-                re.search(r"\byou\b", lower)
-                or re.search(r"\byou['’]re\b", lower)
-                or re.search(r"\byou['’]ll\b", lower)
-                or re.search(r"\byour\b", lower)
-            )
-
-            issues = []
-            # Modo estricto: generar embedding del borrador para comparar con goldset
-            sim_details = get_goldset_similarity_details(content, generate_if_missing=True)
-            similarity = sim_details.similarity
-            similarity_raw = sim_details.similarity_raw
-            similarity_norm = sim_details.similarity_norm
-            best_pair_id = sim_details.best_id
-            sims[label] = similarity
-            if similarity is None:
-                logger.info(
-                    "[GOLDSET] Draft %s similarity=None (no cache available; embedding generation may have failed).",
-                    label,
-                )
-            else:
-                logger.info(
-                    "[GOLDSET] Draft %s similarity=%.3f (min=%.2f)",
-                    label,
-                    similarity,
-                    GOLDSET_MIN_SIMILARITY,
-                )
-            # Mantener sugerencia de voz aunque similitud sea None
-            if similarity is not None:
-                issues.append(f"Sugerencia: refuerza la voz (similitud {similarity:.2f}).")
-            if similarity is not None and similarity < GOLDSET_MIN_SIMILARITY:
-                logger.warning(
-                    "[CONTRACT] Draft %s flagged: similarity %.3f under %.3f.",
-                    label,
-                    similarity,
-                    GOLDSET_MIN_SIMILARITY,
-                )
-            if not speaks_to_you:
-                issues.append("Sugerencia: habla en segunda persona ('you').")
-
-            # Consideramos válida si cumple los dos criterios clave
-            is_valid = speaks_to_you and (similarity is None or similarity >= GOLDSET_MIN_SIMILARITY)
-            any_valid = any_valid or is_valid
-
-            # Emisión de log estructurado por variante (sin truncar texto)
             try:
-                from datetime import datetime, timezone as _tz
-                import os as _os
-                # normaliza etiquetas de variante a short/mid/long
-                _variant_map = {"A": "short", "B": "mid", "C": "long"}
-                _variant_norm = _variant_map.get(label, label)
-                _min_required = float(_os.getenv("GOLDSET_MIN_SIMILARITY", "0.75"))
-                _sim_float = float(similarity) if similarity is not None else None
-                passed_flag = bool(_sim_float is not None and _sim_float >= _min_required)
-                active_collection = get_active_goldset_collection_name()
-                log_post_metrics(
-                    piece_id=piece_id,
-                    variant=_variant_norm,
-                    draft_text=content,
-                    similarity=_sim_float,
-                    min_required=_min_required,
-                    passed=passed_flag,
-                    similarity_raw=similarity_raw,
-                    similarity_norm=similarity_norm,
-                    max_pair_id=best_pair_id,
-                    emb_model_runtime=emb_model_runtime or "unknown",
-                    emb_model_goldset="openai/text-embedding-3-large",
-                    sim_kind="max_cosine_goldset",
-                    goldset_collection=active_collection,
-                    variant_source=(variant_sources.get(_variant_norm) if isinstance(variant_sources, dict) else "gen") or "gen",
-                    timestamp=datetime.now(_tz.utc).isoformat(),
-                    event_stage=log_stage,
-                )
-            except Exception as logging_error:
-                # No interrumpir el flujo por fallos de logging
-                logger.debug("Diag logging (variant_evaluation) skipped due to an error: %s", logging_error)
+                ok = self._check_style_with_llm(content)
+            except Exception as e:
+                logger.warning("[JUDGE] Error validando estilo para '%s' (%s): %s", key, log_stage, e)
+                ok = False
+            results.append(bool(ok))
+        return results
 
-            if issues:
-                warnings[label] = " ".join(issues)
-
-        # Bloqueamos solo si ninguna variante válida está disponible
-        blocking = not any_valid
-        return warnings, blocking, sims
+    def _check_style_with_llm(self, draft_text: str) -> bool:
+        """
+        Llama a un LLM (modo juez) para validar estilo vs STYLE_CONTRACT.
+        Respuesta esperada: 'true' o 'false'. Devuelve bool.
+        """
+        s = AppSettings.load()
+        prompts_dir = s.prompts_dir
+        # Cargar contrato vigente
+        contract_text = get_style_contract_text()
+        # Cargar prompt del juez
+        spec = load_prompt(prompts_dir, "validation/style_judge_v1")
+        body = spec.template
+        # Extraer SYSTEM y USER del cuerpo (si están etiquetados)
+        sys_match = re.search(r"<SYSTEM_PROMPT>\s*([\s\S]*?)\s*</SYSTEM_PROMPT>", body, re.IGNORECASE)
+        usr_match = re.search(r"<USER_PROMPT>\s*([\s\S]*?)\s*</USER_PROMPT>", body, re.IGNORECASE)
+        if sys_match and usr_match:
+            system_text = (sys_match.group(1) or "").strip()
+            user_template = (usr_match.group(1) or "").strip()
+        else:
+            # Fallback: todo el cuerpo como user; system por defecto
+            system_text = (
+                "Eres un editor de estilo de élite, implacable y preciso. Tu única tarea es evaluar si el [BORRADOR] "
+                "se adhiere estrictamente al [CONTRATO].\n\n"
+                "Tu respuesta debe ser únicamente la palabra 'true' o la palabra 'false'. No añadas explicaciones."
+            )
+            user_template = body
+        # Render del user con variables
+        try:
+            # Usamos el motor de render de PromptSpec para proteger llaves
+            # Creamos una copia con el template del user
+            from src.prompt_loader import PromptSpec
+            tmp = PromptSpec(id=spec.id, template=user_template, inputs=["style_contract_text", "draft_text"]) 
+            user_text = tmp.render(style_contract_text=contract_text, draft_text=draft_text)
+        except Exception:
+            # Fallback simple
+            user_text = user_template.format(style_contract_text=contract_text, draft_text=draft_text)
+        model = s.eval_fast_model
+        response = llm.chat_text(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_text},
+                {"role": "user", "content": user_text},
+            ],
+            temperature=0.1,
+        )
+        result = str(response or "").strip().lower()
+        return result == "true"
 
     def _should_refine_variant(self, evaluation: Optional[Dict[str, object]], text: str) -> bool:
         if not evaluation or not isinstance(evaluation, dict):

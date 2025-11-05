@@ -8,6 +8,17 @@
 - Docs: ARCHITECTURE_GCP.md, MAINTENANCE_SCALING.md, TECH_COMPARISON.md
 - Backfill Firestore desde Chroma (scripts/backfill_firestore_from_chroma.py)
 
+### Cambio: Sustitución de validación por similitud (cosine) por Juez LLM (proposal_service)
+- Propósito: Validar estrictamente el estilo de cada borrador contra el STYLE_CONTRACT usando un LLM que responde solo true/false, eliminando ambigüedad por métricas de similitud.
+- Justificación: La verificación basada en similitud al goldset no garantiza cumplimiento estricto del contrato; un juez LLM reduce falsos positivos y simplifica el control de flujo con `all([bools])`.
+- Cambios:
+  - Nuevo prompt `prompts/validation/style_judge_v1.md` con System/User y placeholders `{style_contract_text}` y `{draft_text}`.
+  - `proposal_service._check_contract_requirements`: elimina toda lógica de embeddings/similitud; ahora itera sobre short/mid/long y llama a `_check_style_with_llm()` devolviendo `[True|False,...]`.
+  - `proposal_service._check_style_with_llm`: carga el contrato (11 puntos), renderiza el prompt y llama al LLM rápido; limpia la respuesta y retorna bool.
+  - `proposal_service.propose_tweet`: utiliza `all(check_results_pre/post)` para decidir envío/rehint y actualiza logs de control.
+- Autor: Mei
+- Fecha: 2025-11-05
+
 ### Fix: Bucle de reintentos trataba éxito como fallo (proposal_service)
 - Propósito: Evitar reintentos innecesarios cuando todas las variantes generadas pasan los checks de contrato/similitud del goldset.
 - Justificación: Los logs mostraban `_check_contract_and_goldset` con `passed=true` para las 3 variantes (sim ≥ 0.77) y, aun así, el bot enviaba "⚠️ Variantes no cumplen el contrato. Reintentando…".

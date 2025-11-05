@@ -29,7 +29,7 @@ ENFORCE_NO_COMMAS=true
 ENFORCE_NO_AND_OR=true
 WARDEN_WORDS_PER_LINE_LO=5
 WARDEN_WORDS_PER_LINE_HI=12
-MID_MIN=180
+MID_MIN=140
 MID_MAX=230
 LONG_MIN=240
 LONG_MAX=280
@@ -161,7 +161,7 @@ gcloud run services update x-bot-mei \
   POST_PRESET=balanced,POST_TEMPERATURE=0.6,\
   ENFORCE_NO_COMMAS=true,ENFORCE_NO_AND_OR=true,\
   WARDEN_WORDS_PER_LINE_LO=5,WARDEN_WORDS_PER_LINE_HI=12,\
-  MID_MIN=180,MID_MAX=230,LONG_MIN=240,LONG_MAX=280,\
+  MID_MIN=140,MID_MAX=230,LONG_MIN=240,LONG_MAX=280,\
   EMBED_MODEL=openai/text-embedding-3-large,\
   CHROMA_DB_URL=http://<host>:<port>,\
   LOG_WARDEN_FAILURE_REASON=true
@@ -173,7 +173,7 @@ gcloud run services update x-bot-mei \
 2) `Onboarding: too many DMs and no system` — Expect single intake form → auto‑tag → queue.
 3) `Pricing floor: stop custom quotes` — Expect set floor price → publish → faster “no”.
 
-Validation for each: `short ≤160`, `mid 180–230`, `long 240–280`; one sentence per line; 5–12 words per line; no commas/and‑or; english‑only; no hedging/cliché/hype; visible micro‑win.
+Validation for each: `short ≤140`, `mid 140–230`, `long 240–280`; one sentence per line; 5–12 words per line; no commas/and‑or; english‑only; no hedging/cliché/hype; visible micro‑win.
 
 ## Troubleshooting
 

@@ -36,7 +36,7 @@ This note tracks every configuration surface that impacts tweet/comment generati
 
 Pipeline adaptativo:
 - Paso 1: generate_mid() – una sola generación creativa por defecto.
-- Paso 2: compress_to_short() – reescritura hacia ≤160 chars si no hubo early-stop.
+- Paso 2: compress_to_short() – reescritura hacia ≤140 chars si no hubo early-stop.
 - Paso 3: expand_to_long() – reescritura hacia 240–280 chars si no hubo early-stop.
 
 Criterio de early-stop:
@@ -150,7 +150,7 @@ Nota operativa: `GOLDSET_NPZ_GCS_URI` se mantiene apuntando a `gs://xbot-473616-
   - `judge_reasoning`, `judge_tono`, `judge_diccion`, `judge_ritmo`
 - Razón del cambio: mejorar trazabilidad del porqué falla un borrador (diagnóstico rápido) sin romper compatibilidad.
 
-**Cambio:** Nuevo helper `compress_to_mid()` en `variant_generators.py` (180–230 chars) reutilizando `ensure_char_range_via_llm`.  
+**Cambio:** Nuevo helper `compress_to_mid()` en `variant_generators.py` (140–230 chars) reutilizando `ensure_char_range_via_llm`.  
 **Fecha:** 2025-11-05  
 **Autor:** AI assistant  
 **Justificación:** Completar el set de utilidades de reescritura para permitir derivación consistente de MID/SHORT desde LONG sin duplicar lógica.

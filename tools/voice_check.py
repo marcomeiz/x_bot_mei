@@ -15,7 +15,7 @@ Checks (mechanical, LLM-free):
   - No and/or (unless ENFORCE_NO_AND_OR=0)
   - No hashtags, links, emojis
   - No hedging/cliché/hype heuristics
-  - Character ranges: short ≤160; mid 180–230; long 240–280
+  - Character ranges: short ≤140; mid 140–230; long 240–280
 
 Exit code: 0 if all pass; 1 otherwise.
 """
@@ -116,4 +116,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

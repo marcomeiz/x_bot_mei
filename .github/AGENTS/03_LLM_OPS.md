@@ -23,7 +23,7 @@
 ## Generación (A/B/C)
 - Prompt único con contrato, ICP y guías finales.
 - Guardrails: sin comas; sin “and/or”/“y/o”; sin `-mente`/`-ly`; ≤280; hooks; formatos (staccato, stair up/down, list strikes).
-- Variantes: `short` (~<=160), `mid` (~180–230), `long` (~240–280).
+- Variantes: `short` (~<=140), `mid` (~140–230), `long` (~240–280).
 - Validación y refinado: si viola reglas/longitud, se corrige vía LLM; nunca truncado local.
 
 ## Evaluación (dos jueces)

@@ -93,7 +93,7 @@ DEFAULT_WARDEN_GUARDRAILS = {
     "enforce_no_commas": True,
     "enforce_no_and_or": True,
     "words_per_line": {"min": 5, "max": 12},
-    "mid_chars": {"min": 180, "max": 230},
+    "mid_chars": {"min": 140, "max": 230},
     "long_chars": {"min": 240, "max": 280},
     "suspend_guardrails": False,
     "minimal_mode": False,
@@ -184,7 +184,7 @@ long_cfg = _guardrail_cfg.get("long_chars", {}) if isinstance(_guardrail_cfg.get
 
 WARDEN_WPL_LO = _env_int_override("WARDEN_WORDS_PER_LINE_LO", _cfg_int(words_cfg.get("min"), 5))
 WARDEN_WPL_HI = _env_int_override("WARDEN_WORDS_PER_LINE_HI", _cfg_int(words_cfg.get("max"), 12))
-MID_MIN = _env_int_override("MID_MIN", _cfg_int(mid_cfg.get("min"), 180))
+MID_MIN = _env_int_override("MID_MIN", _cfg_int(mid_cfg.get("min"), 140))
 MID_MAX = _env_int_override("MID_MAX", _cfg_int(mid_cfg.get("max"), 230))
 LONG_MIN = _env_int_override("LONG_MIN", _cfg_int(long_cfg.get("min"), 240))
 LONG_MAX = _env_int_override("LONG_MAX", _cfg_int(long_cfg.get("max"), 280))
@@ -263,7 +263,7 @@ def _no_banned_language(text: str) -> Optional[str]:
 def _range_ok(label: str, s: str) -> bool:
     n = len(s)
     if label == "short":
-        return n <= 160
+        return n <= 140
     if label == "mid":
         return MID_MIN <= n <= MID_MAX
     if label == "long":
@@ -654,25 +654,25 @@ def ensure_char_range_via_llm(text: str, model: str, lo: int, hi: int) -> str:
 
 # --- Adaptive helpers (lightweight rewrites) ---
 def compress_to_short(text: str, model: str) -> str:
-    """Rewrite text toward short variant limits (<=160 chars) while preserving tone.
+    """Rewrite text toward short variant limits (<=140 chars) while preserving tone.
 
-    Uses ensure_char_range_via_llm with an upper bound of 160 characters.
+    Uses ensure_char_range_via_llm with an upper bound of 140 characters.
     """
     text = (text or "").strip()
     if not text:
         return ""
-    return ensure_char_range_via_llm(text, model, 0, 160)
+    return ensure_char_range_via_llm(text, model, 0, 140)
 
 
 def compress_to_mid(text: str, model: str) -> str:
-    """Rewrite text toward mid variant limits (180–230 chars) while preserving tone.
+    """Rewrite text toward mid variant limits (140–230 chars) while preserving tone.
 
-    Uses ensure_char_range_via_llm with bounds 180–230 characters.
+    Uses ensure_char_range_via_llm with bounds 140–230 characters.
     """
     text = (text or "").strip()
     if not text:
         return ""
-    return ensure_char_range_via_llm(text, model, 180, 230)
+    return ensure_char_range_via_llm(text, model, 140, 230)
 
 
 def expand_to_long(text: str, model: str) -> str:
@@ -699,7 +699,7 @@ def regenerate_single_variant(
     label = label.lower().strip()
     if label not in {"short", "mid", "long"}:
         return None
-    lo, hi = (0, 160) if label == "short" else ((180, 230) if label == "mid" else (240, 280))
+    lo, hi = (0, 140) if label == "short" else ((140, 230) if label == "mid" else (240, 280))
     sys = (
         "You are a world-class ghostwriter. Follow the style contract and ICP exactly. "
         "Return ONLY strict JSON."

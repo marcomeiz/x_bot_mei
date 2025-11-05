@@ -19,7 +19,7 @@ Justificación: El flujo secuencial tradicional genera y evalúa múltiples vari
 - Circuit breaker: si falla, aborta el pipeline.
 
 3. VARIANTS_FROM_LONG
-- Derivación paralela de MID y SHORT usando el mismo modelo refiner (`POST_REFINER_MODEL`).
+- Derivación paralela de MID (140–230 chars) y SHORT (≤140 chars) usando el mismo modelo refiner (`POST_REFINER_MODEL`).
 - APIs: `compress_to_mid(long_text, model)` y `compress_to_short(long_text, model)`.
 - Ambas variantes deben basarse estrictamente en el LONG aprobado.
 

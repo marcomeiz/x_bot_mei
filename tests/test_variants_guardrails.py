@@ -40,10 +40,13 @@ def test_english_only_and_banned_language():
 
 
 def test_char_ranges():
-    assert _range_ok("short", "A" * 160)
-    assert not _range_ok("short", "A" * 161)
+    # short: ≤140
+    assert _range_ok("short", "A" * 140)
+    assert not _range_ok("short", "A" * 141)
+    # mid: 140–230
     assert _range_ok("mid", "A" * 200)
-    assert not _range_ok("mid", "A" * 179)
+    assert not _range_ok("mid", "A" * 139)
+    assert not _range_ok("mid", "A" * 231)
     assert _range_ok("long", "A" * 260)
     assert not _range_ok("long", "A" * 239)
 

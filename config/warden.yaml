@@ -5,7 +5,7 @@ comment_guardrails:
     min: 5
     max: 12
   mid_chars:
-    min: 180
+    min: 140
     max: 230
   long_chars:
     min: 240

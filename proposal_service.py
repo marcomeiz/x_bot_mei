@@ -23,7 +23,7 @@ from style_guard import StyleRejection
 from telegram_client import TelegramClient
 from llm_fallback import llm
 from src.messages import get_message
-from src.goldset import GOLDSET_MIN_SIMILARITY, max_similarity_to_goldset, GOLDSET_COLLECTION_NAME
+from src.goldset import GOLDSET_MIN_SIMILARITY, GOLDSET_COLLECTION_NAME, get_goldset_similarity_details
 from src.settings import AppSettings
 from diagnostics_logger import log_post_metrics
 from metrics import Timer, record_metric
@@ -299,11 +299,15 @@ class ProposalService:
             return False
 
         with Timer("g_check_contract_and_goldset", labels={"chat_id": chat_id}):
-            compliance_warnings, blocking_contract, _ = self._check_contract_requirements({
-            "short": draft_a,
-            "mid": draft_b,
-            "long": draft_c,
-        }, piece_id=topic_id)
+            compliance_warnings, blocking_contract, _ = self._check_contract_requirements(
+                {
+                    "short": draft_a,
+                    "mid": draft_b,
+                    "long": draft_c,
+                },
+                piece_id=topic_id,
+                log_stage="pre",
+            )
         if blocking_contract:
             if ignore_similarity:
                 self.telegram.send_message(
@@ -471,6 +475,7 @@ class ProposalService:
             draft_map,
             piece_id=topic_id,
             variant_sources=variant_sources_map,
+            log_stage="final",
         )
         if LOG_GENERATED_VARIANTS:
             for label, text in draft_map.items():
@@ -701,13 +706,22 @@ class ProposalService:
                 best_pair = (label_a, label_b, similarity)
         return False, best_pair
 
-    def _check_contract_requirements(self, drafts: Dict[str, str], piece_id: Optional[str] = None, variant_sources: Optional[Dict[str, str]] = None) -> Tuple[Dict[str, str], bool, Dict[str, Optional[float]]]:
+    def _check_contract_requirements(
+        self,
+        drafts: Dict[str, str],
+        piece_id: Optional[str] = None,
+        variant_sources: Optional[Dict[str, str]] = None,
+        log_stage: str = "contract_check",
+    ) -> Tuple[Dict[str, str], bool, Dict[str, Optional[float]]]:
         """
         Evalúa requisitos del contrato para cada variante y decide si se debe bloquear.
 
         Nuevo comportamiento: solo bloqueamos si TODAS las variantes presentes no cumplen
         los requisitos mínimos (segunda persona y similitud mínima con goldset). Si al menos
         una variante es válida, no bloqueamos y dejamos que se envíen las disponibles.
+
+        `log_stage` permite etiquetar el evento estructurado (pre/final/update) para que
+        Cloud Logging distinga entre el chequeo inicial y el definitivo con similitud real.
         """
         warnings: Dict[str, str] = {}
         # Config del modelo de embeddings en runtime para diagnóstico
@@ -735,7 +749,11 @@ class ProposalService:
 
             issues = []
             # Modo estricto: generar embedding del borrador para comparar con goldset
-            similarity = max_similarity_to_goldset(content, generate_if_missing=True)
+            sim_details = get_goldset_similarity_details(content, generate_if_missing=True)
+            similarity = sim_details.similarity
+            similarity_raw = sim_details.similarity_raw
+            similarity_norm = sim_details.similarity_norm
+            best_pair_id = sim_details.best_id
             sims[label] = similarity
             if similarity is None:
                 logger.info(
@@ -783,12 +801,16 @@ class ProposalService:
                     similarity=_sim_float,
                     min_required=_min_required,
                     passed=passed_flag,
-                    emb_model_runtime="openai/text-embedding-3-large",
+                    similarity_raw=similarity_raw,
+                    similarity_norm=similarity_norm,
+                    max_pair_id=best_pair_id,
+                    emb_model_runtime=emb_model_runtime or "unknown",
                     emb_model_goldset="openai/text-embedding-3-large",
                     sim_kind="max_cosine_goldset",
-                    goldset_collection=_os.getenv("GOLDSET_COLLECTION_NAME", "unknown"),
+                    goldset_collection=GOLDSET_COLLECTION_NAME,
                     variant_source=(variant_sources.get(_variant_norm) if isinstance(variant_sources, dict) else "gen") or "gen",
                     timestamp=datetime.now(_tz.utc).isoformat(),
+                    event_stage=log_stage,
                 )
             except Exception as logging_error:
                 # No interrumpir el flujo por fallos de logging

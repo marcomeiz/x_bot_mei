@@ -21,21 +21,38 @@ def log_post_metrics(
     Construye el payload esperado y lo envía como jsonPayload.
     """
     PIPELINE_VERSION = os.getenv("PIPELINE_VERSION", "legacy_v1")
+    default_collection = os.getenv("GOLDSET_COLLECTION_NAME", "goldset_norm_v1")
+    goldset_collection = extra.get("goldset_collection")
+    if not goldset_collection:
+        goldset_collection = default_collection
+    similarity_value = similarity if similarity is not None else extra.get("similarity")
+    similarity_raw = extra.get("similarity_raw")
+    similarity_norm = extra.get("similarity_norm")
+    max_pair_id = extra.get("max_pair_id")
     p = {
         "event": "variant_evaluation",
         "piece_id": piece_id,
         "variant": variant,
         "draft_text": draft_text,
-        "similarity": similarity,
+        "similarity": similarity_value,
+        "similarity_raw": similarity_raw,
+        "similarity_norm": similarity_norm,
+        "max_pair_id": max_pair_id,
         "min_required": min_required,
         "passed": passed,
         "emb_model_runtime": extra.get("emb_model_runtime"),
         "emb_model_goldset": extra.get("emb_model_goldset"),
         "sim_kind": extra.get("sim_kind"),
-        "goldset_collection": extra.get("goldset_collection"),
+        "goldset_collection": goldset_collection,
         "timestamp": extra.get("timestamp"),
         # Nuevos campos (back-compat, no rompen consultas actuales)
         "pipeline_version": PIPELINE_VERSION,
         "variant_source": extra.get("variant_source", "gen"),
+        "event_stage": extra.get("event_stage"),
     }
-    emit_structured({k: v for k, v in p.items() if v is not None})
+    preserve_none = {"similarity", "similarity_raw", "similarity_norm", "max_pair_id", "goldset_collection"}
+    payload = {}
+    for key, value in p.items():
+        if value is not None or key in preserve_none:
+            payload[key] = value
+    emit_structured(payload)

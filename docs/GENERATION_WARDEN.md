@@ -109,7 +109,7 @@ LOG_WARDEN_FAILURE_REASON=true
 ### Goldset (similitud de estilo)
 
 - El chequeo de similitud de las variantes usa el goldset, no los tópicos.
-- Implementación: `ProposalService._check_contract_requirements` llama `max_similarity_to_goldset(draft, generate_if_missing=True)`.
+  - Implementación: `ProposalService._check_contract_requirements` usa `get_goldset_similarity_details(draft, generate_if_missing=True)` para obtener similitud raw/norm + id del match.
 - Si por cualquier motivo el embedding falla y la similitud es `None`, no se bloquea por ese motivo (se mantiene la sugerencia), pero se recomienda revisar logs de `[EMB]`.
 
 ## ChromaDB
@@ -131,7 +131,7 @@ LOG_WARDEN_FAILURE_REASON=true
 - Estricto: antes de publicar la propuesta, se genera el embedding de cada variante A/B/C para medir similitud contra el goldset (impacta coste/latencia).
 - Se registra en logs: `[GOLDSET] Draft <A|B|C> similarity=<score> (min=<umbral>)`.
 - En la aprobación (A/B/C) se mantiene la generación de embedding del tweet aprobado para guardarlo en `memory_collection`.
-  - Enforcement points: `ProposalService._check_contract_requirements` → `max_similarity_to_goldset(..., generate_if_missing=True)`.
+  - Enforcement points: `ProposalService._check_contract_requirements` → `get_goldset_similarity_details(..., generate_if_missing=True)`.
 
 ### Embeddings: fingerprint y dimensión
 

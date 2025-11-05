@@ -27,7 +27,7 @@
 - Reactivación del log de `variant_evaluation` en `proposal_service._check_contract_requirements`, etiquetando `event_stage` (`pre`/`final`) para garantizar la actualización con similitud real.
   - Propósito: asegurar que cada variante evaluada emita el evento estructurado (similarity/min_required/passed) y que la segunda pasada entregue el valor definitivo cuando el embedding ya está disponible.
   - Justificación: tras el refactor se saltaba el hook cuando la similitud venía `None`, dejando la consola sin métricas; ahora el evento se emite siempre y la actualización final queda diferenciada.
-- Goldset: carga NPZ en import-time (`GOLDSET_NPZ_GCS_URI` prioritario), logs `GOLDSET_NPZ_LOADED/FAILED` y `DIAG_GOLDSET_READY`, sin fallback legacy.
+- Goldset: carga diferida del NPZ (`GOLDSET_NPZ_GCS_URI` prioritario) al primer uso, con logs `GOLDSET_NPZ_LOADED/FAILED` + `DIAG_GOLDSET_READY` y sin fallback legacy.
   - Propósito: asegurar que runtime usa el NPZ versionado del bucket y expone identificadores estables para telemetría.
   - Justificación: necesitábamos trazabilidad del match en logs y evitar que `goldset_collection` aparezca como `unknown`.
 - Logs estructurados: `diagnostics_logger.log_post_metrics` conserva siempre `similarity`, añade `similarity_raw`, `similarity_norm`, `max_pair_id` y etiqueta `event_stage`.

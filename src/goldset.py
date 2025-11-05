@@ -53,6 +53,8 @@ _GOLDSET_EMBEDDINGS: List[List[float]] = []
 _GOLDSET_EMB_DIM: int = 0
 _GOLDSET_NORMALIZER_VERSION: int = EXPECTED_NORMALIZER_VERSION
 _GOLDSET_CLUSTER_INFO: Optional[List[Tuple[np.ndarray, str]]] = None
+_GOLDSET_LOADED: bool = False
+_GOLDSET_LOAD_ERROR: Optional[str] = None
 
 
 def get_active_goldset_collection_name() -> str:
@@ -78,17 +80,15 @@ def _emit_ready(collection_name: str, count: int, emb_dim: int, normalizer_versi
 
 
 def _emit_npz_loaded(collection_name: str, count: int, emb_dim: int, npz_uri: Optional[str]) -> None:
-    if not npz_uri:
-        return
-    emit_structured(
-        {
-            "message": "GOLDSET_NPZ_LOADED",
-            "goldset_collection": collection_name,
-            "count": count,
-            "emb_dim": emb_dim,
-            "npz_uri": npz_uri,
-        }
-    )
+    payload = {
+        "message": "GOLDSET_NPZ_LOADED",
+        "goldset_collection": collection_name,
+        "count": count,
+        "emb_dim": emb_dim,
+    }
+    if npz_uri:
+        payload["npz_uri"] = npz_uri
+    emit_structured(payload)
 
 
 def _emit_npz_failed(npz_uri: Optional[str], error: Exception) -> None:
@@ -207,9 +207,14 @@ def _collection_name_from_path(path: Path, default: str) -> str:
     return stem or default
 
 
-def _initialize_goldset() -> None:
-    global _ACTIVE_COLLECTION_NAME, _GOLDSET_IDS, _GOLDSET_TEXTS, _GOLDSET_EMBEDDINGS
-    global _GOLDSET_EMB_DIM, _GOLDSET_NORMALIZER_VERSION
+def _load_goldset() -> None:
+    global _GOLDSET_LOADED, _GOLDSET_LOAD_ERROR, _ACTIVE_COLLECTION_NAME
+    global _GOLDSET_IDS, _GOLDSET_TEXTS, _GOLDSET_EMBEDDINGS, _GOLDSET_EMB_DIM, _GOLDSET_NORMALIZER_VERSION, _GOLDSET_CLUSTER_INFO
+
+    if _GOLDSET_LOADED:
+        return
+    if _GOLDSET_LOAD_ERROR:
+        raise RuntimeError(_GOLDSET_LOAD_ERROR)
 
     npz_uri = GOLDSET_NPZ_URI or None
     npz_path = _resolve_goldset_npz_path(npz_uri)
@@ -217,11 +222,13 @@ def _initialize_goldset() -> None:
     try:
         ids, texts, embeddings, meta = _load_embeddings_from_npz(npz_path, npz_uri=npz_uri)
     except Exception as exc:
+        _GOLDSET_LOAD_ERROR = str(exc)
         _emit_npz_failed(npz_uri, exc)
         raise
 
     if not embeddings:
         exc = RuntimeError("Goldset NPZ contains no embeddings.")
+        _GOLDSET_LOAD_ERROR = str(exc)
         _emit_npz_failed(npz_uri, exc)
         raise exc
 
@@ -236,21 +243,11 @@ def _initialize_goldset() -> None:
     _GOLDSET_EMBEDDINGS = embeddings
     _GOLDSET_EMB_DIM = emb_dim
     _GOLDSET_NORMALIZER_VERSION = normalizer_version
+    _GOLDSET_CLUSTER_INFO = None
 
     _emit_npz_loaded(collection_name, len(texts), emb_dim, npz_uri)
     _emit_ready(collection_name, len(texts), emb_dim, normalizer_version)
-
-
-try:
-    _initialize_goldset()
-except Exception as exc:
-    emit_structured(
-        {
-            "message": "GOLDSET_INIT_FAILED",
-            "error": str(exc),
-        }
-    )
-    raise
+    _GOLDSET_LOADED = True
 
 
 @dataclass(frozen=True)
@@ -262,8 +259,9 @@ class GoldsetSimilarity:
 
 
 def _ensure_goldset_loaded() -> None:
-    if not _GOLDSET_EMBEDDINGS:
-        raise RuntimeError("Goldset embeddings not initialized.")
+    if _GOLDSET_LOADED:
+        return
+    _load_goldset()
 
 
 def get_goldset_similarity_details(text: str, *, generate_if_missing: bool = True) -> GoldsetSimilarity:

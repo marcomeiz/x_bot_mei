@@ -33,6 +33,7 @@ La arquitectura actual se basa en los siguientes principios:
 ## Documentación de Generación + Warden
 
 - Guía completa de guardrails, presets, prompt v2.0, validadores y despliegue: ver `docs/GENERATION_WARDEN.md`.
+- Telemetría a prueba de fallos: contrato y política de errores en `docs/ops/telemetry.md`.
 
 ## Instalación y Ejecución
 
@@ -48,6 +49,7 @@ La instalación y ejecución no han cambiado, pero se documentan las variables r
 - `JOB_MAX_WORKERS` (por defecto `3`), `JOB_QUEUE_MAXSIZE` (por defecto `12`), `JOB_TIMEOUT_SECONDS` (por defecto `35`)
 - `LLM_REQUEST_TIMEOUT_SECONDS` (por defecto `15`), `LLM_MIN_WINDOW_SECONDS` (por defecto `5`)
 - `GOLDSET_COLLECTION_NAME` (por defecto `goldset_norm_v1`) y `GOLDSET_NORMALIZER_VERSION` (por defecto `1`) para alinear embeddings normalizados del goldset.
+- `TELEMETRY_STRICT` (por defecto `0`): controla la política de fallos del wrapper de telemetría (`safe_capture`).
 3.  **Bootstrap local:** `python scripts/bootstrap_workspace.py --clean` para regenerar `json/`, `texts/` y `uploads/` con semillas reproducibles.
 4.  **Selección de configuración (`config/settings.<env>.yaml`):**
     - `APP_CONFIG_ENV=dev|prod` (por defecto `dev`) selecciona el YAML bajo `config/`.

@@ -33,7 +33,6 @@ db/
 db_local/
 local_topics_db/
 config/local_topics_db/
-docs/temporales/
 
 # Generated data dumps
 json/
@@ -48,4 +47,3 @@ processed_pdfs/
 Thumbs.db
 
 data/**/*.npz
-

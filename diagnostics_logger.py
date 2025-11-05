@@ -56,3 +56,46 @@ def log_post_metrics(
         if value is not None or key in preserve_none:
             payload[key] = value
     emit_structured(payload)
+
+
+# --- Nuevo: API mínima de diagnóstico estructurado ---
+class Diagnostics:
+    """Utilidad para emitir eventos estructurados con distintos niveles.
+
+    Esta clase ayuda a estandarizar la emisión de eventos de diagnóstico
+    (info/warn/error) sin romper el contrato existente de emit_structured.
+    """
+
+    def info(self, event: str, payload: Dict[str, Any] | None = None) -> None:
+        p = {"event": event}
+        if payload:
+            for k, v in payload.items():
+                if k == "event":
+                    p["source_event"] = v
+                else:
+                    p[k] = v
+        logging.getLogger("diagnostics").info(p)
+
+    def warn(self, event: str, payload: Dict[str, Any] | None = None) -> None:
+        p = {"event": event}
+        if payload:
+            for k, v in payload.items():
+                if k == "event":
+                    p["source_event"] = v
+                else:
+                    p[k] = v
+        logging.getLogger("diagnostics").warning(p)
+
+    def error(self, event: str, payload: Dict[str, Any] | None = None) -> None:
+        p = {"event": event}
+        if payload:
+            for k, v in payload.items():
+                if k == "event":
+                    p["source_event"] = v
+                else:
+                    p[k] = v
+        logging.getLogger("diagnostics").error(p)
+
+
+# Instancia global para uso sencillo
+diagnostics = Diagnostics()

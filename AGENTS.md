@@ -1,6 +1,6 @@
 # AGENTS.md — Índice de directivas
 
-Este archivo era un monolito. Ahora es un índice mínimo. La guía completa vive en `.github/AGENTS/`.
+Este archivo era un monolito. Ahora es un índice mínimo. La guía completa vive en `.github/AGENTS/`
 
 Consulta:
 - .github/AGENTS/00_PRINCIPLES.md — Principios y DoD

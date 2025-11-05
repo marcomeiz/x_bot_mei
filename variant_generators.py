@@ -664,6 +664,17 @@ def compress_to_short(text: str, model: str) -> str:
     return ensure_char_range_via_llm(text, model, 0, 160)
 
 
+def compress_to_mid(text: str, model: str) -> str:
+    """Rewrite text toward mid variant limits (180–230 chars) while preserving tone.
+
+    Uses ensure_char_range_via_llm with bounds 180–230 characters.
+    """
+    text = (text or "").strip()
+    if not text:
+        return ""
+    return ensure_char_range_via_llm(text, model, 180, 230)
+
+
 def expand_to_long(text: str, model: str) -> str:
     """Rewrite text toward long variant limits (240–280 chars) while preserving tone.
 

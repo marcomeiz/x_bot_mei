@@ -149,3 +149,23 @@ Nota operativa: `GOLDSET_NPZ_GCS_URI` se mantiene apuntando a `gs://xbot-473616-
 - `proposal_service._check_style_with_llm` parsea el JSON y emite logs estructurados vía `diagnostics_logger.log_post_metrics` incluyendo:
   - `judge_reasoning`, `judge_tono`, `judge_diccion`, `judge_ritmo`
 - Razón del cambio: mejorar trazabilidad del porqué falla un borrador (diagnóstico rápido) sin romper compatibilidad.
+
+**Cambio:** Nuevo helper `compress_to_mid()` en `variant_generators.py` (180–230 chars) reutilizando `ensure_char_range_via_llm`.  
+**Fecha:** 2025-11-05  
+**Autor:** AI assistant  
+**Justificación:** Completar el set de utilidades de reescritura para permitir derivación consistente de MID/SHORT desde LONG sin duplicar lógica.
+
+**Cambio:** Motor de estados Long‑First (`long_first_pipeline.py`) con etapas LONG_GENERATE → LONG_EVAL → VARIANTS_FROM_LONG (paralelo MID/SHORT) → VARIANT_EVAL y circuit breaker.  
+**Fecha:** 2025-11-05  
+**Autor:** AI assistant  
+**Justificación:** Reducir latencia total con evaluación temprana, preservar coherencia derivando todas las variantes del LONG aprobado y evitar gasto innecesario de tokens cuando falla el LONG.
+
+**Cambio:** Caché de evaluaciones (`eval_cache.py`) con TTL (ENV `EVAL_CACHE_TTL_SECONDS`) y respaldo en disco `.cache/eval_cache.json` — guarda solo aprobaciones.  
+**Fecha:** 2025-11-05  
+**Autor:** AI assistant  
+**Justificación:** Reutilizar evaluaciones positivas para saltar recomprobaciones idénticas, disminuyendo latencia y costo.
+
+**Cambio:** Umbrales por variante (ENV `LONG_CONFIDENCE_THRESHOLD`, `MID_CONFIDENCE_THRESHOLD`, `SHORT_CONFIDENCE_THRESHOLD`); base por defecto en `EVAL_CONFIDENCE_THRESHOLD`.  
+**Fecha:** 2025-11-05  
+**Autor:** AI assistant  
+**Justificación:** Ajustar sensibilidad del juez por formato, permitiendo mayor exigencia en LONG y tolerancia controlada en MID/SHORT.

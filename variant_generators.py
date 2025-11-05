@@ -1381,68 +1381,10 @@ def generate_all_variants(
                 {},
             )
 
-        # Minimal Warden with style rewrite (V3.1 by default):
-        if WARDEN_MINIMAL:
-            cleaned: Dict[str, str] = {}
-            failed_variants: Dict[str, str] = {}
-            import re as _re
-            COMMA_RE = _re.compile(r"[,\uFF0C\u060C\uFE10\uFE11\uFE50\uFE51]")
-
-            def _minimal_failure_reason(label: str, text: str) -> str:
-                if not text:
-                    return "Missing content."
-                if not _english_only(text):
-                    return "Contains non-English characters."
-                if _re.search(r"#[A-Za-z0-9_]+", text):
-                    return "Contains hashtags."
-                if COMMA_RE.search(text):
-                    return "Contains commas."
-                if FORBIDDEN_EM_DASH in text:
-                    return "Contains em dash (—)."
-                if not _range_ok(label, text):
-                    return f"Length {len(text)} outside allowed range."
-                return "Failed minimal guardrails."
-
-            for label in ("short", "mid", "long"):
-                draft = (drafts.get(label) or "").strip()
-                if not draft:
-                    ok = None
-                    for _ in range(2):
-                        ok = regenerate_single_variant(label, topic_abstract, context, settings)
-                        if ok:
-                            break
-                    if not ok:
-                        failed_variants[label] = _minimal_failure_reason(label, draft)
-                        cleaned[label] = ""
-                        continue
-                    draft = ok.strip()
-
-                def _passes_minimal(s: str) -> bool:
-                    if not _english_only(s):
-                        return False
-                    if _re.search(r"#[A-Za-z0-9_]+", s):
-                        return False
-                    if COMMA_RE.search(s):
-                        return False
-                    if FORBIDDEN_EM_DASH in s:
-                        return False
-                    return _range_ok(label, s)
-
-                if not _passes_minimal(draft):
-                    success = None
-                    for _ in range(2):
-                        regen = regenerate_single_variant(label, topic_abstract, context, settings)
-                        candidate = (regen or "").strip()
-                        if candidate and _passes_minimal(candidate):
-                            success = candidate
-                            break
-                    if not success:
-                        failed_variants[label] = _minimal_failure_reason(label, draft)
-                        cleaned[label] = ""
-                        continue
-                    draft = success or draft
-                cleaned[label] = draft
-            return cleaned, failed_variants
+        # NOTE: Warden Minimal (mechanical enforcement/regeneration) has been removed.
+        # Generation returns raw drafts that are only lightly cleaned below.
+        # All style/mechanical validation is now delegated to the LLM Judge
+        # in proposal_service.py.
 
         # Hard gate: basic cleaning only (hashtags removal + space collapsing)
         def _strip_hashtags_and_fix(text: str) -> str:

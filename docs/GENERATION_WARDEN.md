@@ -1,22 +1,22 @@
 # Generation + Warden (Current State) — x_bot_mei
 
-This document captures the up‑to‑date design and operating parameters for the single‑call variant generator (short/mid/long) with hard guardrails (Warden), so future sessions can continue seamlessly.
+This document captures the up‑to‑date design and operating parameters for the single‑call variant generator (short/mid/long) with minimal Porter cleaning and strict validation delegated to an LLM Judge. Hard guardrails (Warden) are no longer enforced inside the generator.
 
 ## Overview
 
 - Single LLM call returns three tweet variants: `short`, `mid`, `long` (JSON). Each string may contain line breaks.
-- Voice: Alex Hormozi contract + Solopreneur‑in‑the‑Trenches ICP + Final Review (Warden).
-- Hard “Porter” layer cleans and validates drafts (rejects or compacts) before Telegram.
-- Presets/temperature are configurable via ENV.
-- ChromaDB over HTTP with v2→v1 fallback; embeddings via OpenRouter (SDK+HTTP) with robust parsing.
+- Voice: Alex Hormozi contract + Solopreneur‑in‑the‑Trenches ICP.
+- Porter cleaning only: remove hashtags and collapse spaces per línea; NO validación mecánica.
+- Validación estricta del contrato: realizada por el Juez LLM en `proposal_service.py` usando `prompts/validation/style_judge_v1.md`.
+- Presets/temperature son configurables vía ENV.
+- ChromaDB over HTTP con fallback; embeddings vía OpenRouter (SDK+HTTP) con parsing robusto.
 
-## Guardrails Configuration
+## Guardrails Configuration (deprecado en el generador)
 
-- Canonical defaults live en `config/warden.yaml` (`comment_guardrails`).
-- Léxicos (palabras vetadas, stopwords) residen en `config/lexicon.json`; el loader `src/lexicon.py` permite overrides vía `LEXICON_CONFIG_PATH`.
-- Umbrales del guardián de estilo viven en `config/style_audit.yaml`; `src/style_config.py` respeta `STYLE_AUDIT_CONFIG_PATH` y env (`STYLE_*`).
-- Cada toggle/rango sigue honrando overrides por env (`ENFORCE_NO_COMMAS`, `STYLE_MEMORY_SIMILARITY_FLOOR`, etc.).
-- `WARDEN_CONFIG_PATH` puede apuntar a otro YAML si necesitas valores específicos por entorno.
+- Los defaults canónicos siguen en `config/warden.yaml` y los léxicos en `config/lexicon.json` para apoyar prompts y herramientas.
+- El generador NO aplica estos guardrails durante el post‑proceso; solo limpia. La validación se hace con el Juez LLM.
+- `STYLE_AUDIT_CONFIG_PATH` y variables `STYLE_*` gobiernan el auditor/guardian de estilo (fuera del generador).
+- `ENFORCE_NO_COMMAS`, `ENFORCE_NO_AND_OR`, `WARDEN_WORDS_PER_LINE_*`, `MID_MIN/MAX`, `LONG_MIN/MAX` pueden usarse en utilidades como `tools/voice_check.py` y pruebas, pero no gatean la salida del generador.
 
 ## Environment (recommended defaults)
 
@@ -24,7 +24,7 @@ This document captures the up‑to‑date design and operating parameters for th
 POST_PRESET=balanced
 POST_TEMPERATURE=0.6
 
-# Guardrails are sourced from config/warden.yaml; override only if needed
+# Guardrails (opcionales, para herramientas de revisión; el generador no los aplica)
 ENFORCE_NO_COMMAS=true
 ENFORCE_NO_AND_OR=true
 WARDEN_WORDS_PER_LINE_LO=5
@@ -74,18 +74,18 @@ LOG_WARDEN_FAILURE_REASON=true
   2) Porter cleaning only (see below).
   3) Returns cleaned JSON; validation is deferred to the LLM Judge in `proposal_service.py`.
 
-## Warden / Porter (post‑process)
+## Porter + Juez LLM (post‑process)
 
 - Files: `variant_generators.py` (Porter cleaning), `proposal_service.py` (LLM Judge validation).
 - Cleaning (Porter):
-  - Remove hashtags and collapse spaces per line. No punctuation conversion (commas are not altered).
-- Validation path:
-  - All style and mechanical validation is now delegated to the LLM Judge in `proposal_service.py`.
-  - The judge evaluates each variant against the `<STYLE_CONTRACT>` and returns strict booleans used to decide flow (send/rehint/regenerate).
-- Guardrails config:
-  - The previous guardrail toggles/ranges in `config/warden.yaml` are no longer enforced during post‑process cleaning. They may still exist for experiments or internal reviews, but Porter does not gate on them.
+  - Remove hashtags y colapsa espacios por línea. Sin conversión de puntuación (no se alteran comas).
+- Validación:
+  - Estilo y mecánica se delegan al Juez LLM (`proposal_service.py`).
+  - El juez evalúa cada variante contra `<STYLE_CONTRACT>` y devuelve booleanos estrictos para decidir el flujo.
+- Config de guardrails:
+  - Los toggles/rangos previos ya no se aplican aquí. Se mantienen para herramientas y experimentos.
 - Logging:
-  - Porter performs only cleaning; rejection/feedback messages originate from the LLM Judge path in `proposal_service.py`.
+  - Porter solo limpia; los rechazos/feedback provienen del flujo del Juez LLM.
 
 ## Embeddings
 

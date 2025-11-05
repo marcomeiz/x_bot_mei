@@ -16,13 +16,13 @@ La arquitectura actual se basa en los siguientes principios:
 ## Arquitectura Actual
 
 -   **Generación de Variantes (`variant_generators.py`):**
-    -   La función `generate_all_variants` es ahora el corazón del sistema. Utiliza un único prompt de "Chain of Thought" para instruir al LLM a realizar el `tail-sampling`, el `debate interno` y la generación de 3 variantes de distinta longitud en una sola llamada.
+    -   La función `generate_all_variants` es ahora el corazón del sistema. Utiliza un único prompt de "Chain of Thought" para instruir al LLM a realizar el `tail-sampling`, el `debate interno` y la generación de 3 variantes de distinta longitud en una sola llamada. El post‑proceso realiza únicamente limpieza básica (Porter: quita hashtags y colapsa espacios).
 -   **Evaluación (`evaluation.py`):**
     -   El sistema utiliza un flujo de dos pasos:
         1.  **Juez Rápido:** Un modelo de LLM rápido (`gemini-1.5-flash`) evalúa criterios cuantificables definidos en `config/evaluation_fast.yaml`.
         2.  **Juez Sabio:** Si la puntuación del juez rápido no supera un umbral de confianza (`EVAL_CONFIDENCE_THRESHOLD`), un modelo más potente (`gemini-1.5-pro`) evalúa los criterios subjetivos definidos en `config/evaluation_slow.yaml`.
 -   **Orquestación (`core_generator.py` y `proposal_service.py`):**
-    -   Estos módulos han sido actualizados para llamar a la nueva función de generación unificada y manejar la nueva estructura de datos.
+    -   Estos módulos han sido actualizados para llamar a la nueva función de generación unificada y manejar la nueva estructura de datos. La validación de estilo/contrato ya no se hace en el generador: se delega a un Juez LLM en `proposal_service.py` con el prompt `prompts/validation/style_judge_v1.md`.
 
 ## Siguientes Pasos y Mejoras Pendientes ("Fase 2")
 
@@ -32,7 +32,7 @@ La arquitectura actual se basa en los siguientes principios:
 
 ## Documentación de Generación + Warden
 
-- Guía completa de guardrails, presets, prompt v2.0, validadores y despliegue: ver `docs/GENERATION_WARDEN.md`.
+- Flujo actual (single‑call + Porter mínimo + Juez LLM): ver `docs/GENERATION_WARDEN.md`.
 - Telemetría a prueba de fallos: contrato y política de errores en `docs/ops/telemetry.md`.
 
 ## Instalación y Ejecución
@@ -55,7 +55,7 @@ La instalación y ejecución no han cambiado, pero se documentan las variables r
     - `APP_CONFIG_ENV=dev|prod` (por defecto `dev`) selecciona el YAML bajo `config/`.
     - `APP_CONFIG_PATH=/ruta/personalizada/settings.yaml` sobrescribe el archivo directamente.
     - Variables de entorno individuales siguen teniendo prioridad sobre lo que declare el YAML.
-4.  **Guardrails (`config/warden.yaml`, `config/lexicon.json`, `config/style_audit.yaml`):** Define los límites duros del Warden (commas, palabras por línea, rangos de caracteres, modo minimal), el vocabulario vetado/stopwords y los umbrales del guardián de estilo. Usa `WARDEN_CONFIG_PATH`, `LEXICON_CONFIG_PATH` o `STYLE_AUDIT_CONFIG_PATH` para apuntar a otras rutas, o variables (`ENFORCE_NO_COMMAS`, `STYLE_MEMORY_SIMILARITY_FLOOR`, etc.) si necesitas overrides rápidos.
+4.  **Guardrails (`config/warden.yaml`, `config/lexicon.json`, `config/style_audit.yaml`):** El generador ya no aplica guardrails mecánicos; Porter solo limpia. La validación estricta del contrato se realiza vía Juez LLM en `proposal_service.py`. Los archivos y variables de guardrails (`WARDEN_CONFIG_PATH`, `ENFORCE_NO_COMMAS`, etc.) siguen disponibles para herramientas de revisión y auditorías internas (p. ej., `tools/voice_check.py`).
 5.  **Mensajes (`config/messages.yaml`):** Copys para Telegram (bot, propuestas, avisos). Usa `MESSAGES_CONFIG_PATH` o overrides puntuales por env si hace falta.
 6.  **Embeddings (HTTP-first)**
     - `EMBED_MODEL` (por defecto `openai/text-embedding-3-small` desde `config/settings.*.yaml`)

@@ -9,3 +9,8 @@ datasets
 pytest
 pytest-asyncio
 pytest-mock
+umap-learn>=0.5.5
+hdbscan>=0.8.33
+matplotlib>=3.8.0
+seaborn>=0.13.0
+plotly>=5.24.0

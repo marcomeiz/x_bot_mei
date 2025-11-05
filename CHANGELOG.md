@@ -93,3 +93,16 @@
 - Removed usage of `retrieve_goldset_examples_random_meta` and its associated `g_goldset_random_retrieve` diagnostics.
 - Kept `anchors_count` visibility log but without an "expected=5" assertion.
 - This confirms the test’s conclusion: the goldset quality/coverage is the real issue; generation is back to topic-aware NN anchoring.
+## 2025-11-05 - Auditoría Goldset (UMAP + HDBSCAN)
+Autor: Marco Mei
+Propósito: Descontaminar el goldset identificando y reteniendo únicamente el cluster principal de "la voz".
+Justificación: El goldset contenía embeddings con estilo analítico/blando (LinkedIn-like), contaminando el anclaje de Style-RAG.
+
+- Se agregó `scripts/audit_goldset_umap_hdbscan.py` para:
+  - Cargar NPZ (texts/embeddings/ids/meta), reducir con UMAP (cosine) y clusterizar con HDBSCAN (euclidean).
+  - Generar `goldset_audit.png` y `goldset_audit.json` con conteos y % de ruido.
+  - Producir `goldset_v2_audited.npz` con miembros del cluster principal.
+  - Opción `--upload-uri` para subir a GCS y actualizar `GOLDSET_NPZ_GCS_URI`.
+- Dependencias añadidas a `requirements.dev.txt` y `requirements.runtime.txt`: umap-learn, hdbscan, matplotlib, seaborn, plotly.
+- Documentación: `docs/ops/goldset_audit.md` con procedimiento y uso.
+- Limpieza: Eliminadas utilidades del Acid Test (random_meta/random) y sus dependencias del runtime.

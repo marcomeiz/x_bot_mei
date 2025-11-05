@@ -143,7 +143,7 @@ SECRET_LIST=$(IFS=, ; echo "${SECRET_FLAGS[*]}")
 
 # Build env var string with custom item delimiter to allow comma in values
 # Using gcloud's escaping feature: ^:<delim>^
-ENV_VARS='^~^CHROMA_DB_URL=https://x-chroma-295511624125.europe-west1.run.app~CHROMA_DB_PATH=/mnt/db~SHOW_TOPIC_ID=0~POST_MODEL=x-ai/grok-4-fast'
+ENV_VARS='^~^CHROMA_DB_URL=https://x-chroma-295511624125.europe-west1.run.app~CHROMA_DB_PATH=/mnt/db~SHOW_TOPIC_ID=0~POST_MODEL=x-ai/grok-4-fast~GOLDSET_NPZ_GCS_URI=gs://xbot-473616-x-bot-mei-db/goldset/goldset_v2_audited.npz'
 
 gcloud run deploy "$SERVICE" \
   --image "$IMG" \

@@ -1026,6 +1026,46 @@ class ProposalService:
             except Exception:
                 total_memory = None
 
+        # Reportar el umbral de similitud del goldset para la versión aprobada
+        try:
+            with Timer("g_goldset_threshold_on_approval", labels={"chat_id": chat_id, "option": option}):
+                sim_details = get_goldset_similarity_details(chosen_tweet, generate_if_missing=True)
+            active_collection = get_active_goldset_collection_name()
+            sim_value = sim_details.similarity
+            min_required = GOLDSET_MIN_SIMILARITY
+            passed_flag = (sim_value is not None and sim_value >= min_required)
+            obtained_text = "NA" if sim_value is None else f"{sim_value:.3f}"
+            status_text = "Sí" if passed_flag else "No"
+            # Emitir también como métrica para trazabilidad
+            try:
+                record_metric(
+                    name="g_goldset_threshold_report",
+                    value=float(sim_value) if sim_value is not None else -1.0,
+                    labels={
+                        "option": option,
+                        "topic_id": topic_id,
+                        "passed": str(passed_flag),
+                        "min_required": f"{min_required:.2f}",
+                        "goldset_collection": active_collection or "unknown",
+                    },
+                )
+            except Exception:
+                # No bloquear por fallos de métrica
+                pass
+            # Mensaje a Telegram
+            threshold_lines = [
+                f"📏 Umbral (goldset) para Opción {option}",
+                f"• obtenido: {obtained_text}",
+                f"• mínimo requerido: {min_required:.2f}",
+                f"• pasó: {status_text}",
+                f"• colección activa: {active_collection}",
+            ]
+            with Timer("g_send_threshold_report", labels={"chat_id": chat_id}):
+                self.telegram.send_message(chat_id, "\n".join(threshold_lines))
+        except Exception:
+            # Si falla la obtención de similitud, continuamos con el flujo normal
+            pass
+
         intent_url = f"{self.share_base_url}{quote(chosen_tweet, safe='') }"
         keyboard = {"inline_keyboard": [[{"text": f"🚀 Publicar Opción {option}", "url": intent_url}]]}
         if message_prefix:

@@ -11,6 +11,8 @@ from typing import Dict, List, Optional, Tuple
 import yaml
 
 from llm_fallback import llm
+from metrics import Timer
+from diagnostics_logger import diagnostics
 from src.prompt_loader import load_prompt
 from src.settings import AppSettings
 from src.lexicon import get_stopwords
@@ -35,7 +37,7 @@ from writing_rules import (
     _WORD_REGEX,
     BANNED_SUFFIXES,
 )
-from src.goldset import retrieve_goldset_examples_nn
+from src.goldset import retrieve_goldset_examples_nn, retrieve_goldset_examples_random
 
 
 @dataclass(frozen=True)
@@ -1265,13 +1267,32 @@ def generate_all_variants(
     try:
         # Style-RAG: retrieve top-K nearest goldset examples by semantic similarity to the topic
         if gold_examples is None:
-            with_timer_start = time.time()
-            gold_examples = retrieve_goldset_examples_nn(topic_abstract or "", k=3)
+            _t0 = time.time()
+            # Paso de prueba: desactivar búsqueda semántica y usar aleatoria
+            # with Timer("g_goldset_nn_retrieve", labels={"scope": "variants", "k": 3}):
+            #     gold_examples = retrieve_goldset_examples_nn(topic_abstract or "", k=3)
+            with Timer("g_goldset_random_retrieve", labels={"scope": "variants", "k": 3}):
+                gold_examples = retrieve_goldset_examples_random(k=3)
+            _elapsed_ms = round((time.time() - _t0) * 1000, 2)
             logger.info(
-                "[RAG] Retrieved %s goldset examples for prompt in %.2fs",
+                "[RAG] Retrieved %s RANDOM goldset examples for prompt in %.2fms",
                 len(gold_examples),
-                time.time() - with_timer_start,
+                _elapsed_ms,
             )
+            # Diagnostics: trazabilidad del cambio a aleatorio
+            try:
+                diagnostics.info(
+                    "random_retrieve_goldset",
+                    {
+                        "metric": "g_goldset_random_retrieve",
+                        "scope": "variants",
+                        "k": 3,
+                        "count": len(gold_examples),
+                        "elapsed_ms": _elapsed_ms,
+                    },
+                )
+            except Exception:
+                pass
 
         gold_block = _format_gold_examples_for_prompt(gold_examples, limit=3)
         if not gold_block.strip():
@@ -1282,6 +1303,18 @@ def generate_all_variants(
             topic_abstract=topic_abstract,
             gold_examples_block=gold_block,
         )
+        # Emit diagnostics to validate anchor block presence/format during smoke tests
+        try:
+            diagnostics.info(
+                "generation_prompt_gold_block",
+                {
+                    "topic_preview": (topic_abstract or "")[:160],
+                    "anchors_count": gold_block.count("\n") + (1 if gold_block.strip() else 0),
+                    "gold_block_preview": gold_block[:240],
+                },
+            )
+        except Exception:
+            pass
     except Exception as exc:
         # Fallback to the inline prompt above if loading fails
         logger.warning("Failed to load/render external prompt: %s. Using inline.", exc)
@@ -1646,7 +1679,26 @@ def generate_comment_reply(
     excerpt = _compact_text(source_text, limit=1200)
     key_terms = _extract_key_terms(excerpt)
     # Use NN retrieval to anchor the comment with semantically closest goldset examples
-    gold_examples = retrieve_goldset_examples_nn(excerpt, k=3)
+    _t0 = time.time()
+    # Paso de prueba: desactivar búsqueda semántica y usar aleatoria
+    # with Timer("g_goldset_nn_retrieve", labels={"scope": "comments", "k": 3}):
+    #     gold_examples = retrieve_goldset_examples_nn(excerpt, k=3)
+    with Timer("g_goldset_random_retrieve", labels={"scope": "comments", "k": 3}):
+        gold_examples = retrieve_goldset_examples_random(k=3)
+    _elapsed_ms = round((time.time() - _t0) * 1000, 2)
+    try:
+        diagnostics.info(
+            "random_retrieve_goldset",
+            {
+                "metric": "g_goldset_random_retrieve",
+                "scope": "comments",
+                "k": 3,
+                "count": len(gold_examples),
+                "elapsed_ms": _elapsed_ms,
+            },
+        )
+    except Exception:
+        pass
     tail_angles = _verbalized_tail_sampling(
         topic_abstract=excerpt,
         context=context,
@@ -1656,6 +1708,18 @@ def generate_comment_reply(
     )
     tail_block = _format_tail_angles_for_prompt(tail_angles) or "No tail angles surfaced; rely on doctrinal instincts."
     gold_block = _format_gold_examples_for_prompt(gold_examples) or "Anchors unavailable. Mirror the contract tone precisely."
+    # Emit diagnostics to validate anchor block presence/format during smoke tests
+    try:
+        diagnostics.info(
+            "comment_prompt_gold_block",
+            {
+                "excerpt_preview": (excerpt or "")[:160],
+                "anchors_count": gold_block.count("\n") + (1 if gold_block.strip() else 0),
+                "gold_block_preview": gold_block[:240],
+            },
+        )
+    except Exception:
+        pass
 
     use_question = rng.random() < 0.5
     if use_question:

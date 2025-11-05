@@ -1,6 +1,7 @@
 import json
 import math
 import os
+import random
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -446,3 +447,26 @@ def retrieve_goldset_examples_nn(query: str, k: int = 3, min_similarity: float =
 
     scored.sort(key=lambda item: item[0], reverse=True)
     return [text for _, text in scored[:k]]
+
+
+def retrieve_goldset_examples_random(k: int = 3) -> List[str]:
+    """Return k random goldset texts, ignoring the query/topic entirely.
+
+    - Ensures goldset is loaded.
+    - Samples without replacement when possible; falls back to head slice if k > n.
+    - Designed to decouple Style-RAG from semantic topic alignment.
+    """
+    _ensure_goldset_loaded()
+    n = len(_GOLDSET_TEXTS)
+    if n <= 0:
+        return []
+    kk = max(1, min(int(k or 1), n))
+    try:
+        return random.sample(_GOLDSET_TEXTS, kk)
+    except Exception:
+        # Fallback: deterministic slice
+        return _GOLDSET_TEXTS[:kk]
+
+
+# Uppercase alias to match requested naming in discussion
+retrieve_goldset_examples_RANDOM = retrieve_goldset_examples_random

@@ -4,13 +4,13 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
-from embeddings_manager import get_embedding, get_chroma_client
+
 from diagnostics_logger import emit_structured
+from embeddings_manager import get_embedding
 from logger_config import logger
-from src.chroma_utils import flatten_chroma_array
 from src.normalization import normalize_for_embedding
 
 DEFAULT_GOLDSET_PATH = Path("data/gold_posts/hormozi_master.json")
@@ -39,33 +39,27 @@ def _cosine_similarity(vec_a: Sequence[float], vec_b: Sequence[float]) -> float:
 
 GOLDSET_MIN_SIMILARITY = float(os.getenv("UMBRAL_SIMILITUD", os.getenv("GOLDSET_MIN_SIMILITUD", "0.75")) or 0.75)
 GOLDSET_EMBED_PATH = Path(os.getenv("GOLDSET_EMBED_PATH", "data/gold_posts/goldset_embeddings.npz"))
-GOLDSET_COLLECTION_NAME = os.getenv("GOLDSET_COLLECTION_NAME", "goldset_norm_v1")
+GOLDSET_COLLECTION_NAME_DEFAULT = os.getenv("GOLDSET_COLLECTION_NAME", "goldset_norm_v1")
 EXPECTED_NORMALIZER_VERSION = int(os.getenv("GOLDSET_NORMALIZER_VERSION", "1") or 1)
 GOLDSET_CLUSTER_COUNT = max(1, int(os.getenv("GOLDSET_CLUSTER_COUNT", "8") or 8))
-GOLDSET_IDS_CACHE: Optional[List[str]] = None
-GOLDSET_TEXTS_CACHE: Optional[List[str]] = None
-GOLDSET_EMB_CACHE: Optional[List[Sequence[float]]] = None
-GOLDSET_CLUSTER_INFO: Optional[List[Tuple[np.ndarray, str]]] = None  # (centroid, anchor_text)
+GOLDSET_NPZ_URI = os.getenv("GOLDSET_NPZ_GCS_URI", "").strip()
 
-_ACTIVE_GOLDSET_COLLECTION_NAME = GOLDSET_COLLECTION_NAME
-_GOLDSET_LOGGED = False
 _NPZ_CACHE_PATH: Optional[Path] = None
 
-
-def _set_active_collection(name: Optional[str]) -> None:
-    global _ACTIVE_GOLDSET_COLLECTION_NAME
-    if name:
-        _ACTIVE_GOLDSET_COLLECTION_NAME = name
+_ACTIVE_COLLECTION_NAME: str = GOLDSET_COLLECTION_NAME_DEFAULT
+_GOLDSET_IDS: List[str] = []
+_GOLDSET_TEXTS: List[str] = []
+_GOLDSET_EMBEDDINGS: List[List[float]] = []
+_GOLDSET_EMB_DIM: int = 0
+_GOLDSET_NORMALIZER_VERSION: int = EXPECTED_NORMALIZER_VERSION
+_GOLDSET_CLUSTER_INFO: Optional[List[Tuple[np.ndarray, str]]] = None
 
 
 def get_active_goldset_collection_name() -> str:
-    return _ACTIVE_GOLDSET_COLLECTION_NAME
+    return _ACTIVE_COLLECTION_NAME
 
 
-def _emit_goldset_ready(collection_name: str, count: int, emb_dim: int, normalizer_version: int) -> None:
-    global _GOLDSET_LOGGED
-    if _GOLDSET_LOGGED:
-        return
+def _emit_ready(collection_name: str, count: int, emb_dim: int, normalizer_version: int) -> None:
     payload = {
         "event": "DIAG_GOLDSET_READY",
         "collection_name": collection_name,
@@ -81,37 +75,54 @@ def _emit_goldset_ready(collection_name: str, count: int, emb_dim: int, normaliz
         emb_dim,
         normalizer_version,
     )
-    _GOLDSET_LOGGED = True
 
 
-def _emit_goldset_error(reason: str, **context: object) -> None:
-    payload = {"event": "DIAG_GOLDSET_ERROR", "reason": reason}
-    payload.update({k: v for k, v in context.items() if v is not None})
-    emit_structured(payload)
-    logger.error("GOLDSET_ERROR %s %s", reason, context)
+def _emit_npz_loaded(collection_name: str, count: int, emb_dim: int, npz_uri: Optional[str]) -> None:
+    if not npz_uri:
+        return
+    emit_structured(
+        {
+            "message": "GOLDSET_NPZ_LOADED",
+            "goldset_collection": collection_name,
+            "count": count,
+            "emb_dim": emb_dim,
+            "npz_uri": npz_uri,
+        }
+    )
 
 
-def _resolve_goldset_npz_path() -> Path:
-    uri = os.getenv("GOLDSET_NPZ_GCS_URI", "").strip()
-    if not uri:
+def _emit_npz_failed(npz_uri: Optional[str], error: Exception) -> None:
+    emit_structured(
+        {
+            "message": "GOLDSET_NPZ_LOAD_FAILED",
+            "npz_uri": npz_uri,
+            "error": str(error),
+        }
+    )
+    logger.error("Failed to load goldset NPZ %s: %s", npz_uri or "<local>", error)
+
+
+def _resolve_goldset_npz_path(npz_uri: Optional[str]) -> Path:
+    if not npz_uri:
         return GOLDSET_EMBED_PATH
-    if not uri.startswith("gs://"):
-        return Path(uri)
 
     global _NPZ_CACHE_PATH
     if _NPZ_CACHE_PATH and _NPZ_CACHE_PATH.exists():
         return _NPZ_CACHE_PATH
 
+    if not npz_uri.startswith("gs://"):
+        path = Path(npz_uri)
+        _NPZ_CACHE_PATH = path
+        return path
+
     try:
         from google.cloud import storage  # type: ignore
     except Exception as exc:
-        _emit_goldset_error("storage_import_failed", uri=uri, error=str(exc))
-        return GOLDSET_EMBED_PATH
+        raise RuntimeError(f"google.cloud.storage import failed for NPZ URI {npz_uri}: {exc}") from exc
 
-    bucket_name, _, blob_name = uri[5:].partition("/")
+    bucket_name, _, blob_name = npz_uri[5:].partition("/")
     if not bucket_name or not blob_name:
-        _emit_goldset_error("invalid_npz_uri", uri=uri)
-        return GOLDSET_EMBED_PATH
+        raise ValueError(f"GOLDSET_NPZ_GCS_URI inválido: {npz_uri}")
 
     target_dir = Path("/tmp/goldset_npz")
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -121,298 +132,173 @@ def _resolve_goldset_npz_path() -> Path:
         _NPZ_CACHE_PATH = local_path
         return local_path
 
-    try:
-        client = storage.Client()
-        bucket = client.bucket(bucket_name)
-        blob = bucket.blob(blob_name)
-        blob.download_to_filename(str(local_path))
-        logger.info("Goldset NPZ descargado desde %s a %s.", uri, local_path)
-        _NPZ_CACHE_PATH = local_path
-        return local_path
-    except Exception as exc:
-        _emit_goldset_error("npz_download_failed", uri=uri, error=str(exc))
-        return GOLDSET_EMBED_PATH
+    client = storage.Client()
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(blob_name)
+    blob.download_to_filename(str(local_path))
+    logger.info("Goldset NPZ descargado desde %s a %s.", npz_uri, local_path)
+    _NPZ_CACHE_PATH = local_path
+    return local_path
 
 
-def _load_embeddings_from_npz(path: Path, *, npz_uri: Optional[str] = None) -> Tuple[List[str], List[str], List[Sequence[float]], Dict[str, object]]:
-    label = npz_uri or str(path)
+def _load_embeddings_from_npz(path: Path, *, npz_uri: Optional[str]) -> Tuple[List[str], List[str], List[List[float]], dict]:
     if not path.exists():
-        _emit_goldset_error("npz_missing", path=str(path), uri=npz_uri)
         raise FileNotFoundError(f"Goldset NPZ not found: {path}")
+
     try:
         data = np.load(path, allow_pickle=True)
     except Exception as exc:
-        _emit_goldset_error("npz_read_failed", path=str(path), uri=npz_uri, error=str(exc))
-        raise RuntimeError(f"Failed to read NPZ at {label}") from exc
+        raise RuntimeError(f"Failed to read NPZ at {path}: {exc}") from exc
+
     texts = data.get("texts")
     documents = data.get("documents")
     embeddings = data.get("embeddings")
     vectors = data.get("vectors")
     ids_arr = data.get("ids")
     meta_entry = data.get("meta")
+
     texts_arr = texts if texts is not None else documents
     vectors_arr = embeddings if embeddings is not None else vectors
     if texts_arr is None or vectors_arr is None:
-        _emit_goldset_error("npz_missing_fields", path=str(path), uri=npz_uri)
-        raise RuntimeError(f"NPZ missing expected fields: {label}")
+        raise RuntimeError(f"NPZ missing required fields (texts/embeddings): {path}")
+
     try:
         texts_list = texts_arr.tolist() if hasattr(texts_arr, "tolist") else list(texts_arr)
         decoded_texts = [t.decode("utf-8") if isinstance(t, bytes) else str(t) for t in texts_list]
-        vectors_list = vectors_arr.tolist() if hasattr(vectors_arr, "tolist") else list(vectors_arr)
+        vectors_list_raw = vectors_arr.tolist() if hasattr(vectors_arr, "tolist") else list(vectors_arr)
+        vectors_list: List[List[float]] = []
+        for vec in vectors_list_raw:
+            if hasattr(vec, "tolist"):
+                vec = vec.tolist()
+            vectors_list.append([float(x) for x in vec])
+
         if ids_arr is not None:
             ids_raw = ids_arr.tolist() if hasattr(ids_arr, "tolist") else list(ids_arr)
             decoded_ids = [i.decode("utf-8") if isinstance(i, bytes) else str(i) for i in ids_raw]
         else:
             decoded_ids = [f"npz_{idx:05d}" for idx in range(len(decoded_texts))]
-        meta: Dict[str, object] = {}
+
+        meta: dict = {}
         if meta_entry is not None:
-            try:
-                if hasattr(meta_entry, "tolist"):
-                    meta_entry = meta_entry.tolist()
-                if isinstance(meta_entry, (bytes, bytearray)):
-                    meta_entry = meta_entry.decode("utf-8")
-                if isinstance(meta_entry, str):
-                    meta = json.loads(meta_entry)
-                elif isinstance(meta_entry, dict):
-                    meta = dict(meta_entry)
-            except Exception as exc_meta:
-                _emit_goldset_error("npz_meta_parse_failed", path=str(path), uri=npz_uri, error=str(exc_meta))
+            if hasattr(meta_entry, "tolist"):
+                meta_entry = meta_entry.tolist()
+            if isinstance(meta_entry, (bytes, bytearray)):
+                meta_entry = meta_entry.decode("utf-8")
+            if isinstance(meta_entry, str):
+                meta = json.loads(meta_entry)
+            elif isinstance(meta_entry, dict):
+                meta = dict(meta_entry)
     except Exception as exc:
-        _emit_goldset_error("npz_parse_failed", path=str(path), uri=npz_uri, error=str(exc))
-        raise RuntimeError(f"Failed to parse NPZ contents for {label}") from exc
+        raise RuntimeError(f"Failed to parse NPZ contents for {path}: {exc}") from exc
+
     return decoded_ids, decoded_texts, vectors_list, meta
 
 
-def _validate_normalizer_version(metadatas: Sequence) -> None:
-    if not metadatas:
-        return
-    for meta in metadatas:
-        if isinstance(meta, dict):
-            version = meta.get("normalizer_version")
-            if version is not None and int(version) != EXPECTED_NORMALIZER_VERSION:
-                logger.warning(
-                    "Goldset normalizer version mismatch (expected=%s, found=%s).",
-                    EXPECTED_NORMALIZER_VERSION,
-                    version,
-                )
-                break
-
-
-def _load_embeddings_from_chroma() -> Optional[Tuple[List[str], List[str], List[Sequence[float]], Dict[str, object]]]:
-    try:
-        client = get_chroma_client()
-        collection = client.get_or_create_collection(GOLDSET_COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
-        result = collection.get(include=["ids", "embeddings", "documents", "metadatas"]) or {}
-
-        documents_raw = result.get("documents") or []
-        embeddings = result.get("embeddings") or []
-        ids_raw = result.get("ids") or []
-        documents = flatten_chroma_array(documents_raw)
-        ids = flatten_chroma_array(ids_raw)
-
-        texts: List[str] = []
-        for entry in documents:
-            if isinstance(entry, list):
-                texts.append(entry[0] if entry else "")
-            else:
-                texts.append(str(entry))
-        ids = [str(item) for item in ids]
-
-        if not texts or not embeddings:
-            logger.info("Chroma goldset empty or missing embeddings.")
-            return None
-
-        collection_meta = collection.metadata or {}
-        _emit_goldset_ready(
-            collection_meta.get("collection", GOLDSET_COLLECTION_NAME) or GOLDSET_COLLECTION_NAME,
-            len(texts),
-            int(collection_meta.get("emb_dim") or (len(embeddings[0]) if embeddings else 0) or 0),
-            int(collection_meta.get("normalizer_version") or EXPECTED_NORMALIZER_VERSION),
-        )
-        _validate_normalizer_version(result.get("metadatas") or [])
-        return ids, texts, embeddings, collection_meta
-    except Exception as exc:
-        _emit_goldset_error("chroma_load_failed", error=str(exc))
-        return None
-
-
-def _derive_collection_name_from_meta(meta: Dict[str, object], fallback: str) -> str:
-    if not meta:
-        return fallback
+def _collection_name_from_meta(meta: dict, default: str) -> str:
     for key in ("collection", "collection_name", "name"):
         value = meta.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
-    return fallback
+    return default
 
 
-def _derive_collection_name_from_path(path: Path, fallback: str) -> str:
-    name = path.stem if path else ""
-    return name or fallback
+def _collection_name_from_path(path: Path, default: str) -> str:
+    stem = path.stem if path else ""
+    return stem or default
 
 
-def _get_gold_records() -> Tuple[List[str], List[str], List[Sequence[float]]]:
-    global GOLDSET_IDS_CACHE, GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE
-    if (
-        GOLDSET_IDS_CACHE is not None
-        and GOLDSET_TEXTS_CACHE is not None
-        and GOLDSET_EMB_CACHE is not None
-    ):
-        return GOLDSET_IDS_CACHE, GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE
+def _initialize_goldset() -> None:
+    global _ACTIVE_COLLECTION_NAME, _GOLDSET_IDS, _GOLDSET_TEXTS, _GOLDSET_EMBEDDINGS
+    global _GOLDSET_EMB_DIM, _GOLDSET_NORMALIZER_VERSION
 
-    env_uri = os.getenv("GOLDSET_NPZ_GCS_URI", "").strip()
-    if env_uri:
-        npz_path = _resolve_goldset_npz_path()
-        try:
-            ids, texts, embeddings, meta = _load_embeddings_from_npz(npz_path, npz_uri=env_uri)
-        except Exception as exc:
-            emit_structured(
-                {
-                    "message": "GOLDSET_NPZ_LOAD_FAILED",
-                    "npz_uri": env_uri,
-                    "error": str(exc),
-                }
-            )
-            _emit_goldset_error("npz_load_failed", uri=env_uri, error=str(exc))
-            raise
-        GOLDSET_IDS_CACHE, GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE = ids, texts, embeddings
-        collection_name = _derive_collection_name_from_meta(meta, _derive_collection_name_from_path(npz_path, GOLDSET_COLLECTION_NAME))
-        _set_active_collection(collection_name)
-        emb_dim = int(meta.get("emb_dim") or (len(embeddings[0]) if embeddings else 0) or 0) if meta else (len(embeddings[0]) if embeddings else 0)
-        normalizer_version = int(meta.get("normalizer_version") or EXPECTED_NORMALIZER_VERSION) if meta else EXPECTED_NORMALIZER_VERSION
-        emit_structured(
-            {
-                "message": "GOLDSET_NPZ_LOADED",
-                "goldset_collection": collection_name,
-                "count": len(texts),
-                "emb_dim": emb_dim,
-                "npz_uri": env_uri,
-            }
-        )
-        _emit_goldset_ready(collection_name, len(texts), emb_dim, normalizer_version)
-        logger.info("Goldset embeddings loaded from NPZ (%s).", npz_path)
-        return ids, texts, embeddings
+    npz_uri = GOLDSET_NPZ_URI or None
+    npz_path = _resolve_goldset_npz_path(npz_uri)
 
-    chroma_data = _load_embeddings_from_chroma()
-    if chroma_data:
-        ids, texts, embeddings, meta = chroma_data
-        GOLDSET_IDS_CACHE, GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE = ids, texts, embeddings
-        collection_name = _derive_collection_name_from_meta(meta, GOLDSET_COLLECTION_NAME)
-        _set_active_collection(collection_name)
-        emb_dim = int(meta.get("emb_dim") or (len(embeddings[0]) if embeddings else 0) or 0)
-        normalizer_version = int(meta.get("normalizer_version") or EXPECTED_NORMALIZER_VERSION)
-        _emit_goldset_ready(collection_name, len(texts), emb_dim, normalizer_version)
-        logger.info("Goldset embeddings loaded from Chroma collection '%s'.", collection_name)
-        return ids, texts, embeddings
-
-    npz_path = _resolve_goldset_npz_path()
     try:
-        npz_data = _load_embeddings_from_npz(npz_path)
+        ids, texts, embeddings, meta = _load_embeddings_from_npz(npz_path, npz_uri=npz_uri)
     except Exception as exc:
-        _emit_goldset_error("npz_load_failed", path=str(npz_path), error=str(exc))
-        npz_data = None
-    if npz_data:
-        ids, texts, embeddings, meta = npz_data
-        GOLDSET_IDS_CACHE, GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE = ids, texts, embeddings
-        collection_name = _derive_collection_name_from_meta(meta, _derive_collection_name_from_path(npz_path, GOLDSET_COLLECTION_NAME))
-        _set_active_collection(collection_name)
-        emb_dim = int(meta.get("emb_dim") or (len(embeddings[0]) if embeddings else 0) or 0) if meta else (len(embeddings[0]) if embeddings else 0)
-        normalizer_version = int(meta.get("normalizer_version") or EXPECTED_NORMALIZER_VERSION) if meta else EXPECTED_NORMALIZER_VERSION
-        _emit_goldset_ready(collection_name, len(texts), emb_dim, normalizer_version)
-        logger.info("Goldset embeddings loaded from NPZ (%s).", npz_path)
-        return ids, texts, embeddings
+        _emit_npz_failed(npz_uri, exc)
+        raise
 
-    allow_runtime = os.getenv("GOLDSET_ALLOW_RUNTIME_COMPUTE", "0").lower() in {"1", "true", "yes", "y"}
-    if allow_runtime:
-        ids, texts, embeddings = _compute_embeddings_locally()
-        GOLDSET_IDS_CACHE, GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE = ids, texts, embeddings
-        collection_name = "runtime_goldset"
-        _set_active_collection(collection_name)
-        emb_dim = len(embeddings[0]) if embeddings else 0
-        _emit_goldset_ready(collection_name, len(texts), emb_dim, EXPECTED_NORMALIZER_VERSION)
-        logger.warning("Goldset embeddings computed on the fly. Consider precomputing for stability.")
-        return ids, texts, embeddings
-
-    _emit_goldset_error("goldset_unavailable")
-    GOLDSET_IDS_CACHE, GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE = [], [], []
-    return GOLDSET_IDS_CACHE, GOLDSET_TEXTS_CACHE, GOLDSET_EMB_CACHE
-
-
-def _get_gold_embeddings() -> Tuple[List[str], List[Sequence[float]]]:
-    _, texts, embeddings = _get_gold_records()
-    return texts, embeddings
-
-
-def _compute_embeddings_locally() -> Tuple[List[str], List[str], List[Sequence[float]]]:
-    texts = load_gold_texts()
-    embeddings: List[Sequence[float]] = []
-    valid_texts: List[str] = []
-    ids: List[str] = []
-    for idx, text in enumerate(texts):
-        try:
-            vec = get_embedding(normalize_for_embedding(text))
-        except Exception as exc:
-            logger.warning("Goldset embedding failed: %s", exc)
-            continue
-        if vec:
-            embeddings.append(vec)
-            valid_texts.append(text)
-            ids.append(f"runtime_{idx:05d}")
     if not embeddings:
-        logger.error("No embeddings computed for gold set; similarity checks will fallback to 0.")
-    return ids, valid_texts, embeddings
+        exc = RuntimeError("Goldset NPZ contains no embeddings.")
+        _emit_npz_failed(npz_uri, exc)
+        raise exc
+
+    collection_default = _collection_name_from_path(npz_path, GOLDSET_COLLECTION_NAME_DEFAULT)
+    collection_name = _collection_name_from_meta(meta, collection_default)
+    emb_dim = int(meta.get("emb_dim") or len(embeddings[0]))
+    normalizer_version = int(meta.get("normalizer_version") or EXPECTED_NORMALIZER_VERSION)
+
+    _ACTIVE_COLLECTION_NAME = collection_name
+    _GOLDSET_IDS = ids
+    _GOLDSET_TEXTS = texts
+    _GOLDSET_EMBEDDINGS = embeddings
+    _GOLDSET_EMB_DIM = emb_dim
+    _GOLDSET_NORMALIZER_VERSION = normalizer_version
+
+    _emit_npz_loaded(collection_name, len(texts), emb_dim, npz_uri)
+    _emit_ready(collection_name, len(texts), emb_dim, normalizer_version)
+
+
+try:
+    _initialize_goldset()
+except Exception as exc:
+    emit_structured(
+        {
+            "message": "GOLDSET_INIT_FAILED",
+            "error": str(exc),
+        }
+    )
+    raise
 
 
 @dataclass(frozen=True)
 class GoldsetSimilarity:
-    similarity: Optional[float]
-    similarity_raw: Optional[float]
-    similarity_norm: Optional[float]
-    best_id: Optional[str]
+    similarity: float
+    similarity_raw: float
+    similarity_norm: float
+    best_id: str
 
 
-def get_goldset_similarity_details(text: str, *, generate_if_missing: bool = False) -> GoldsetSimilarity:
-    if not text or not text.strip():
-        return GoldsetSimilarity(None, None, None, None)
+def _ensure_goldset_loaded() -> None:
+    if not _GOLDSET_EMBEDDINGS:
+        raise RuntimeError("Goldset embeddings not initialized.")
+
+
+def get_goldset_similarity_details(text: str, *, generate_if_missing: bool = True) -> GoldsetSimilarity:
+    _ensure_goldset_loaded()
+    normalized = normalize_for_embedding(text or "")
     try:
-        vec = get_embedding(normalize_for_embedding(text), generate_if_missing=generate_if_missing)
-    except Exception as exc:  # pragma: no cover
-        _emit_goldset_error("draft_embedding_failed", error=str(exc))
-        return GoldsetSimilarity(None, None, None, None)
-    if not vec:
-        _emit_goldset_error("draft_embedding_missing")
-        return GoldsetSimilarity(None, None, None, None)
+        vec = get_embedding(normalized, generate_if_missing=generate_if_missing)
+    except Exception as exc:
+        emit_structured({"message": "GOLDSET_DRAFT_EMBED_FAIL", "error": str(exc)})
+        return GoldsetSimilarity(0.0, 0.0, 0.0, "embedding_error")
 
-    ids, _, gold_embeddings = _get_gold_records()
-    if not gold_embeddings:
-        _emit_goldset_error("goldset_embeddings_empty")
-        return GoldsetSimilarity(None, None, None, None)
+    if not vec:
+        emit_structured({"message": "GOLDSET_DRAFT_EMBED_EMPTY"})
+        return GoldsetSimilarity(0.0, 0.0, 0.0, "embedding_missing")
 
     best_idx = -1
     best_score = float("-inf")
-    for idx, gold_vec in enumerate(gold_embeddings):
+    for idx, gold_vec in enumerate(_GOLDSET_EMBEDDINGS):
         score = _cosine_similarity(vec, gold_vec)
         if score > best_score:
             best_score = score
             best_idx = idx
 
     if best_idx < 0:
-        _emit_goldset_error("goldset_no_match")
-        return GoldsetSimilarity(None, None, None, None)
+        emit_structured({"message": "GOLDSET_NO_MATCH"})
+        return GoldsetSimilarity(0.0, 0.0, 0.0, "no_match")
 
     similarity_raw = float(best_score)
     similarity_norm = max(0.0, min(1.0, similarity_raw))
-    best_id = ids[best_idx] if 0 <= best_idx < len(ids) else None
+    best_id = _GOLDSET_IDS[best_idx] if 0 <= best_idx < len(_GOLDSET_IDS) else "unknown"
 
-    return GoldsetSimilarity(
-        similarity=similarity_raw,
-        similarity_raw=similarity_raw,
-        similarity_norm=similarity_norm,
-        best_id=best_id,
-    )
+    return GoldsetSimilarity(similarity_raw, similarity_raw, similarity_norm, best_id)
 
 
-def max_similarity_to_goldset(text: str, *, generate_if_missing: bool = False) -> Optional[float]:
+def max_similarity_to_goldset(text: str, *, generate_if_missing: bool = True) -> float:
     details = get_goldset_similarity_details(text, generate_if_missing=generate_if_missing)
     return details.similarity
 
@@ -425,18 +311,13 @@ def _normalize_vector(arr: np.ndarray) -> np.ndarray:
 
 
 def _build_cluster_anchors() -> List[Tuple[np.ndarray, str]]:
-    global GOLDSET_CLUSTER_INFO
-    texts, embeddings = _get_gold_embeddings()
-    if not texts or not embeddings:
-        GOLDSET_CLUSTER_INFO = []
-        return GOLDSET_CLUSTER_INFO
-
-    vectors = np.array([_normalize_vector(np.array(vec, dtype=float)) for vec in embeddings])
+    _ensure_goldset_loaded()
+    vectors = np.array([_normalize_vector(np.array(vec, dtype=float)) for vec in _GOLDSET_EMBEDDINGS])
+    texts = _GOLDSET_TEXTS
     n_samples = vectors.shape[0]
     k = min(GOLDSET_CLUSTER_COUNT, n_samples)
     if k <= 0:
-        GOLDSET_CLUSTER_INFO = []
-        return GOLDSET_CLUSTER_INFO
+        return []
 
     rng = np.random.default_rng(42)
     initial_indices = rng.choice(n_samples, size=k, replace=False)
@@ -444,7 +325,7 @@ def _build_cluster_anchors() -> List[Tuple[np.ndarray, str]]:
 
     assignments = np.zeros(n_samples, dtype=int)
     for _ in range(30):
-        similarities = vectors @ centroids.T  # cosine similarity because vectors normalized
+        similarities = vectors @ centroids.T
         new_assignments = np.argmax(similarities, axis=1)
         if np.array_equal(assignments, new_assignments):
             break
@@ -466,33 +347,29 @@ def _build_cluster_anchors() -> List[Tuple[np.ndarray, str]]:
         sims = member_vectors @ centroid
         best_local = members_idx[int(np.argmax(sims))]
         anchors.append((centroid, texts[best_local]))
-
-    GOLDSET_CLUSTER_INFO = anchors
-    return GOLDSET_CLUSTER_INFO
+    return anchors
 
 
 def _get_cluster_anchors() -> List[Tuple[np.ndarray, str]]:
-    global GOLDSET_CLUSTER_INFO
-    if GOLDSET_CLUSTER_INFO is not None:
-        return GOLDSET_CLUSTER_INFO
-    return _build_cluster_anchors()
+    global _GOLDSET_CLUSTER_INFO
+    if _GOLDSET_CLUSTER_INFO is None:
+        _GOLDSET_CLUSTER_INFO = _build_cluster_anchors()
+    return _GOLDSET_CLUSTER_INFO
 
 
 def retrieve_goldset_examples(query: str, k: int = 3) -> List[str]:
-    """Return up to k reference posts from goldset aligned with query topic."""
     anchors = _get_cluster_anchors()
     if not anchors:
-        texts, _ = _get_gold_embeddings()
-        return texts[:k]
+        return _GOLDSET_TEXTS[:k]
 
     vector = None
     if query and query.strip():
         try:
-            # Evitar generación en ruta /g; si no hay caché, se usarán anchors por defecto
-            vector = np.array(get_embedding(query, generate_if_missing=False), dtype=float)
-            vector = _normalize_vector(vector)
+            vec = get_embedding(normalize_for_embedding(query), generate_if_missing=False)
+            if vec:
+                vector = _normalize_vector(np.array(vec, dtype=float))
         except Exception as exc:
-            logger.warning("Could not embed query for goldset retrieval: %s", exc)
+            emit_structured({"message": "GOLDSET_QUERY_EMBED_FAIL", "error": str(exc)})
             vector = None
 
     if vector is None or vector.size == 0:
@@ -500,16 +377,15 @@ def retrieve_goldset_examples(query: str, k: int = 3) -> List[str]:
 
     anchor_dim = anchors[0][0].shape[0] if anchors else 0
     if vector.shape[0] != anchor_dim:
-        logger.warning(
-            "Goldset anchor dimension mismatch (query=%s, anchor=%s). Falling back to raw texts.",
-            vector.shape[0],
-            anchor_dim,
+        emit_structured(
+            {
+                "message": "GOLDSET_QUERY_DIM_MISMATCH",
+                "query_dim": vector.shape[0],
+                "anchor_dim": anchor_dim,
+            }
         )
         return [text for _, text in anchors[:k]]
 
-    scored = [
-        (float(vector @ centroid), text)
-        for centroid, text in anchors
-    ]
+    scored = [(float(vector @ centroid), text) for centroid, text in anchors]
     scored.sort(key=lambda item: item[0], reverse=True)
     return [text for _, text in scored[:k]]

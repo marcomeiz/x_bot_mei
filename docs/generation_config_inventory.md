@@ -118,6 +118,11 @@ Actualizar este documento tras cada etapa para mantener trazabilidad.
 **Autor:** Marco Mei  
 **Justificación:** Con el goldset auditado (21 vectores), usar 5 anchors aleatorios refuerza la señal de estilo y mantiene alta coherencia doctrinal.
 
+**Cambio:** Corrección del control de reintentos en `proposal_service.propose_tweet` para tratar éxito como éxito (no reintentar).  
+**Fecha:** 2025-11-05  
+**Autor:** Mei  
+**Justificación:** `_check_contract_and_goldset` devolvía `passed=true` para las tres variantes (sim ≥ 0.77) y, sin embargo, se enviaba "⚠️ Variantes no cumplen el contrato. Reintentando…"; ahora se calcula `all_passed` con `all(sim[label] ≥ GOLDSET_MIN_SIMILARITY)` y se procede al envío.
+
 Nota operativa: `GOLDSET_NPZ_GCS_URI` se mantiene apuntando a `gs://xbot-473616-x-bot-mei-db/goldset/goldset_v2_audited.npz` en Cloud Run (deploy scripts actualizados).
 
 **Cambio:** Introducción del prompt limpio `prompts/generation/all_variants_v4.md` y cambio de referencia en `variant_generators.generate_all_variants`.  

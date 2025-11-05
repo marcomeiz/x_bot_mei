@@ -309,7 +309,7 @@ class ProposalService:
             return False
 
         with Timer("g_check_contract_and_goldset", labels={"chat_id": chat_id}):
-            compliance_warnings, blocking_contract, _ = self._check_contract_requirements(
+            compliance_warnings, blocking_contract, sims_pre = self._check_contract_requirements(
                 {
                     "short": draft_a,
                     "mid": draft_b,
@@ -318,7 +318,17 @@ class ProposalService:
                 piece_id=topic_id,
                 log_stage="PRE",
             )
-        if blocking_contract:
+        # Si todas las variantes presentes pasan el umbral de similitud, considerar éxito y continuar
+        try:
+            present_pre = [lbl for lbl, txt in (("short", draft_a), ("mid", draft_b), ("long", draft_c)) if (txt or "").strip()]
+            pass_flags_pre = []
+            for lbl in present_pre:
+                simv = sims_pre.get(lbl) if isinstance(sims_pre, dict) else None
+                pass_flags_pre.append(bool(simv is not None and float(simv) >= GOLDSET_MIN_SIMILARITY))
+            all_passed_pre = bool(pass_flags_pre) and all(pass_flags_pre)
+        except Exception:
+            all_passed_pre = False
+        if blocking_contract and not all_passed_pre:
             if ignore_similarity:
                 self.telegram.send_message(
                     chat_id,
@@ -329,6 +339,21 @@ class ProposalService:
             with Timer("g_send_warning_contract_retry", labels={"chat_id": chat_id}):
                 self.telegram.send_message(chat_id, get_message("contract_retry"))
             return False
+        if not blocking_contract and compliance_warnings:
+            logger.info(
+                "[CHAT_ID: %s] Variantes con avisos de contrato: %s",
+                chat_id,
+                compliance_warnings,
+            )
+            if LOG_GENERATED_VARIANTS:
+                for label, warning in compliance_warnings.items():
+                    logger.warning("[CHAT_ID: %s] Draft %s contract check: %s", chat_id, label, warning)
+            for key, warning in compliance_warnings.items():
+                variant_errors[key] = (
+                    f"{warning} " + variant_errors[key]
+                ) if key in variant_errors else warning
+        if all_passed_pre:
+            logger.info("[CONTROL] Todos los drafts pasaron (PRE). Enviando al usuario.")
         if compliance_warnings:
             logger.info(
                 "[CHAT_ID: %s] Variantes con avisos de contrato: %s",
@@ -492,7 +517,17 @@ class ProposalService:
                 logger.info("[CHAT_ID: %s] Draft %s generated (%s chars):\n%s", chat_id, label, len((text or "")), text or "<vacío>")
             for label, warning in compliance_warnings.items():
                 logger.warning("[CHAT_ID: %s] Draft %s contract check: %s", chat_id, label, warning)
-        if blocking_contract:
+        # Evaluación explícita: éxito si TODAS las variantes presentes pasan el umbral
+        try:
+            present_post = [lbl for lbl, txt in draft_map.items() if (txt or "").strip()]
+            pass_flags_post = []
+            for lbl in present_post:
+                simv = sims_map.get(lbl) if isinstance(sims_map, dict) else None
+                pass_flags_post.append(bool(simv is not None and float(simv) >= GOLDSET_MIN_SIMILARITY))
+            all_passed_post = bool(pass_flags_post) and all(pass_flags_post)
+        except Exception:
+            all_passed_post = False
+        if blocking_contract and not all_passed_post:
             if ignore_similarity:
                 self.telegram.send_message(
                     chat_id,
@@ -524,6 +559,8 @@ class ProposalService:
             except Exception:
                 logger.debug("Diag logging (contract retry) skipped due to an error.")
             return False
+        if all_passed_post:
+            logger.info("[CONTROL] Todos los drafts pasaron (POST). Enviando al usuario.")
         if compliance_warnings:
             logger.info(
                 "[CHAT_ID: %s] Variantes con avisos de contrato: %s",

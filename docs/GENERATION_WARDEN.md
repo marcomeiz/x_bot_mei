@@ -222,6 +222,10 @@ Validation for each: `short ≤160`, `mid 180–230`, `long 240–280`; one sent
   - `g_embed_memory_on_approval`, `g_memory_add`: embedding y persistencia al aprobar.
   - `g_send_*`: tiempos de mensajes de aviso/errores y prompts de publicación.
 
+Nota de control (2025-11-05):
+- Cuando todas las variantes presentes pasan el umbral mínimo de similitud del goldset, el sistema considera éxito y evita el mensaje de reintento de contrato.
+- Implementación: `ProposalService.propose_tweet` calcula `all_passed_pre/post = all(sim[label] >= GOLDSET_MIN_SIMILARITY)` sobre las variantes presentes y procede al envío en caso afirmativo.
+
 ## Resumen de variantes en logs
 
 - Al final de la propuesta, se emite un bloque `[SUMMARY]` con cada variante y su similitud con el goldset:

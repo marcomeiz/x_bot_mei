@@ -8,6 +8,15 @@
 - Docs: ARCHITECTURE_GCP.md, MAINTENANCE_SCALING.md, TECH_COMPARISON.md
 - Backfill Firestore desde Chroma (scripts/backfill_firestore_from_chroma.py)
 
+### Fix: Bucle de reintentos trataba éxito como fallo (proposal_service)
+- Propósito: Evitar reintentos innecesarios cuando todas las variantes generadas pasan los checks de contrato/similitud del goldset.
+- Justificación: Los logs mostraban `_check_contract_and_goldset` con `passed=true` para las 3 variantes (sim ≥ 0.77) y, aun así, el bot enviaba "⚠️ Variantes no cumplen el contrato. Reintentando…".
+- Cambios:
+  - `proposal_service.propose_tweet`: se calcula `all_passed_pre` y `all_passed_post` a partir del mapa de similitudes devuelto por `_check_contract_requirements` y se corta la ruta de reintento cuando `all(...)` es verdadero.
+  - Se añaden logs de control: "[CONTROL] Todos los drafts pasaron (...). Enviando al usuario." para trazabilidad.
+- Autor: Mei
+- Fecha: 2025-11-05
+
 ## 2025-11-05
 - Introducción del prompt limpio `prompts/generation/all_variants_v4.md` y cambio de referencia en `variant_generators.generate_all_variants`.
   - Propósito: eliminar conflicto entre el User Prompt y el `<STYLE_CONTRACT>` del System Prompt; suprimir reglas rígidas de "Voice & Audience" que dañan la variación humana.

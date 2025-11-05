@@ -27,7 +27,7 @@ if str(REPO_ROOT) not in sys.path:
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
-from src.chroma_utils import flatten_chroma_array
+from src.chroma_utils import flatten_chroma_array, normalize_chroma_embeddings
 
 
 def _flatten_list(x: Any) -> List[Any]:
@@ -61,21 +61,10 @@ def _read_page(coll, limit: int, offset: int) -> Tuple[List[str], List[str], Lis
     metas_raw = data.get("metadatas") or []
     metas = _sanitize_metadatas(_flatten_list(metas_raw))
 
-    # Embeddings: mantener como lista de vectores (no aplanar los floats)
+    # Embeddings: normalizar con utilidad compartida
     embeds_raw = data.get("embeddings") or []
-    embeds: List[List[float]] = []
-    if isinstance(embeds_raw, list):
-        if embeds_raw and isinstance(embeds_raw[0], list) and embeds_raw[0] and isinstance(embeds_raw[0][0], (float, int)):
-            # Forma habitual: [[f1,f2,...], [g1,g2,...], ...]
-            embeds = embeds_raw  # type: ignore[assignment]
-        elif embeds_raw and isinstance(embeds_raw[0], list) and isinstance(embeds_raw[0], list):
-            # Doble anidación: [[[floats]], [[floats]]]
-            embeds = [e[0] if isinstance(e, list) else e for e in embeds_raw]  # type: ignore[list-item]
-        elif embeds_raw and isinstance(embeds_raw[0], (float, int)):
-            # Lista plana de floats para un único embedding (p.ej. limit=1 tras aplanado)
-            embeds = [embeds_raw]  # type: ignore[list-item]
-        else:
-            embeds = []
+    embeds: List[List[float]] = normalize_chroma_embeddings(embeds_raw)
+
     # Normalizar tipos finales
     ids = [str(i) for i in ids]
     docs = [str(d[0]) if isinstance(d, list) else str(d) for d in docs]

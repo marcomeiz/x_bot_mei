@@ -20,15 +20,21 @@ Justificación: Asegurar continuidad operativa cuando el sistema usa con frecuen
 1. Ejecutar el script de reconstrucción:
    - `python scripts/rebuild_topics.py --from auto`
    - Opciones: `--from seed|goldset|auto` (auto por defecto)
+   - Fuentes seed incluidas automáticamente: `data/topics_seed.jsonl` y todos los `*.jsonl` bajo `data/seeds/` (deduplicación por `id` y orden determinista por nombre de archivo).
 2. Confirmar salud:
    - `curl -s "$BASE_URL/collections/topics/health" | jq .`
 3. Registrar el evento y verificación:
    - Revisar logs para `TOPICS_REBUILT` con `source`, `count` y `emb_dim`.
+4. (Opcional, si trabajaste en local) Migrar a remoto:
+   - `python scripts/migrate_local_chroma_to_remote.py --source-path .chroma_topics_tmp --dest-url https://<tu-chroma-host> --collections topics_collection_3072 --batch 256`
+   - Verificar desde la app con `CHROMA_DB_URL` apuntando a remoto: `remote_count` y dimensiones.
 
 ## Notas de implementación
 - El script usa el modelo `openai/text-embedding-3-large` (3072 dimensiones) y upserta a `topics_collection_3072`.
 - Determinismo garantizado con `random.seed(17)`; muestreo estable del goldset.
 - Se asegura `SIM_DIM=3072` y `TOPICS_COLLECTION=topics_collection_3072` si no están en `.env`.
+- Seeds múltiples: se agregan todos los JSONL bajo `data/seeds/` además del `data/topics_seed.jsonl`. Se deduplican por `id` y se mantiene orden estable por nombre de archivo.
+- En entornos remotos, usa `CHROMA_DB_URL` para apuntar la app al servidor HTTP de Chroma; la migración desde local es opcional si reconstruyes directamente apuntando a remoto.
 
 ## Checklist de validación post-rebuild
 - [ ] Endpoint `/collections/topics/health` responde OK.
@@ -39,4 +45,4 @@ Justificación: Asegurar continuidad operativa cuando el sistema usa con frecuen
 
 ## Historial de cambios
 - 2025-11-05: Añadido runbook y script determinista de rebuild (autor: x_bot_mei). Justificación: incremento de fallback y necesidad de paridad con goldset.
-
+- 2025-11-05: Actualizado para incluir seeds múltiples (`data/seeds/*.jsonl`), deduplicación por `id`, orden determinista y paso opcional de migración a Chroma remoto. Autor: x_bot_mei. Justificación: mayor cobertura y operación 100% remota.

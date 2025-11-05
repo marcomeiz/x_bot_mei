@@ -10,10 +10,11 @@ This note tracks every configuration surface that impacts tweet/comment generati
 - `prompts/generation/tail_sampling.md` y `prompts/generation/contrast_analysis.md` → tail sampling & contrast (externalizado ✅).
 
 ## 2. Guardrails & Thresholds
-- `config/warden.yaml` define toggles y rangos (commas, words/line, mid/long chars, minimal mode, em dash). ENV (`WARDEN_CONFIG_PATH`, `ENFORCE_NO_COMMAS`, etc.) siguen como overrides.
-- `config/lexicon.json` provee listas de palabras vetadas/sufijos/stopwords (consumido vía `src/lexicon.py` por `writing_rules` y `variant_generators`).
-- `config/style_audit.yaml` controla enforcement, rondas y umbrales del guardián de estilo (cargado vía `src/style_config.py` con overrides ENV).
-- `prompts/validation/style_judge_v1.md` define el juez LLM de cumplimiento estricto del contrato; `proposal_service._check_contract_requirements` lo usa para devolver `[True|False,...]` y el control aplica `all(results)`.
+ - Porter (post‑process en `variant_generators.py`) ahora NO aplica linter ni guardrails; solo limpia (quita hashtags y colapsa espacios).
+ - La validación estricta de contrato se realiza en `proposal_service.py` vía Juez LLM con `prompts/validation/style_judge_v1.md`.
+ - `config/warden.yaml` y sus ENV (`WARDEN_CONFIG_PATH`, `ENFORCE_NO_COMMAS`, etc.) no gatean el post‑process; pueden usarse en revisiones internas/experimentos.
+ - `config/lexicon.json` sigue aportando listas (sufijos/palabras/stopwords) para ayudas de prompt y revisiones.
+ - `prompts/validation/style_judge_v1.md` define el juez LLM de cumplimiento estricto; `proposal_service._check_contract_requirements` usa esos checks booleanos (flujo `all(results)`).
 
 ## 3. Runtime Messages
 - `config/messages.yaml` centraliza mensajes de usuario para bot/propuesta/avisos (cargado vía `src/messages.py`).
@@ -134,3 +135,8 @@ Nota operativa: `GOLDSET_NPZ_GCS_URI` se mantiene apuntando a `gs://xbot-473616-
 **Fecha:** 2025-11-05  
 **Autor:** AI assistant  
 **Justificación:** Eliminar conflicto con el `<STYLE_CONTRACT>` del System Prompt; se elimina la sección rígida "Voice & Audience" y se centraliza la inyección de anchors vía `{gold_examples_block}` para robustez y variación humana.
+
+**Cambio:** Eliminación del linter/hard checks del Warden en el post‑process; Porter queda en limpieza básica y la validación pasa al Juez LLM en `proposal_service.py`.  
+**Fecha:** 2025-11-05  
+**Autor:** Mei  
+**Justificación:** Evitar doble enforcement y contradicciones entre reglas heurísticas y el contrato, delegando la decisión binaria en un juez LLM más robusto y alineado con `<STYLE_CONTRACT>`.

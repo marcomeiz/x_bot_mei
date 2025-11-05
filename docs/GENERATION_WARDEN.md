@@ -71,30 +71,21 @@ LOG_WARDEN_FAILURE_REASON=true
   - Reference voice anchors: injected via Style‑RAG RANDOM (`retrieve_goldset_examples_random(k=5)`) selecting 5 examples from the audited goldset v2.
 - Steps:
   1) LLM returns `{short,mid,long}` (retry enforces schema if needed).
-  2) Warden cleaning + validation (see below).
-  3) Returns cleaned JSON; otherwise raises `StyleRejection` (regenerate upstream).
+  2) Porter cleaning only (see below).
+  3) Returns cleaned JSON; validation is deferred to the LLM Judge in `proposal_service.py`.
 
 ## Warden / Porter (post‑process)
 
-- Files: `variant_generators.py` (cleaning + warden checks), `writing_rules.py` (mechanical checks, anti‑AI patterns), `style_guard.py` (improve_style/audit).
-- Cleaning:
-  - Remove hashtags, convert commas to dot, collapse spaces.
-- Improve & audit:
-  - `improve_style(draft, contract)` then re‑clean.
-- Mechanical checks (writing_rules)
-  - Detect & reject: hashtags, commas, `and/or` (configurable), conjunctions; banned suffixes; AI‑like phrases.
-- Warden hard checks:
-  - English‑only (no ES diacritics).
-  - No hedging/cliché/hype (regex).
-  - One sentence per line; each line ends with `. ! ?`.
-  - 5–12 words per line (configurable with `WARDEN_WORDS_PER_LINE_LO/HI`).
-  - Character ranges per variant: `short ≤160`, `mid 180–230`, `long 240–280` (configurable).
-  - If fails: try compaction ≤280 with `ensure_under_limit_via_llm`; re‑validate; otherwise `StyleRejection`.
-- Toggles & ranges:
-  - Default source `config/warden.yaml` with optional ENV overrides (`ENFORCE_NO_COMMAS`, etc.).
-  - `ENFORCE_NO_COMMAS`, `ENFORCE_NO_AND_OR` (relaxable for CTR testing).
+- Files: `variant_generators.py` (Porter cleaning), `proposal_service.py` (LLM Judge validation).
+- Cleaning (Porter):
+  - Remove hashtags and collapse spaces per line. No punctuation conversion (commas are not altered).
+- Validation path:
+  - All style and mechanical validation is now delegated to the LLM Judge in `proposal_service.py`.
+  - The judge evaluates each variant against the `<STYLE_CONTRACT>` and returns strict booleans used to decide flow (send/rehint/regenerate).
+- Guardrails config:
+  - The previous guardrail toggles/ranges in `config/warden.yaml` are no longer enforced during post‑process cleaning. They may still exist for experiments or internal reviews, but Porter does not gate on them.
 - Logging:
-  - When rejecting, logs `WARDEN_FAIL_REASON=<reason>`.
+  - Porter performs only cleaning; rejection/feedback messages originate from the LLM Judge path in `proposal_service.py`.
 
 ## Embeddings
 

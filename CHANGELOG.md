@@ -8,6 +8,16 @@
 - Docs: ARCHITECTURE_GCP.md, MAINTENANCE_SCALING.md, TECH_COMPARISON.md
 - Backfill Firestore desde Chroma (scripts/backfill_firestore_from_chroma.py)
 
+### Cambio: Eliminación del linter y hard checks del Warden en post‑process; validación pasa al Juez LLM
+- Propósito: Evitar doble enforcement y choques entre reglas heurísticas (commas/and‑or/char ranges) y el contrato de estilo. La decisión de envío ahora depende de un juez LLM binario.
+- Justificación: Los rechazos por linter en `variant_generators.py` generaban conflictos con evaluaciones posteriores; el juez LLM en `proposal_service.py` es más fiable al aplicar `<STYLE_CONTRACT>` con true/false.
+- Cambios:
+  - `variant_generators._validate_variant`: solo limpieza básica (quitar hashtags + colapsar espacios); elimina `improve_style`, reparaciones mecánicas y hard checks.
+  - Se removieron imports de linter (`improve_style`, `label_sections`, `revise_for_style`) del post‑process.
+  - Documentación actualizada: `docs/GENERATION_WARDEN.md` refleja Porter como limpieza básica y valida por LLM Judge; `docs/generation_config_inventory.md` actualizado.
+- Autor: Mei
+- Fecha: 2025-11-05
+
 ### Cambio: Sustitución de validación por similitud (cosine) por Juez LLM (proposal_service)
 - Propósito: Validar estrictamente el estilo de cada borrador contra el STYLE_CONTRACT usando un LLM que responde solo true/false, eliminando ambigüedad por métricas de similitud.
 - Justificación: La verificación basada en similitud al goldset no garantiza cumplimiento estricto del contrato; un juez LLM reduce falsos positivos y simplifica el control de flujo con `all([bools])`.

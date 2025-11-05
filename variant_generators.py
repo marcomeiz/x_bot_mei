@@ -18,7 +18,7 @@ from src.settings import AppSettings
 from src.lexicon import get_stopwords
 from logger_config import logger
 from prompt_context import PromptContext
-from style_guard import StyleRejection, improve_style, label_sections, revise_for_style
+from style_guard import StyleRejection
 from writing_rules import (
     BANNED_WORDS,
     FormatProfile,
@@ -1444,12 +1444,11 @@ def generate_all_variants(
                 cleaned[label] = draft
             return cleaned, failed_variants
 
-        # Hard gate: clean, audit and enforce mechanical rules before returning
+        # Hard gate: basic cleaning only (hashtags removal + space collapsing)
         def _strip_hashtags_and_fix(text: str) -> str:
             import re as _re
-            # Remove hashtags and replace commas with dots, but preserve line breaks
+            # Remove hashtags; preserve line breaks; collapse internal whitespace
             t = _re.sub(r"#[A-Za-z0-9_]+", "", text or "")
-            t = t.replace(",", ".")
             lines = []
             for ln in t.splitlines():
                 # Collapse internal whitespace per line and strip ends
@@ -1458,147 +1457,12 @@ def generate_all_variants(
                     lines.append(norm)
             return "\n".join(lines)
 
-        def _mechanical_repair(text: str, *, enforce_no_commas: bool = ENFORCE_NO_COMMAS) -> str:
-            import re as _re
-            if not text:
-                return ""
-            t = text
-            # Strip URLs, emojis, hashtags
-            t = _re.sub(r"(https?://\S+|\bwww\.[^\s]+)", "", t)
-            t = _re.sub(r"#[A-Za-z0-9_]+", "", t)
-            t = _re.sub(r"[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\u2600-\u26FF\u2700-\u27BF]", "", t)
-            if enforce_no_commas:
-                t = t.replace(",", ".")
-            # Normalize whitespace per sentence
-            # Break on sentence boundaries first
-            sentences = []
-            parts = _re.split(r"(?<=[.!?])\s+", t.strip())
-            for part in parts:
-                s = _re.sub(r"\s+", " ", part.strip())
-                if not s:
-                    continue
-                if s[-1] not in ".!?":
-                    s += "."
-                sentences.append(s)
-            # Rewrap to keep <= WARDEN_WPL_HI words per line; preserve lines that are short
-            lines: list[str] = []
-            for s in sentences:
-                words = _re.findall(r"\b[\w']+\b", s)
-                if not words:
-                    continue
-                # Chunk by HI to avoid long lines; keep punctuation on each line
-                for i in range(0, len(words), WARDEN_WPL_HI):
-                    chunk = words[i : i + WARDEN_WPL_HI]
-                    if not chunk:
-                        continue
-                    line = " ".join(chunk).strip()
-                    if line and line[-1] not in ".!?":
-                        line += "."
-                    lines.append(line)
-            # Final cleanup
-            return "\n".join(ln.strip() for ln in lines if ln.strip())
+        # NOTE: Mechanical repair and compliance enforcement removed per request.
 
         def _validate_variant(label: str, draft: str) -> str:
-            audit_payload: Optional[Dict[str, object]] = None
             draft = _strip_hashtags_and_fix(draft)
-            # Warden audit+rewrite using the style contract
-            try:
-                improved, audit_payload = improve_style(draft, context.contract, mode="tweet")
-                draft = _strip_hashtags_and_fix(improved)
-            except StyleRejection as e:
-                reason = f"Variant {label} rejected by style audit: {e}"
-                logger.warning(f"WARDEN_FAIL_REASON={reason}")
-                raise StyleRejection(reason)
-
-            # Mechanical compliance (no commas/and-or/hashtags/AI-patterns)
-            try:
-                _enforce_variant_compliance(label.upper(), draft, format_profile=None, allow_analogy=False)
-            except StyleRejection:
-                # Deterministic mechanical repair pass
-                # Label core sections; preserve core truth and hammer
-                try:
-                    labels = label_sections(draft, context.contract)
-                except Exception:
-                    labels = {"preserve_indices": []}
-                preserve_idx = set(int(i) for i in labels.get("preserve_indices", []) if isinstance(i, int))
-
-                # If preserved lines violate mechanics that would force splitting or punctuation changes → reject (voice wins)
-                lines = [ln.strip() for ln in draft.splitlines() if ln.strip()]
-
-                def _words(nline: str) -> int:
-                    import re as _re
-                    return len(_re.findall(r"\b[\w']+\b", nline))
-
-                for pi in preserve_idx:
-                    if 0 <= pi < len(lines):
-                        pline = lines[pi]
-                        if ENFORCE_NO_COMMAS and "," in pline:
-                            msg = f"Variant {label}: repair would degrade preserved core (comma in preserved line)"
-                            logger.warning(f"WARDEN_FAIL_CATEGORY=voice; {msg}")
-                            raise StyleRejection(msg)
-                        if _words(pline) > WARDEN_WPL_HI:
-                            msg = f"Variant {label}: repair would need to split preserved line (>{WARDEN_WPL_HI} words)"
-                            logger.warning(f"WARDEN_FAIL_CATEGORY=voice; {msg}")
-                            raise StyleRejection(msg)
-
-                draft2 = _mechanical_repair(draft)
-                try:
-                    _enforce_variant_compliance(label.upper(), draft2, format_profile=None, allow_analogy=False)
-                    draft = draft2
-                except StyleRejection:
-                    # One compacting attempt if still failing (length only)
-                    draft3 = ensure_under_limit_via_llm(draft2, settings.generation_model, limit=280)
-                    draft3 = _strip_hashtags_and_fix(draft3)
-                    _enforce_variant_compliance(label.upper(), draft3, format_profile=None, allow_analogy=False)
-                    draft = draft3
-
-            # Additional Warden checks
-            if FORBIDDEN_EM_DASH in draft:
-                reason = f"Variant {label} rejected: em dash (—) not allowed."
-                logger.warning(f"WARDEN_FAIL_REASON={reason}")
-                raise StyleRejection(reason)
-            if not _english_only(draft):
-                reason = f"Variant {label} rejected: non-English characters."
-                logger.warning(f"WARDEN_FAIL_REASON={reason}")
-                raise StyleRejection(reason)
-            banned_hit = _no_banned_language(draft)
-            if banned_hit:
-                # Cliché contextual: allow if auditor judged it as allowed
-                if banned_hit == "cliche" and isinstance(audit_payload, dict) and str(audit_payload.get("cliche_context", "")).lower() == "allowed":
-                    pass
-                else:
-                    reason = f"Variant {label} rejected: {banned_hit} language."
-                    logger.warning(f"WARDEN_FAIL_REASON={reason}")
-                    raise StyleRejection(reason)
-            if not _one_sentence_per_line(draft):
-                reason = f"Variant {label} rejected: one sentence per line required."
-                logger.warning(f"WARDEN_FAIL_REASON={reason}")
-                raise StyleRejection(reason)
-            if not _avg_words_per_line_between(draft, WARDEN_WPL_LO, WARDEN_WPL_HI):
-                reason = f"Variant {label} rejected: sentence length {WARDEN_WPL_LO}–{WARDEN_WPL_HI} words per line."
-                logger.warning(f"WARDEN_FAIL_REASON={reason}")
-                raise StyleRejection(reason)
-            if not _range_ok(label, draft):
-                if len(draft) > 280:
-                    draft2 = ensure_under_limit_via_llm(draft, settings.validation_model, limit=280)
-                    draft2 = _strip_hashtags_and_fix(draft2)
-                    if not _range_ok(label, draft2):
-                        reason = f"Variant {label} rejected: char range after compaction."
-                        logger.warning(f"WARDEN_FAIL_REASON={reason}")
-                        raise StyleRejection(reason)
-                    draft = draft2
-                else:
-                    reason = f"Variant {label} rejected: wrong char range."
-                    logger.warning(f"WARDEN_FAIL_REASON={reason}")
-                    raise StyleRejection(reason)
-            if ENFORCE_NO_COMMAS and "," in draft:
-                reason = f"Variant {label} rejected: commas not allowed."
-                logger.warning(f"WARDEN_FAIL_REASON={reason}")
-                raise StyleRejection(reason)
-            if ENFORCE_NO_AND_OR and re.search(r"\band\s*/\s*or\b", draft, re.I):
-                reason = f"Variant {label} rejected: 'and/or' not allowed."
-                logger.warning(f"WARDEN_FAIL_REASON={reason}")
-                raise StyleRejection(reason)
+            # Post-process now only performs basic cleaning; all style validation is deferred
+            # to proposal_service.py via the LLM Judge (_check_style_with_llm).
             return draft
 
         VARIANT_MAX_ATTEMPTS = 3

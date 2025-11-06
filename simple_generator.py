@@ -62,11 +62,18 @@ def generate_tweets(topic: str) -> Dict[str, str]:
     context = build_prompt_context()
     settings = AppSettings.load()
 
-    prompt = f"""Generate 3 tweet variants about this topic, following the Elastic Voice Contract.
+    prompt = f"""⚠️ CRITICAL: STRICT CHARACTER LIMITS - Count every character carefully!
 
-<TOPIC>
+━━━ LENGTH REQUIREMENTS (NON-NEGOTIABLE) ━━━
+• SHORT: Maximum 140 characters (not 141, not 150 - EXACTLY 140 or less)
+• MID: Between 140-230 characters (must be in this range)
+• LONG: Between 240-280 characters (must be in this range)
+
+Each character counts. Spaces count. Punctuation counts.
+If you write 141 chars for SHORT → INVALID. If you write 231 for MID → INVALID.
+
+━━━ TOPIC ━━━
 {topic}
-</TOPIC>
 
 <STYLE_CONTRACT>
 {context.contract}
@@ -76,26 +83,30 @@ def generate_tweets(topic: str) -> Dict[str, str]:
 {context.icp}
 </TARGET_AUDIENCE>
 
-REQUIREMENTS:
+━━━ CONTENT REQUIREMENTS ━━━
 1. Follow ALL 10 criteria from Contract Section 8: Quality Check
-2. Use street-level tone (Section 2: "Write like you talk")
-3. Include concrete proof: numbers, examples, or vivid scenarios
+2. Street-level tone: Write like texting a smart friend. No corporate speak.
+3. Include concrete proof: numbers, examples, vivid scenarios
 4. Create tension with contrast, paradox, or inversion
 5. Each variant MUST be different in approach and proof
 
-LENGTH REQUIREMENTS:
-- SHORT: ≤140 characters (punchy, one core insight)
-- MID: 140-230 characters (adds context or example)
-- LONG: 240-280 characters (full story with proof)
+━━━ CHARACTER COUNT EXAMPLES ━━━
+SHORT (140 chars max):
+"Most founders think investors want perfect pitch decks. Wrong. They want proof you can sell. I raised $2M with a 3-slide deck." (132 chars)
 
-Return ONLY valid JSON (no markdown, no explanation):
+MID (140-230 chars):
+"You don't need venture capital to build a $10M company. I bootstrapped to $8M ARR with zero funding. Here's what VCs won't tell you: paying customers beat pitch decks every time. Traction > slides." (201 chars)
+
+━━━ BEFORE SUBMITTING: COUNT CHARACTERS ━━━
+Check: Does SHORT have ≤140 chars? Does MID have 140-230? Does LONG have 240-280?
+If any variant exceeds limits → CUT WORDS until it fits.
+
+Return ONLY valid JSON (no markdown):
 {{
-  "short": "tweet text here",
-  "mid": "tweet text here",
-  "long": "tweet text here"
-}}
-
-REMEMBER: Street-level means conversational. No corporate speak. No academic tone. Write like you're texting a smart friend."""
+  "short": "your tweet text here",
+  "mid": "your tweet text here",
+  "long": "your tweet text here"
+}}"""
 
     try:
         response = llm.chat_json(

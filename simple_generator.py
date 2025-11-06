@@ -99,7 +99,7 @@ REMEMBER: Street-level means conversational. No corporate speak. No academic ton
 
     try:
         response = llm.chat_json(
-            model=settings.generation_model,
+            model=settings.post_model,
             messages=[{
                 "role": "user",
                 "content": prompt

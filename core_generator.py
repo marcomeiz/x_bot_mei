@@ -240,42 +240,52 @@ def _log_similarity(topic_abstract: str, ignore_similarity: bool) -> None:
 
 
 def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = True) -> Dict[str, object]:
-    context = build_prompt_context()
-    settings = _build_settings()
+    """
+    Generate 3 tweet variants using the simplified generator.
 
+    This now uses simple_generator which follows ONLY the Elastic Voice Contract.
+    No hardcoded rules, no multiple validation layers.
+    """
     _log_similarity(topic_abstract, ignore_similarity)
-    # RAG: delegar recuperación de anclas al generador de variantes (NN por defecto)
-    gold_examples = None
-
-    # --- Adaptive mode has been removed in favor of the single-call standard generator ---
 
     last_error = ""
     provider_error_message = ""
+
     for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
         logger.info("Intento de generación de IA %s/%s…", attempt, MAX_GENERATION_ATTEMPTS)
         try:
-            with Timer("g_llm_single_call", labels={"model": GENERATION_MODEL}):
-                drafts, variant_errors = generate_all_variants(
-                    topic_abstract,
-                    context,
-                    settings,
-                    gold_examples=gold_examples,
-                )
-            result = {
-                "short": (drafts.get("short") or "").strip(),
-                "mid": (drafts.get("mid") or "").strip(),
-                "long": (drafts.get("long") or "").strip(),
-            }
-            if variant_errors:
-                result["variant_errors"] = variant_errors
-            if any(result[label] for label in ("short", "mid", "long")):
-                logger.info("Intento %s: variantes generadas (con %s errores).", attempt, len(variant_errors))
+            # Use the simplified generator
+            from simple_generator import generate_and_validate
+
+            with Timer("g_llm_simple_generation", labels={"attempt": attempt}):
+                generation = generate_and_validate(topic_abstract)
+
+            # Extract valid variants
+            variant_errors = {}
+            result = {}
+
+            for variant in [generation.short, generation.mid, generation.long]:
+                if variant.valid:
+                    result[variant.label] = variant.text
+                else:
+                    result[variant.label] = ""
+                    variant_errors[variant.label] = variant.failure_reason or "Failed validation"
+
+            # If we got at least one valid variant, return success
+            if any(result.values()):
+                logger.info("Intento %s: variantes generadas (%s válidas).",
+                           attempt, len([v for v in result.values() if v]))
+                if variant_errors:
+                    result["variant_errors"] = variant_errors
                 return result
+
             last_error = "; ".join(variant_errors.values()) or "Sin variantes válidas."
             logger.warning("Intento %s sin variantes publicables: %s", attempt, last_error)
+
             if _is_provider_error_message(last_error):
                 provider_error_message = last_error
                 break
+
         except Exception as exc:
             last_error = str(exc)
             logger.error("Error crítico en el intento %s: %s", attempt, exc, exc_info=True)

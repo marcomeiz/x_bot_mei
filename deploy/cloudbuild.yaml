@@ -30,11 +30,10 @@ steps:
     secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
     env: ["BRANCH_NAME=${_BRANCH}", "SHORT_SHA=${_SHORT_SHA}", "COMMIT_SHA=${_SHORT_SHA}", "COMMIT_SUBJECT=${_COMMIT_SUBJECT}", "COMMIT_AUTHOR=${_COMMIT_AUTHOR}"]
     args:
-      - -ceu
+      - -c
       - |
-        set -euo pipefail
-        trap 'code=$?; echo "commit-meta failed ($code)"; bash ./deploy/scripts/notify_failure.sh "${_SERVICE}" "${_REGION}" "commit-meta"; exit $code' ERR
-        bash ./deploy/scripts/commit_meta.sh
+        # Non-critical step - just gather metadata, don't fail build
+        bash ./deploy/scripts/commit_meta.sh || echo "Warning: commit-meta failed, continuing anyway"
 
   # Notify start
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim

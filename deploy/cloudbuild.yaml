@@ -95,10 +95,9 @@ steps:
           --port 8080 \
           --set-env-vars="$$ENV_VARS" \
           --set-secrets "$$SECRET_LIST" \
+          --update-secrets=/secrets/topics-sync-credentials/key.json=topics-sync-credentials:latest \
           --add-volume=name=dbvol,type=cloud-storage,bucket="${_BUCKET_DB}" \
-          --add-volume-mount=volume=dbvol,mount-path=/mnt/db \
-          --add-volume=name=topics-sync-secret,type=secret,secret=topics-sync-credentials \
-          --add-volume-mount=volume=topics-sync-secret,mount-path=/secrets/topics-sync-credentials
+          --add-volume-mount=volume=dbvol,mount-path=/mnt/db
 
         bash ./deploy/scripts/notify_success.sh "${_SERVICE}" "${_REGION}"
 

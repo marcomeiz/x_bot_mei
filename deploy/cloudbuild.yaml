@@ -23,17 +23,28 @@ substitutions:
   _INGEST_GOLDSET: '0'
 
 steps:
-  # Commit metadata for notifications
+  # Commit metadata for notifications (TEMPORARILY DISABLED - debugging)
+  # - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+  #   id: commit-meta
+  #   entrypoint: bash
+  #   secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
+  #   env: ["BRANCH_NAME=${_BRANCH}", "SHORT_SHA=${_SHORT_SHA}", "COMMIT_SHA=${_SHORT_SHA}", "COMMIT_SUBJECT=${_COMMIT_SUBJECT}", "COMMIT_AUTHOR=${_COMMIT_AUTHOR}"]
+  #   args:
+  #     - -c
+  #     - |
+  #       # Non-critical step - just gather metadata, don't fail build
+  #       bash ./deploy/scripts/commit_meta.sh || echo "Warning: commit-meta failed, continuing anyway"
+
+  # Create placeholder metadata files for notify scripts
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     id: commit-meta
     entrypoint: bash
-    secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
-    env: ["BRANCH_NAME=${_BRANCH}", "SHORT_SHA=${_SHORT_SHA}", "COMMIT_SHA=${_SHORT_SHA}", "COMMIT_SUBJECT=${_COMMIT_SUBJECT}", "COMMIT_AUTHOR=${_COMMIT_AUTHOR}"]
     args:
       - -c
       - |
-        # Non-critical step - just gather metadata, don't fail build
-        bash ./deploy/scripts/commit_meta.sh || echo "Warning: commit-meta failed, continuing anyway"
+        echo "${_BRANCH}" > .cb_branch
+        echo "${_COMMIT_SUBJECT:-Deploy}" > .cb_commit_subject
+        echo "${_COMMIT_AUTHOR:-Claude}" > .cb_commit_author
 
   # Notify start
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim

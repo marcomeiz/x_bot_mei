@@ -135,6 +135,49 @@ collection = client.create_collection(
 
 ### 🟢 NICE-TO-HAVE (Mejoras de calidad/features)
 
+#### 0. Export periódico ChromaDB → Google Sheets (Bidireccional sync)
+**Problema**: Los temas agregados por Telegram van a ChromaDB pero no se sincronizan de vuelta al Sheet.
+
+**Solución**: Script que exporta todos los temas de ChromaDB al Sheet periódicamente.
+```python
+# scripts/export_chromadb_to_sheet.py
+def export_all_topics_to_sheet(sheet_id: str):
+    # 1. Get all topics from ChromaDB
+    topics = get_all_topics_from_chromadb()
+
+    # 2. Format for Sheet (ID, Abstract, Source, etc)
+    rows = format_for_sheet(topics)
+
+    # 3. Clear existing Sheet data
+    clear_sheet(sheet_id, range='Topics!A2:E')
+
+    # 4. Write all topics to Sheet
+    write_to_sheet(sheet_id, rows)
+```
+
+**Frecuencia sugerida**: Semanal (domingo a las 2 AM)
+
+**Beneficios**:
+- Sheet siempre tiene TODOS los temas actualizados
+- Backup visual completo en Sheet
+- Puedes revisar/editar/categorizar en Sheet
+- Temas de Telegram se vuelven editables
+
+**Configuración**:
+```bash
+# Crear Cloud Scheduler job para export semanal
+gcloud scheduler jobs create http export-topics-weekly \
+  --schedule "0 2 * * 0" \
+  --time-zone "Europe/Madrid" \
+  --uri "https://europe-west1-run.googleapis.com/.../export-topics-job:run"
+```
+
+**Estimación**: 3 horas
+
+---
+
+## 🟢 NICE-TO-HAVE (Mejoras de calidad/features)
+
 #### 7. Implementar feedback loop
 **Problema**: No trackeas qué variantes (short/mid/long) prefieren los usuarios.
 

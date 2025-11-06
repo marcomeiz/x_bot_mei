@@ -24,17 +24,10 @@ from style_guard import audit_and_improve_comment
 from variant_generators import (
     GenerationSettings,
     generate_all_variants,
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-=======
     assess_comment_opportunity,
     generate_comment_reply,
->>>>>>> 8c778bb1e1819c8fb7d979c2b28f98dfd695d768
->>>>>>> 718b34aeed14ecc9c3d32b5bae644f5731336f43
->>>>>>> a5ed236c09e0e957396fc6f74b6610fc2bec9216
+    CommentResult,
+    CommentAssessment,
 )
 from metrics import Timer
 from src.goldset import GOLDSET_MIN_SIMILARITY, max_similarity_to_goldset
@@ -299,8 +292,55 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
     return {"error": error_message}
 
 
-# The function 'generate_comment_from_text' has been removed as it was part of an
-# obsolete comment generation system that has been fully deprecated.
+def generate_comment_from_text(source_text: str) -> CommentDraft:
+    """Generate a conversational comment responding to arbitrary source text."""
+    context = build_prompt_context()
+    settings = _build_settings()
+    last_style_feedback = ""
+    last_error = ""
+
+    assessment: CommentAssessment = assess_comment_opportunity(source_text, context, settings)
+    if not assessment.should_comment:
+        reason = assessment.reason or "No hay valor claro para aportar."
+        logger.info("Comentario omitido por evaluación previa: %s", reason)
+        raise CommentSkip(reason)
+
+    for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
+        logger.info("Intento %s/%s de generar comentario para interacción.", attempt, MAX_GENERATION_ATTEMPTS)
+        try:
+            result: CommentResult = generate_comment_reply(
+                source_text, context, settings, assessment=assessment
+            )
+
+            # --- v4.0 Guardian Layer ---
+            audited_comment, was_rewritten = audit_and_improve_comment(
+                result.comment, source_text, context.contract
+            )
+            result.comment = audited_comment
+            if was_rewritten:
+                result.metadata["rewritten_by_guardian"] = True
+            # --- End Guardian Layer ---
+
+            metadata = dict(result.metadata)
+            metadata.setdefault("assessment_reason", assessment.reason)
+            if assessment.hook and "assessment_hook" not in metadata:
+                metadata["assessment_hook"] = assessment.hook
+            if assessment.risk and "assessment_risk" not in metadata:
+                metadata["assessment_risk"] = assessment.risk
+            return CommentDraft(comment=result.comment, insight=result.insight, metadata=metadata)
+        except StyleRejection as rejection:
+            last_style_feedback = str(rejection).strip()
+            logger.warning("Rechazo de estilo en comentario (intento %s): %s", attempt, last_style_feedback)
+        except Exception as exc:
+            last_error = str(exc)
+            logger.error("Error generando comentario en intento %s: %s", attempt, exc, exc_info=True)
+
+    if last_style_feedback:
+        raise StyleRejection(f"Falló la auditoría de estilo al generar comentario: {last_style_feedback}")
+    raise RuntimeError(
+        "No se pudo generar un comentario válido."
+        + (f" Último error: {last_error}" if last_error else "")
+    )
 
 
 def find_relevant_topic(sample_size: int = 3):

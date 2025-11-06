@@ -338,11 +338,14 @@ def find_relevant_topic(sample_size: int = 5):
     topics_collection = get_topics_collection()
     try:
         # 1) Fetch topics (prefer approved)
+        logger.info("[Sistema 2] Step 1: Fetching approved topics from ChromaDB...")
         raw = topics_collection.get(where={"status": {"$eq": "approved"}}, include=["metadatas", "documents"], limit=200)  # type: ignore[arg-type]
         ids_approved = flatten_chroma_array(raw.get("ids") if isinstance(raw, dict) else None)
+        logger.info(f"[Sistema 2] Found {len(ids_approved) if ids_approved else 0} approved topics")
 
         # 2) If none approved, fetch random window
         if not ids_approved:
+            logger.info("[Sistema 2] Step 2: No approved topics, fetching random window...")
             try:
                 total = topics_collection.count()  # type: ignore
             except Exception:
@@ -353,22 +356,27 @@ def find_relevant_topic(sample_size: int = 5):
             raw = topics_collection.get(include=["metadatas", "documents"], limit=200, offset=offset)  # type: ignore[arg-type]
             all_ids = flatten_chroma_array(raw.get("ids") if isinstance(raw, dict) else None)
             pool = list(all_ids or [])
+            logger.info(f"[Sistema 2] Fetched {len(pool)} topics from random window (offset={offset}, total={total})")
         else:
             pool = list(ids_approved)
 
         if not pool:
-            logger.warning("'topics_collection' no devolvió IDs. No se pueden encontrar temas.")
+            logger.error("[Sistema 2] CRITICAL: topics_collection is EMPTY - no topics available in ChromaDB")
             return None
 
         # 3) Random sample
         candidates = random.sample(pool, min(sample_size, len(pool)))
+        logger.info(f"[Sistema 2] Step 3: Selected {len(candidates)} random candidates from pool of {len(pool)}")
 
         # 4) Check if we have memory
         memory_collection = get_memory_collection()
         has_memory = False
         try:
-            has_memory = memory_collection.count() > 0
-        except Exception:
+            memory_count = memory_collection.count()
+            has_memory = memory_count > 0
+            logger.info(f"[Sistema 2] Step 4: Memory collection has {memory_count} entries (has_memory={has_memory})")
+        except Exception as e:
+            logger.warning(f"[Sistema 2] Could not check memory collection: {e}")
             has_memory = False
 
         # 5) Find the MOST DISTANT topic from last published tweet
@@ -398,7 +406,7 @@ def find_relevant_topic(sample_size: int = 5):
                 # No memory = all topics are equally valid, random wins
                 distance = 1.0
 
-            logger.debug("Evaluando topic_id=%s | distancia=%.4f", cid, distance)
+            logger.info(f"[Sistema 2] Evaluating topic {cid}: distance={distance:.4f}")
 
             if distance > best_distance:
                 best_distance = distance

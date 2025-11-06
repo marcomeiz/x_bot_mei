@@ -42,22 +42,35 @@ def pick_for(user_id: str) -> Optional[Dict[str, object]]:
     try:
         # Import here to avoid circular dependencies
         from core_generator import find_relevant_topic
+        from logger_config import logger
+
+        logger.info(f"[PICK_FOR] Starting Sistema 2 topic selection for user {user_id}")
 
         # Call Sistema 2 topic selection
         topic = find_relevant_topic(sample_size=5)
 
         if not topic:
+            logger.warning("[PICK_FOR] Sistema 2 returned None - no topics available or ChromaDB empty")
+            diagnostics.warn("PICK_FOR_NO_TOPIC", {"user": user_id, "reason": "find_relevant_topic returned None"})
             return None
 
+        logger.info(f"[PICK_FOR] Sistema 2 selected topic: {topic.get('topic_id')} - {topic.get('abstract', '')[:50]}...")
+
         # Normalize format
-        return {
+        result = {
             "id": topic.get("topic_id"),
             "text": topic.get("abstract", ""),
             "abstract": topic.get("abstract", ""),
             "source_pdf": topic.get("source_pdf"),
         }
+
+        diagnostics.info("PICK_FOR_SUCCESS", {"user": user_id, "topic_id": result.get("id")})
+        return result
+
     except Exception as e:
-        diagnostics.error("PICK_FOR_ERROR", {"err": str(e), "user": user_id})
+        from logger_config import logger
+        logger.error(f"[PICK_FOR] Exception during topic selection: {e}", exc_info=True)
+        diagnostics.error("PICK_FOR_ERROR", {"err": str(e), "user": user_id, "trace": str(e.__class__.__name__)})
         return None
 
 

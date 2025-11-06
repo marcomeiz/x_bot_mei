@@ -62,13 +62,6 @@ GENERATION_MODEL = settings.post_model
 VALIDATION_MODEL = settings.post_model
 SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.20") or 0.20)
 MAX_GENERATION_ATTEMPTS = 3
-TOPIC_CANDIDATE_MULTIPLIER = max(1, int(os.getenv("TOPIC_CANDIDATE_MULTIPLIER", "4") or 4))
-TOPIC_CANDIDATE_MIN = max(1, int(os.getenv("TOPIC_CANDIDATE_MIN", "12") or 12))
-TOPIC_RECENCY_HALF_LIFE_HOURS = max(1.0, float(os.getenv("TOPIC_RECENCY_HALF_LIFE_HOURS", "96") or 96.0))
-TOPIC_SCORE_DISTANCE_WEIGHT = float(os.getenv("TOPIC_SCORE_DISTANCE_WEIGHT", "0.75") or 0.75)
-TOPIC_SCORE_RECENCY_WEIGHT = float(os.getenv("TOPIC_SCORE_RECENCY_WEIGHT", "0.20") or 0.20)
-TOPIC_SCORE_PRIORITY_WEIGHT = float(os.getenv("TOPIC_SCORE_PRIORITY_WEIGHT", "0.05") or 0.05)
-TOPIC_SCORE_JITTER_WEIGHT = float(os.getenv("TOPIC_SCORE_JITTER_WEIGHT", "0.05") or 0.05)
 
 _PROVIDER_ERROR_MARKERS = (
     "not a valid model",
@@ -137,35 +130,12 @@ def _parse_metadata_timestamp(value) -> Optional[datetime]:
             return None
 
 
-def _compute_recency_score(metadata: Optional[Dict[str, object]], now: Optional[datetime] = None) -> float:
-    if not isinstance(metadata, dict):
-        return 0.0
-    timestamp = None
-    for key in ("created_at", "createdAt", "ingested_at", "ingestedAt", "updated_at", "updatedAt", "timestamp", "ts"):
-        if key in metadata:
-            timestamp = _parse_metadata_timestamp(metadata.get(key))
-            if timestamp:
-                break
-    if not timestamp:
-        return 0.0
-    now_dt = now or datetime.now(timezone.utc)
-    age_hours = (now_dt - timestamp).total_seconds() / 3600.0
-    if age_hours <= 0:
-        return 1.0
-    return math.exp(-age_hours / TOPIC_RECENCY_HALF_LIFE_HOURS)
-
-
-def _compute_priority_boost(metadata: Optional[Dict[str, object]]) -> float:
-    if not isinstance(metadata, dict):
-        return 0.0
-    for key in ("priority_score", "priority", "importance", "score"):
-        if key in metadata:
-            try:
-                value = float(metadata[key])
-                return max(0.0, min(value, 1.0))
-            except (TypeError, ValueError):
-                continue
-    return 0.0
+# NOTE: Legacy functions from Sistema 3 (multi-criterio). Not used in Sistema 2 (lejanía máxima).
+# Kept for potential future reversion.
+# def _compute_recency_score(metadata: Optional[Dict[str, object]], now: Optional[datetime] = None) -> float:
+#     ...
+# def _compute_priority_boost(metadata: Optional[Dict[str, object]]) -> float:
+#     ...
 
 def _extract_topic_entry(collection, topic_id: str) -> Optional[Dict[str, object]]:
     try:
@@ -353,16 +323,25 @@ def generate_comment_from_text(source_text: str) -> CommentDraft:
     )
 
 
-def find_relevant_topic(sample_size: int = 3):
-    start_time = time.time()
+def find_relevant_topic(sample_size: int = 5):
+    """
+    Sistema 2: Selección por LEJANÍA MÁXIMA.
 
-    logger.info("Buscando tema en 'topics_collection' (preferir menos similar a memoria)…")
+    Devuelve un tema eligiendo el MÁS DIFERENTE del último tweet publicado.
+    Si no hay memoria, elige uno aleatorio de la muestra.
+
+    Este sistema es más simple y obliga a que el flujo de aprobación funcione correctamente.
+    """
+    start_time = time.time()
+    logger.info("Buscando tema (Sistema 2: lejanía máxima) en 'topics_collection'…")
+
     topics_collection = get_topics_collection()
     try:
-        # 1) Fetch a small window of approved topics (fast path)
+        # 1) Fetch topics (prefer approved)
         raw = topics_collection.get(where={"status": {"$eq": "approved"}}, include=["metadatas", "documents"], limit=200)  # type: ignore[arg-type]
         ids_approved = flatten_chroma_array(raw.get("ids") if isinstance(raw, dict) else None)
-        # 2) If none approved, fetch a random window from all
+
+        # 2) If none approved, fetch random window
         if not ids_approved:
             try:
                 total = topics_collection.count()  # type: ignore
@@ -381,39 +360,20 @@ def find_relevant_topic(sample_size: int = 3):
             logger.warning("'topics_collection' no devolvió IDs. No se pueden encontrar temas.")
             return None
 
-        candidate_pool_size = min(len(pool), max(sample_size * TOPIC_CANDIDATE_MULTIPLIER, TOPIC_CANDIDATE_MIN))
-        candidates = random.sample(pool, candidate_pool_size)
+        # 3) Random sample
+        candidates = random.sample(pool, min(sample_size, len(pool)))
 
-        # Pre-cargar embeddings existentes para los candidatos para evitar recomputación en cada /g
-        embedding_map: Dict[str, list] = {}
-        try:
-            emb_raw = topics_collection.get(ids=candidates, include=["embeddings"])  # type: ignore[arg-type]
-            if isinstance(emb_raw, dict):
-                emb_ids = flatten_chroma_array(emb_raw.get("ids"))
-                emb_vals = emb_raw.get("embeddings") or []
-                # Aplanar si viene como lista de listas
-                if isinstance(emb_vals, list) and emb_vals and isinstance(emb_vals[0], list):
-                    flat_embs = [v for sub in emb_vals for v in sub]
-                else:
-                    flat_embs = emb_vals or []
-                if emb_ids and flat_embs and len(emb_ids) == len(flat_embs):
-                    embedding_map = {i: e for i, e in zip(emb_ids, flat_embs) if isinstance(e, list) and e}
-        except Exception as exc:
-            logger.warning("No se pudieron recuperar embeddings precomputados para candidatos: %s", exc)
-
+        # 4) Check if we have memory
         memory_collection = get_memory_collection()
+        has_memory = False
         try:
             has_memory = memory_collection.count() > 0
         except Exception:
             has_memory = False
 
-        best_topic: Optional[Dict[str, object]] = None
-        best_score = float("-inf")
-        best_distance = 0.0
-        best_recency = 0.0
-        best_priority = 0.0
-        fallback_candidates = []
-        now = datetime.now(timezone.utc)
+        # 5) Find the MOST DISTANT topic from last published tweet
+        best_topic = None
+        best_distance = -1.0
 
         for cid in candidates:
             entry = _extract_topic_entry(topics_collection, cid)
@@ -421,86 +381,51 @@ def find_relevant_topic(sample_size: int = 3):
                 continue
 
             abstract = entry["abstract"]
-            distance = 1.0
+
             if has_memory:
-                try:
-                    # Usar embedding ya almacenado para este tópico si existe; evita get_embedding
-                    embedding = embedding_map.get(cid)
-                    if embedding is not None:
-                        res = memory_collection.query(query_embeddings=[embedding], n_results=3)
+                # Calculate distance to last published tweet
+                topic_embedding = get_embedding(abstract, generate_if_missing=False)
+                if topic_embedding is not None:
+                    try:
+                        res = memory_collection.query(query_embeddings=[topic_embedding], n_results=1)
                         dist_val = res and res.get("distances") and res["distances"][0][0]
-                        distance = float(dist_val) if isinstance(dist_val, (int, float)) else 1.0
-                except Exception:
-                    distance = 1.0
+                        distance = float(dist_val) if isinstance(dist_val, (int, float)) else 0.0
+                    except Exception:
+                        distance = 0.0
+                else:
+                    distance = 0.0
+            else:
+                # No memory = all topics are equally valid, random wins
+                distance = 1.0
 
-            metadata = entry.get("metadata")
-            recency_score = _compute_recency_score(metadata, now)
-            priority_boost = _compute_priority_boost(metadata)
-            jitter = random.random()
+            logger.debug("Evaluando topic_id=%s | distancia=%.4f", cid, distance)
 
-            score = (
-                TOPIC_SCORE_DISTANCE_WEIGHT * distance
-                + TOPIC_SCORE_RECENCY_WEIGHT * recency_score
-                + TOPIC_SCORE_PRIORITY_WEIGHT * priority_boost
-                + TOPIC_SCORE_JITTER_WEIGHT * jitter
-            )
-
-            logger.debug(
-                "Evaluando topic_id=%s | distancia=%.4f recency=%.4f priority=%.4f score=%.4f",
-                cid,
-                distance,
-                recency_score,
-                priority_boost,
-                score,
-            )
-
-            if has_memory and distance < SIMILARITY_THRESHOLD:
-                fallback_candidates.append((score, entry, distance, recency_score, priority_boost))
-                continue
-
-            if score > best_score:
-                best_score = score
-                best_topic = entry
+            if distance > best_distance:
                 best_distance = distance
-                best_recency = recency_score
-                best_priority = priority_boost
+                best_topic = entry
 
         if best_topic:
             logger.info(
-                "Tema seleccionado (pool=%s) distancia≈%.4f recency≈%.4f priority≈%.4f score≈%.4f",
+                "Tema seleccionado (muestra=%s) | distancia≈%.4f (MÁS LEJANO)",
                 len(candidates),
                 best_distance,
-                best_recency,
-                best_priority,
-                best_score,
             )
             logger.info(f"[PERF] find_relevant_topic took {time.time() - start_time:.2f} seconds.")
             return best_topic
 
-        if fallback_candidates:
-            fallback_candidates.sort(key=lambda item: item[0], reverse=True)
-            score, entry, distance, recency_score, priority_boost = fallback_candidates[0]
-            logger.info(
-                "Tema seleccionado pese a similitud (distancia=%.4f < umbral %.2f) | recency≈%.4f priority≈%.4f score≈%.4f",
-                distance,
-                SIMILARITY_THRESHOLD,
-                recency_score,
-                priority_boost,
-                score,
-            )
-            logger.info(f"[PERF] find_relevant_topic (fallback similarity) took {time.time() - start_time:.2f} seconds.")
-            return entry
-
-        # Fallback absoluto: devolver cualquier tema
+        # Fallback: return random from pool
         try:
             fallback_id = random.choice(pool)
+            logger.info("Tema seleccionado (fallback aleatorio)")
+            logger.info(f"[PERF] find_relevant_topic (fallback) took {time.time() - start_time:.2f} seconds.")
+            return _extract_topic_entry(topics_collection, fallback_id)
         except Exception:
-            logger.warning("Fallback pool vacío o no disponible; no se puede elegir tema aleatorio.")
+            logger.warning("Fallback pool vacío; no se puede elegir tema.")
             return None
-        logger.info(f"[PERF] find_relevant_topic (fallback) took {time.time() - start_time:.2f} seconds.")
-        return _extract_topic_entry(topics_collection, fallback_id)
+
     except Exception as exc:
         logger.error("Error al buscar un tema en ChromaDB: %s", exc, exc_info=True)
+
     logger.info(f"[PERF] find_relevant_topic (error path) took {time.time() - start_time:.2f} seconds.")
     return None
 

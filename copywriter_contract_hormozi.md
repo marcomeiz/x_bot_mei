@@ -32,9 +32,10 @@ It preserves the *essence* — direct, evidence-minded, action-driven prose — 
 ## 2) Language Rules (Diction & Syntax)
 
 **Core principles:**
-- Favor simple, concrete words.  
-- Strong, physical verbs (*ship, sell, build, cut, fix*).  
-- Speak to one person (“you”).  
+- **Street-level tone:** Write like you talk. Avoid corporate, academic, or polished prose.
+- Favor simple, concrete words.
+- Strong, physical verbs (*ship, sell, build, cut, fix*).
+- Speak to one person ("you").
 - Use examples or numbers when they clarify.
 
 **Elastic margins:**

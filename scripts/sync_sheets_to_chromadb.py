@@ -1,0 +1,237 @@
+#!/usr/bin/env python3
+"""
+Script para sincronizar Google Sheets → ChromaDB.
+Lee temas del Sheet, detecta nuevos, los ingesta con embeddings.
+
+Ejecutar 1 vez al día via Cloud Scheduler (3 AM).
+
+Configuración requerida:
+1. Habilitar Google Sheets API en GCP
+2. Crear Service Account y descargar JSON key
+3. Compartir el Sheet con el Service Account email
+4. Setear env vars:
+   - GOOGLE_SHEETS_CREDENTIALS_PATH (path al JSON key)
+   - TOPICS_SHEET_ID (ID del Google Sheet)
+"""
+import os
+import sys
+from pathlib import Path
+from typing import List, Dict, Optional
+from datetime import datetime
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from logger_config import logger
+
+# Google Sheets imports (install: pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client)
+try:
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+    GOOGLE_AVAILABLE = True
+except ImportError:
+    GOOGLE_AVAILABLE = False
+    logger.warning("Google API libraries not installed. Run: pip install google-auth google-api-python-client")
+
+
+def get_sheets_service():
+    """Crea cliente de Google Sheets API."""
+    if not GOOGLE_AVAILABLE:
+        raise ImportError("Google API libraries not installed")
+
+    creds_path = os.getenv("GOOGLE_SHEETS_CREDENTIALS_PATH")
+    if not creds_path or not os.path.exists(creds_path):
+        raise FileNotFoundError(f"Google Sheets credentials not found at: {creds_path}")
+
+    creds = service_account.Credentials.from_service_account_file(
+        creds_path,
+        scopes=['https://www.googleapis.com/auth/spreadsheets.readonly']
+    )
+
+    service = build('sheets', 'v4', credentials=creds)
+    return service.spreadsheets()
+
+
+def read_topics_from_sheet(sheet_id: str) -> List[Dict[str, str]]:
+    """Lee todos los temas del Google Sheet.
+
+    Formato esperado:
+    | ID | Abstract | Source PDF | Approved | Notes |
+    """
+    sheets = get_sheets_service()
+
+    # Read data (skip header row)
+    result = sheets.values().get(
+        spreadsheetId=sheet_id,
+        range='Topics!A2:E'  # Skip header, columns A-E
+    ).execute()
+
+    rows = result.get('values', [])
+    topics = []
+
+    for row in rows:
+        if len(row) < 2:  # Need at least ID and Abstract
+            continue
+
+        topic_id = (row[0] or '').strip()
+        abstract = (row[1] or '').strip()
+
+        if not topic_id or not abstract:
+            continue
+
+        topics.append({
+            'id': topic_id,
+            'abstract': abstract,
+            'source_pdf': row[2] if len(row) > 2 else '',
+            'approved': (row[3] or '').lower() in ('true', 'yes', '1') if len(row) > 3 else False,
+            'notes': row[4] if len(row) > 4 else '',
+        })
+
+    logger.info(f"Read {len(topics)} topics from Google Sheet")
+    return topics
+
+
+def get_existing_topic_ids() -> set[str]:
+    """Obtiene IDs de todos los temas existentes en ChromaDB."""
+    from embeddings_manager import get_topics_collection
+
+    topics = get_topics_collection()
+    result = topics.get(include=[])  # Solo IDs
+
+    existing_ids = set(result['ids'])
+    logger.info(f"Found {len(existing_ids)} existing topics in ChromaDB")
+    return existing_ids
+
+
+def ingest_topic(topic: Dict[str, str]) -> bool:
+    """Ingesta un tema nuevo a ChromaDB con embeddings."""
+    from embeddings_manager import get_topics_collection, get_embedding
+
+    topic_id = topic['id']
+    abstract = topic['abstract']
+
+    try:
+        # Generate embedding
+        embedding = get_embedding(abstract, generate_if_missing=True)
+        if not embedding:
+            logger.error(f"Failed to generate embedding for topic: {topic_id}")
+            return False
+
+        # Add to ChromaDB
+        topics = get_topics_collection()
+        topics.add(
+            ids=[topic_id],
+            documents=[abstract],
+            embeddings=[embedding],
+            metadatas=[{
+                'source_pdf': topic.get('source_pdf', ''),
+                'approved': topic.get('approved', False),
+                'created_at': datetime.utcnow().isoformat(),
+                'source': 'google_sheets'
+            }]
+        )
+
+        logger.info(f"✅ Ingested topic: {topic_id}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Error ingesting topic {topic_id}: {e}", exc_info=True)
+        return False
+
+
+def sync_sheets_to_chromadb(sheet_id: str, dry_run: bool = False) -> Dict[str, int]:
+    """Sincroniza Google Sheets → ChromaDB.
+
+    Returns:
+        Dict con stats: {
+            'read': int,
+            'existing': int,
+            'new': int,
+            'ingested': int,
+            'failed': int
+        }
+    """
+    stats = {
+        'read': 0,
+        'existing': 0,
+        'new': 0,
+        'ingested': 0,
+        'failed': 0
+    }
+
+    try:
+        # Read from Sheet
+        sheet_topics = read_topics_from_sheet(sheet_id)
+        stats['read'] = len(sheet_topics)
+
+        # Get existing IDs
+        existing_ids = get_existing_topic_ids()
+
+        # Find new topics
+        new_topics = [t for t in sheet_topics if t['id'] not in existing_ids]
+        stats['existing'] = len(sheet_topics) - len(new_topics)
+        stats['new'] = len(new_topics)
+
+        if not new_topics:
+            logger.info("✅ No new topics to ingest. Sheet is in sync.")
+            return stats
+
+        logger.info(f"Found {len(new_topics)} new topics to ingest")
+
+        if dry_run:
+            logger.info("DRY RUN - Would ingest:")
+            for topic in new_topics:
+                logger.info(f"  - {topic['id']}: {topic['abstract'][:60]}...")
+            return stats
+
+        # Ingest new topics
+        for topic in new_topics:
+            if ingest_topic(topic):
+                stats['ingested'] += 1
+            else:
+                stats['failed'] += 1
+
+        logger.info(f"✅ Sync complete. Ingested {stats['ingested']}/{stats['new']} new topics")
+        return stats
+
+    except Exception as e:
+        logger.error(f"Error during sync: {e}", exc_info=True)
+        raise
+
+
+def main():
+    """Main entry point."""
+    sheet_id = os.getenv('TOPICS_SHEET_ID')
+    if not sheet_id:
+        logger.error("TOPICS_SHEET_ID environment variable not set")
+        print("❌ Error: TOPICS_SHEET_ID not set")
+        sys.exit(1)
+
+    dry_run = '--dry-run' in sys.argv
+
+    logger.info(f"Starting Google Sheets → ChromaDB sync (sheet_id: {sheet_id}, dry_run: {dry_run})")
+
+    try:
+        stats = sync_sheets_to_chromadb(sheet_id, dry_run=dry_run)
+
+        print("\n" + "="*50)
+        print("SYNC SUMMARY")
+        print("="*50)
+        print(f"📖 Topics read from Sheet: {stats['read']}")
+        print(f"✅ Already in ChromaDB: {stats['existing']}")
+        print(f"🆕 New topics found: {stats['new']}")
+        print(f"✅ Successfully ingested: {stats['ingested']}")
+        print(f"❌ Failed: {stats['failed']}")
+        print("="*50)
+
+        if stats['failed'] > 0:
+            sys.exit(1)
+
+    except Exception as e:
+        logger.error(f"Sync failed: {e}", exc_info=True)
+        print(f"\n❌ Sync failed: {e}")
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()

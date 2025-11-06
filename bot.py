@@ -200,6 +200,13 @@ def _process_update(update: Dict) -> None:
         elif text.startswith("/pdfs"):
             logger.info("[CHAT_ID: %s] Comando '/pdfs' recibido.", chat_id)
             _send_pdf_summary(chat_id)
+        elif text.startswith("/tema "):
+            logger.info("[CHAT_ID: %s] Comando '/tema' recibido.", chat_id)
+            abstract = text[6:].strip()  # Remove "/tema "
+            threading.Thread(target=_handle_add_topic, args=(chat_id, abstract)).start()
+        elif text == "/temas":
+            logger.info("[CHAT_ID: %s] Comando '/temas' recibido.", chat_id)
+            threading.Thread(target=_handle_list_topics, args=(chat_id,)).start()
         elif text == "/ping":
             logger.info("[CHAT_ID: %s] Comando '/ping' recibido.", chat_id)
             try:
@@ -208,12 +215,12 @@ def _process_update(update: Dict) -> None:
                 if not url:
                     telegram_client.send_message(chat_id, get_message("chroma_missing"))
                     return
-                
+
                 # Asegurarse de que la URL tiene el endpoint correcto
                 if not url.endswith('/'):
                     url += '/'
                 heartbeat_url = f"{url}api/v1/heartbeat"
-                
+
                 logger.info(f"Haciendo ping a la base de datos en: {heartbeat_url}")
                 response = requests.get(heartbeat_url, timeout=10)
                 response.raise_for_status()
@@ -235,6 +242,60 @@ def _send_pdf_summary(chat_id: int) -> None:
     except Exception as exc:
         logger.error("[CHAT_ID: %s] Error en /pdfs: %s", chat_id, exc, exc_info=True)
         telegram_client.send_message(chat_id, get_message("db_query_error"))
+
+
+def _handle_add_topic(chat_id: int, abstract: str) -> None:
+    """Maneja el comando /tema para agregar un nuevo tema."""
+    try:
+        from topic_manager import add_topic, get_topics_count
+
+        # Send processing message
+        telegram_client.send_message(chat_id, "🔄 Agregando tema...")
+
+        # Add topic
+        result = add_topic(abstract, source='telegram', approved=False)
+
+        if result['success']:
+            total_count = get_topics_count()
+            message = f"{result['message']}\n\n📊 Total de temas: {total_count}"
+            telegram_client.send_message(chat_id, message)
+        else:
+            telegram_client.send_message(chat_id, f"❌ {result['message']}")
+
+    except Exception as e:
+        logger.error(f"[CHAT_ID: {chat_id}] Error agregando tema: {e}", exc_info=True)
+        telegram_client.send_message(chat_id, f"❌ Error agregando tema: {e}")
+
+
+def _handle_list_topics(chat_id: int) -> None:
+    """Maneja el comando /temas para listar temas recientes."""
+    try:
+        from topic_manager import list_recent_topics, get_topics_count
+
+        total = get_topics_count()
+        recent = list_recent_topics(limit=10)
+
+        if not recent:
+            telegram_client.send_message(chat_id, "📭 No hay temas en la base de datos")
+            return
+
+        lines = [f"📚 <b>Últimos {len(recent)} temas</b> (total: {total})\n"]
+
+        for topic in recent:
+            topic_id = topic['id']
+            abstract = topic['abstract'][:80] + "..." if len(topic['abstract']) > 80 else topic['abstract']
+            source = topic.get('source', 'unknown')
+
+            lines.append(f"• <code>{topic_id}</code>")
+            lines.append(f"  {abstract}")
+            lines.append(f"  <i>Fuente: {source}</i>\n")
+
+        message = "\n".join(lines)
+        telegram_client.send_message(chat_id, message, as_html=True)
+
+    except Exception as e:
+        logger.error(f"[CHAT_ID: {chat_id}] Error listando temas: {e}", exc_info=True)
+        telegram_client.send_message(chat_id, f"❌ Error listando temas: {e}")
 
 
 def _chat_has_token(token: Optional[str]) -> bool:

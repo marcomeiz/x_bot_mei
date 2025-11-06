@@ -81,7 +81,7 @@ steps:
         TAG="$${SHORT_SHA:-$${COMMIT_SHA:-$${REVISION_ID:-manual}}}"
         IMG="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$${TAG}"
 
-        SECRET_LIST="TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN:latest,ADMIN_API_TOKEN=ADMIN_API_TOKEN:latest"
+        SECRET_LIST="TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN:latest,ADMIN_API_TOKEN=ADMIN_API_TOKEN:latest,/secrets/topics-sync-credentials/key.json=topics-sync-credentials:latest"
         if gcloud secrets describe OPENROUTER_API_KEY >/dev/null 2>&1; then
           SECRET_LIST="$$SECRET_LIST,OPENROUTER_API_KEY=OPENROUTER_API_KEY:latest"
         fi
@@ -95,7 +95,6 @@ steps:
           --port 8080 \
           --set-env-vars="$$ENV_VARS" \
           --set-secrets "$$SECRET_LIST" \
-          --update-secrets=/secrets/topics-sync-credentials/key.json=topics-sync-credentials:latest \
           --add-volume=name=dbvol,type=cloud-storage,bucket="${_BUCKET_DB}" \
           --add-volume-mount=volume=dbvol,mount-path=/mnt/db
 

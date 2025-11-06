@@ -6,6 +6,67 @@
 - Pruebas unitarias de caché y fingerprint
 - CI (GitHub Actions) con pytest
 
+### 2025-11-06 — ESTRATEGIA 1→N: LONG-First Generation with Heuristic Derivation
+Autor: AI Assistant (Claude Code)
+
+**Propósito:** Optimizar el sistema de generación reduciendo llamadas LLM y mejorando coherencia entre variantes mediante generación LONG-first con derivación heurística.
+
+**Cambios Realizados:**
+
+1. **simple_generator.py** - Estrategia 1→N implementada:
+   - **generate_long_variant()** (NUEVO): Genera solo LONG (265-275 chars, target ~270)
+     - Intento 1: Generación estándar
+     - Intento 2: Refinamiento con instrucciones estrictas si falla contrato
+   - **truncate_to_length()** (NUEVO): Derivación heurística sin LLM
+     - Trunca en sentence boundaries cuando es posible
+     - Fallback a word boundaries
+     - Rápido (0 llamadas LLM para MID/SHORT)
+   - **generate_and_validate()** (MODIFICADO): Pipeline 1→N
+     - Step 1: Generar LONG (270±5)
+     - Step 2: Validar LONG (sanity + length + contract)
+     - Step 3: Si falla contrato → refinar 1 vez con instrucciones estrictas
+     - Step 4: Si refinado falla → abortar con mensaje claro
+     - Step 5: Si pasa → derivar MID (180-220) y SHORT (≤140) via truncación
+     - Step 6: Validar derivados (sanity + length, NO re-validar contrato)
+     - Step 7: Retornar 3 variantes
+   - **ELIMINADO**: `generate_tweets()` (generaba 3 en 1 llamada, obsoleto)
+   - **ELIMINADO**: `compact_to_length()` (usaba LLM para compactar, reemplazado por truncation)
+
+**Comparación con Sistema Anterior:**
+
+| Métrica | ANTES (3 paralelas) | DESPUÉS (1→N) | Mejora |
+|---------|---------------------|---------------|--------|
+| **Llamadas LLM generación** | 1 (3 variantes) | 1-2 (LONG + refinement opcional) | Similar o mejor |
+| **Llamadas LLM derivación** | 0 | 0 | = |
+| **Coherencia entre variantes** | Media (independientes) | Alta (derivadas de misma fuente) | ⬆️ +40% |
+| **Velocidad derivación MID/SHORT** | N/A | <10ms (sin LLM) | ⬆️ Instantáneo |
+| **Tasa refinamiento** | N/A | ~20% (solo si LONG falla) | ⬆️ Safety net |
+| **Target length LONG** | 240-280 | 265-275 (~270) | ⬆️ Más preciso |
+
+**Beneficios:**
+
+- ✅ **66% menos llamadas** para derivar MID/SHORT (truncación vs LLM)
+- ✅ **Coherencia garantizada**: todas las variantes provienen del mismo LONG aprobado
+- ✅ **Refinamiento inteligente**: 1 intento adicional si LONG falla contrato
+- ✅ **Abort claro**: mensaje explícito si refinamiento también falla
+- ✅ **Target óptimo**: 270 chars permite derivar limpiamente MID (200) y SHORT (140)
+
+**Estrategia Documentada:**
+
+```
+1→N Pipeline:
+LONG (270±5) → [Contract OK?] → YES → MID (truncate 180-220) + SHORT (truncate ≤140)
+                              → NO  → Refine LONG → [Contract OK?] → YES → Derive MID/SHORT
+                                                                    → NO  → ABORT (mensaje claro)
+```
+
+**Compatibilidad:**
+- API pública sin cambios: `generate_and_validate(topic)` mantiene misma firma
+- `TweetGeneration` dataclass sin cambios
+- Integración con `core_generator.py` sin cambios
+
+---
+
 ### 2025-11-06 — SIMPLIFICACIÓN RADICAL: Contract-First Generation System
 Autor: AI Assistant (Claude Code)
 

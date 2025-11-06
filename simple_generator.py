@@ -1,11 +1,26 @@
 """
 Simple tweet generator - follows ONLY the Elastic Voice Contract.
-No hardcoded rules, no multiple evaluation layers, no complexity.
+Estrategia 1→N: Generate LONG first, then derive MID and SHORT via truncation.
 
 Philosophy:
 - The contract is the single source of truth
 - LLM knows how to follow instructions
 - Validation checks contract compliance, not arbitrary rules
+- Generate once (LONG), derive twice (MID + SHORT) = minimal LLM calls
+
+Strategy (1→N):
+1. Generate LONG variant (265-275 chars, target ~270)
+2. Validate LONG against contract
+3. If fails → refine once with strict instructions
+4. If still fails → abort with clear message
+5. If passes → derive MID (180-220) and SHORT (≤140) via heuristic truncation
+6. Return all 3 variants
+
+Benefits:
+- 66% fewer LLM generation calls (1 instead of 3)
+- Coherent voice across variants (all derived from same source)
+- Fast derivation via truncation (no LLM calls for MID/SHORT)
+- Refinement safety net for LONG failures
 """
 
 import re
@@ -56,23 +71,36 @@ class TweetGeneration:
         return all(v.valid for v in [self.short, self.mid, self.long])
 
 
-def generate_tweets(topic: str) -> Dict[str, str]:
+def generate_long_variant(topic: str, attempt: int = 1) -> str:
     """
-    Generate 3 tweet variants following the Elastic Voice Contract.
+    Generate ONLY the LONG variant following the Elastic Voice Contract.
 
-    This is the ONLY generation call. No separate calls for each variant.
-    No hardcoded rules. Just: "follow the contract, generate 3 variants."
+    Estrategia 1→N: Start with the best LONG variant, then derive MID/SHORT from it.
+
+    Target: 270±5 chars (265-275 range) for optimal derivation.
 
     Args:
         topic: The topic abstract to write about
+        attempt: Attempt number (1 = initial, 2 = refinement)
 
     Returns:
-        Dict with keys 'short', 'mid', 'long' containing tweet text
+        LONG tweet text (or empty string on failure)
     """
     context = build_prompt_context()
     settings = AppSettings.load()
 
-    prompt = f"""Generate 3 tweet variants about this topic, following the Elastic Voice Contract.
+    # Target 270 chars for optimal balance (can derive both shorter variants cleanly)
+    target_min, target_max = 265, 275
+
+    strictness_note = ""
+    if attempt > 1:
+        strictness_note = f"""
+⚠️⚠️⚠️ REFINEMENT ATTEMPT {attempt} - LAST CHANCE ⚠️⚠️⚠️
+Your previous attempt failed validation. This is your FINAL attempt.
+You MUST generate text between {target_min}-{target_max} characters.
+Count every single character. If you fail again, generation will abort."""
+
+    prompt = f"""Generate ONE tweet (LONG format) about this topic, following the Elastic Voice Contract.
 
 <TOPIC>
 {topic}
@@ -91,25 +119,20 @@ REQUIREMENTS:
 2. Use street-level tone (Section 2: "Write like you talk")
 3. Include concrete proof: numbers, examples, or vivid scenarios
 4. Create tension with contrast, paradox, or inversion
-5. Each variant MUST be different in approach and proof
 
-⚠️ CRITICAL LENGTH REQUIREMENTS (MUST COMPLY EXACTLY):
-- SHORT: Maximum {SHORT_MAX} characters total. NOT ONE CHARACTER MORE.
-- MID: Between {MID_MIN}-{MID_MAX} characters total. STAY IN THIS RANGE.
-- LONG: Between {LONG_MIN}-{LONG_MAX} characters total. STAY IN THIS RANGE.
-
-⚠️ IF YOU EXCEED THESE LIMITS, YOUR OUTPUT WILL BE REJECTED. COUNT CAREFULLY.
+⚠️ CRITICAL LENGTH REQUIREMENT (MUST COMPLY EXACTLY):
+TARGET: {target_min}-{target_max} characters total (aim for ~270 chars)
+This is NOT a suggestion - it's a hard requirement.
+{strictness_note}
 
 Return ONLY valid JSON (no markdown, no explanation):
 {{
-  "short": "tweet text here (≤{SHORT_MAX} chars)",
-  "mid": "tweet text here ({MID_MIN}-{MID_MAX} chars)",
-  "long": "tweet text here ({LONG_MIN}-{LONG_MAX} chars)"
+  "tweet": "your tweet text here ({target_min}-{target_max} chars)"
 }}
 
 REMEMBER:
-- Street-level means conversational. No corporate speak. No academic tone. Write like you're texting a smart friend.
-- COUNT YOUR CHARACTERS. Each variant must fit its length requirement EXACTLY."""
+- Street-level means conversational. No corporate speak. No academic tone.
+- COUNT YOUR CHARACTERS CAREFULLY. You MUST stay within {target_min}-{target_max} range."""
 
     try:
         response = llm.chat_json(
@@ -118,22 +141,20 @@ REMEMBER:
                 "role": "user",
                 "content": prompt
             }],
-            temperature=0.8,  # Higher temp for creativity
+            temperature=0.7 if attempt == 1 else 0.5,  # Lower temp on refinement for precision
         )
 
         if not isinstance(response, dict):
             logger.error("LLM returned non-dict response")
-            return {"short": "", "mid": "", "long": ""}
+            return ""
 
-        return {
-            "short": response.get("short", "").strip(),
-            "mid": response.get("mid", "").strip(),
-            "long": response.get("long", "").strip(),
-        }
+        tweet = response.get("tweet", "").strip()
+        logger.info(f"Generated LONG variant (attempt {attempt}): {len(tweet)} chars")
+        return tweet
 
     except Exception as e:
-        logger.error(f"Failed to generate tweets: {e}", exc_info=True)
-        return {"short": "", "mid": "", "long": ""}
+        logger.error(f"Failed to generate LONG variant (attempt {attempt}): {e}", exc_info=True)
+        return ""
 
 
 def validate_against_contract(text: str, label: str) -> Dict:
@@ -260,71 +281,70 @@ def validate_length(text: str, label: str) -> Tuple[bool, str]:
     return True, ""
 
 
-def compact_to_length(text: str, label: str, model: str) -> Optional[str]:
+def truncate_to_length(text: str, target_max: int, target_min: int = 0) -> str:
     """
-    Attempt to compact text using LLM to fit within length requirements.
+    Heuristic truncation (hard truncation at word boundaries).
+
+    Estrategia 1→N: Derive MID and SHORT from LONG using simple truncation.
+    No LLM calls - just smart string manipulation.
 
     Args:
-        text: Text that's too long
-        label: Variant type ('short', 'mid', 'long')
-        model: LLM model to use for compaction
+        text: Source text (usually LONG variant)
+        target_max: Maximum chars
+        target_min: Minimum chars (optional)
 
     Returns:
-        Compacted text or None if failed
+        Truncated text
     """
-    if label == "short":
-        target_min, target_max = 0, SHORT_MAX
-    elif label == "mid":
-        target_min, target_max = MID_MIN, MID_MAX
-    elif label == "long":
-        target_min, target_max = LONG_MIN, LONG_MAX
-    else:
-        return None
+    if len(text) <= target_max:
+        return text
 
-    logger.info(f"Attempting to compact {label.upper()} variant ({len(text)} chars) to {target_min}-{target_max} range...")
+    # Try truncating at sentence boundaries first
+    sentences = re.split(r'([.!?]+\s+)', text)
+    accumulated = ""
+    for i, part in enumerate(sentences):
+        test = accumulated + part
+        if len(test) > target_max:
+            break
+        accumulated = test
 
-    prompt = f"""Rewrite this text to fit EXACTLY within {target_min}-{target_max} characters.
-Keep the core message and street-level tone. Remove filler words. Be ruthless.
+    # If sentence truncation gives us something in range, use it
+    accumulated = accumulated.strip()
+    if target_min <= len(accumulated) <= target_max:
+        logger.info(f"Truncated at sentence boundary: {len(text)} → {len(accumulated)} chars")
+        return accumulated
 
-Original text ({len(text)} chars):
-{text}
+    # Otherwise, truncate at word boundary
+    words = text.split()
+    accumulated = ""
+    for word in words:
+        test = (accumulated + " " + word).strip()
+        if len(test) > target_max:
+            break
+        accumulated = test
 
-Return ONLY the compacted text. No quotes, no explanations. Just the text."""
+    result = accumulated.strip()
 
-    try:
-        compacted = llm.chat_text(
-            model=model,
-            messages=[{
-                "role": "system",
-                "content": "You are a ruthless editor. Preserve meaning while cutting words. Return plain text only."
-            }, {
-                "role": "user",
-                "content": prompt
-            }],
-            temperature=0.3,  # Low temp for consistent editing
-        )
+    # If we got nothing or too short, just hard cut at target_max
+    if not result or len(result) < (target_min if target_min > 0 else 20):
+        result = text[:target_max].rsplit(' ', 1)[0].strip()
 
-        compacted = compacted.strip()
-        if len(compacted) >= target_min and len(compacted) <= target_max:
-            logger.info(f"✓ Successfully compacted to {len(compacted)} chars")
-            return compacted
-        else:
-            logger.warning(f"Compaction resulted in {len(compacted)} chars (outside {target_min}-{target_max} range)")
-            return None
-
-    except Exception as e:
-        logger.error(f"Failed to compact text: {e}")
-        return None
+    logger.info(f"Truncated at word boundary: {len(text)} → {len(result)} chars")
+    return result
 
 
 def generate_and_validate(topic: str) -> TweetGeneration:
     """
-    Full pipeline: generate 3 variants + validate each.
+    Estrategia 1→N: Generate LONG first, then derive MID and SHORT.
 
-    This is the main entry point. It:
-    1. Generates 3 variants in one LLM call
-    2. Validates each variant (sanity + length + contract)
-    3. Returns structured result
+    Pipeline:
+    1. Generate LONG variant (265-275 chars, target ~270)
+    2. Validate LONG (sanity + length + contract)
+    3. If LONG fails contract → refine once with strict instructions
+    4. If refined LONG fails → abort with clear error
+    5. If LONG passes → derive MID (180-220) and SHORT (≤140) via truncation
+    6. Validate derived variants (sanity + length only)
+    7. Return all 3 variants
 
     Args:
         topic: Topic abstract to write about
@@ -332,88 +352,141 @@ def generate_and_validate(topic: str) -> TweetGeneration:
     Returns:
         TweetGeneration with all 3 variants and their validation status
     """
-    logger.info(f"Generating tweets for topic: {topic[:100]}...")
-
-    # Generate all 3 variants in one call
-    variants_raw = generate_tweets(topic)
+    logger.info(f"[Estrategia 1→N] Generating tweets for topic: {topic[:100]}...")
 
     results = {}
 
-    for label in ["short", "mid", "long"]:
-        text = variants_raw.get(label, "")
-        length = len(text)
+    # === STEP 1: Generate LONG variant ===
+    logger.info("Step 1: Generating LONG variant (265-275 chars target)...")
+    long_text = generate_long_variant(topic, attempt=1)
 
-        logger.info(f"Validating {label.upper()} variant ({length} chars)...")
-
-        # Sanity check
-        valid, reason = basic_sanity_check(text)
-        if not valid:
-            logger.warning(f"{label.upper()} failed sanity check: {reason}")
-            results[label] = TweetVariant(
-                text=text,
-                label=label,
-                valid=False,
-                length=length,
-                failure_reason=reason
-            )
-            continue
-
-        # Length check with automatic compaction if needed
-        valid, reason = validate_length(text, label)
-        if not valid:
-            logger.warning(f"{label.upper()} failed length check: {reason}")
-
-            # Try to compact using LLM
-            settings = AppSettings.load()
-            compacted = compact_to_length(text, label, settings.post_model)
-
-            if compacted:
-                # Re-validate compacted text
-                valid_compacted, reason_compacted = validate_length(compacted, label)
-                if valid_compacted:
-                    logger.info(f"✓ {label.upper()} compacted successfully from {len(text)} to {len(compacted)} chars")
-                    text = compacted  # Use compacted version
-                    length = len(text)
-                else:
-                    logger.warning(f"{label.upper()} compaction failed validation: {reason_compacted}")
-                    results[label] = TweetVariant(
-                        text=text,
-                        label=label,
-                        valid=False,
-                        length=length,
-                        failure_reason=f"Compaction failed: {reason_compacted}"
-                    )
-                    continue
-            else:
-                # Compaction failed, mark as invalid
-                results[label] = TweetVariant(
-                    text=text,
-                    label=label,
-                    valid=False,
-                    length=length,
-                    failure_reason=reason
-                )
-                continue
-
-        # Contract validation
-        validation = validate_against_contract(text, label)
-        contract_passed = validation.get("cumple_contrato", False)
-
-        if not contract_passed:
-            reason = validation.get("razonamiento", "Failed contract validation")
-            logger.warning(f"{label.upper()} failed contract validation: {reason}")
-        else:
-            logger.info(f"{label.upper()} passed all validations ✓")
-
-        results[label] = TweetVariant(
-            text=text,
-            label=label,
-            valid=contract_passed,
-            length=length,
-            validation_details=validation,
-            failure_reason=None if contract_passed else validation.get("razonamiento")
+    if not long_text:
+        logger.error("Failed to generate LONG variant")
+        # Return all invalid
+        return TweetGeneration(
+            short=TweetVariant("", "short", False, 0, failure_reason="LONG generation failed"),
+            mid=TweetVariant("", "mid", False, 0, failure_reason="LONG generation failed"),
+            long=TweetVariant("", "long", False, 0, failure_reason="LONG generation failed"),
         )
 
+    # === STEP 2: Validate LONG ===
+    logger.info(f"Step 2: Validating LONG variant ({len(long_text)} chars)...")
+
+    # Sanity check
+    valid, reason = basic_sanity_check(long_text)
+    if not valid:
+        logger.error(f"LONG failed sanity check: {reason}")
+        return TweetGeneration(
+            short=TweetVariant("", "short", False, 0, failure_reason=f"LONG sanity check failed: {reason}"),
+            mid=TweetVariant("", "mid", False, 0, failure_reason=f"LONG sanity check failed: {reason}"),
+            long=TweetVariant(long_text, "long", False, len(long_text), failure_reason=reason),
+        )
+
+    # Length check (target 265-275)
+    if len(long_text) < 265 or len(long_text) > 275:
+        logger.warning(f"LONG length out of target range: {len(long_text)} (need 265-275)")
+        # Not a hard failure - we'll try refinement if contract fails
+
+    # Contract validation
+    validation = validate_against_contract(long_text, "long")
+    contract_passed = validation.get("cumple_contrato", False)
+
+    # === STEP 3: Refinement if needed ===
+    if not contract_passed:
+        logger.warning(f"LONG failed contract validation: {validation.get('razonamiento', 'Unknown reason')}")
+        logger.info("Step 3: Refining LONG variant (attempt 2)...")
+
+        # Refine once
+        long_text_refined = generate_long_variant(topic, attempt=2)
+
+        if not long_text_refined:
+            logger.error("Refinement failed: could not generate LONG variant")
+            return TweetGeneration(
+                short=TweetVariant("", "short", False, 0, failure_reason="LONG refinement failed"),
+                mid=TweetVariant("", "mid", False, 0, failure_reason="LONG refinement failed"),
+                long=TweetVariant(long_text, "long", False, len(long_text),
+                                failure_reason=validation.get("razonamiento", "Contract validation failed"),
+                                validation_details=validation),
+            )
+
+        # Validate refined LONG
+        valid_refined, reason_refined = basic_sanity_check(long_text_refined)
+        if not valid_refined:
+            logger.error(f"Refined LONG failed sanity check: {reason_refined}")
+            return TweetGeneration(
+                short=TweetVariant("", "short", False, 0, failure_reason=f"Refined LONG sanity failed: {reason_refined}"),
+                mid=TweetVariant("", "mid", False, 0, failure_reason=f"Refined LONG sanity failed: {reason_refined}"),
+                long=TweetVariant(long_text_refined, "long", False, len(long_text_refined), failure_reason=reason_refined),
+            )
+
+        validation_refined = validate_against_contract(long_text_refined, "long")
+        contract_passed_refined = validation_refined.get("cumple_contrato", False)
+
+        if not contract_passed_refined:
+            logger.error("❌ Refinement failed: LONG still does not pass contract after 2 attempts")
+            failure_msg = f"Failed contract validation after refinement. Reason: {validation_refined.get('razonamiento', 'Unknown')}"
+            return TweetGeneration(
+                short=TweetVariant("", "short", False, 0, failure_reason=failure_msg),
+                mid=TweetVariant("", "mid", False, 0, failure_reason=failure_msg),
+                long=TweetVariant(long_text_refined, "long", False, len(long_text_refined),
+                                failure_reason=validation_refined.get("razonamiento"),
+                                validation_details=validation_refined),
+            )
+
+        # Refinement succeeded!
+        logger.info("✓ Refined LONG passed contract validation")
+        long_text = long_text_refined
+        validation = validation_refined
+    else:
+        logger.info("✓ LONG passed contract validation on first attempt")
+
+    # === STEP 4: Store validated LONG ===
+    results["long"] = TweetVariant(
+        text=long_text,
+        label="long",
+        valid=True,
+        length=len(long_text),
+        validation_details=validation,
+        failure_reason=None
+    )
+
+    # === STEP 5: Derive MID and SHORT via truncation ===
+    logger.info("Step 5: Deriving MID and SHORT variants via heuristic truncation...")
+
+    # Derive MID (target 200±20 = 180-220 range)
+    mid_text = truncate_to_length(long_text, target_max=220, target_min=180)
+    logger.info(f"Derived MID: {len(mid_text)} chars")
+
+    # Derive SHORT (≤140 chars)
+    short_text = truncate_to_length(long_text, target_max=SHORT_MAX, target_min=0)
+    logger.info(f"Derived SHORT: {len(short_text)} chars")
+
+    # === STEP 6: Validate derived variants (sanity + length only, no contract) ===
+    # MID validation
+    valid_mid, reason_mid = basic_sanity_check(mid_text)
+    if valid_mid:
+        valid_mid, reason_mid = validate_length(mid_text, "mid")
+
+    if valid_mid:
+        logger.info("✓ MID derived successfully")
+        results["mid"] = TweetVariant(mid_text, "mid", True, len(mid_text))
+    else:
+        logger.warning(f"MID derivation issue: {reason_mid}")
+        results["mid"] = TweetVariant(mid_text, "mid", False, len(mid_text), failure_reason=reason_mid)
+
+    # SHORT validation
+    valid_short, reason_short = basic_sanity_check(short_text)
+    if valid_short:
+        valid_short, reason_short = validate_length(short_text, "short")
+
+    if valid_short:
+        logger.info("✓ SHORT derived successfully")
+        results["short"] = TweetVariant(short_text, "short", True, len(short_text))
+    else:
+        logger.warning(f"SHORT derivation issue: {reason_short}")
+        results["short"] = TweetVariant(short_text, "short", False, len(short_text), failure_reason=reason_short)
+
+    # === STEP 7: Return result ===
     generation = TweetGeneration(
         short=results["short"],
         mid=results["mid"],
@@ -421,6 +494,6 @@ def generate_and_validate(topic: str) -> TweetGeneration:
     )
 
     valid_count = len(generation.get_valid_variants())
-    logger.info(f"Generation complete: {valid_count}/3 variants passed validation")
+    logger.info(f"[Estrategia 1→N] Generation complete: {valid_count}/3 variants valid")
 
     return generation

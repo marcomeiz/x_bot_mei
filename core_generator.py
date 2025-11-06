@@ -24,6 +24,11 @@ from style_guard import audit_and_improve_comment
 from variant_generators import (
     GenerationSettings,
     generate_all_variants,
+<<<<<<< HEAD
+=======
+    assess_comment_opportunity,
+    generate_comment_reply,
+>>>>>>> 8c778bb1e1819c8fb7d979c2b28f98dfd695d768
 )
 from metrics import Timer
 from src.goldset import GOLDSET_MIN_SIMILARITY, max_similarity_to_goldset

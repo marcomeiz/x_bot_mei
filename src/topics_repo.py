@@ -37,9 +37,28 @@ def get_health() -> Dict[str, Optional[object]]:
 def pick_for(user_id: str) -> Optional[Dict[str, object]]:
     """Selección primaria de tema para el usuario.
 
-    TODO: Implementar selección real (aprobados recientes, menor similitud a memoria, etc.)
+    Usa Sistema 2: selección por LEJANÍA MÁXIMA del último tweet publicado.
     """
-    return None
+    try:
+        # Import here to avoid circular dependencies
+        from core_generator import find_relevant_topic
+
+        # Call Sistema 2 topic selection
+        topic = find_relevant_topic(sample_size=5)
+
+        if not topic:
+            return None
+
+        # Normalize format
+        return {
+            "id": topic.get("topic_id"),
+            "text": topic.get("abstract", ""),
+            "abstract": topic.get("abstract", ""),
+            "source_pdf": topic.get("source_pdf"),
+        }
+    except Exception as e:
+        diagnostics.error("PICK_FOR_ERROR", {"err": str(e), "user": user_id})
+        return None
 
 
 def _load_seed_entries() -> list[Dict[str, str]]:

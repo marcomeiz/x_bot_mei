@@ -1,7 +1,7 @@
 """Core tweet generation orchestration.
 
 This module keeps the public API stable (`generate_tweet_from_topic`,
-`generate_third_tweet_variant`, `find_relevant_topic`, `find_topic_by_id`) while
+`find_relevant_topic`, `find_topic_by_id`) while
 delegating prompt construction and variant-specific logic to
 `variant_generators.py`. The goal is to keep these functions lean and focused on
 control-flow, logging and data access.

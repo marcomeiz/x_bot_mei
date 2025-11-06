@@ -71,4 +71,5 @@ jobs:
 
           gcloud builds submit \
             --config deploy/cloudbuild.yaml \
+            --gcs-source-staging-dir=gs://${DB_BUCKET}/cloudbuild-staging \
             --substitutions _REGION="$REGION",_SERVICE="$SERVICE",_REPO="$ARTIFACT_REPO",_BUCKET_DB="$DB_BUCKET",_SHORT_SHA="${{ github.sha }}",_BRANCH="${{ github.ref_name }}"

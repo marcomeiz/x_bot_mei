@@ -18,6 +18,8 @@ substitutions:
   _BUCKET_DB: xbot-473616-x-bot-mei-db
   _SHORT_SHA: manual
   _BRANCH: main
+  _COMMIT_SUBJECT: ''
+  _COMMIT_AUTHOR: ''
   _INGEST_GOLDSET: '0'
 
 steps:
@@ -26,7 +28,7 @@ steps:
     id: commit-meta
     entrypoint: bash
     secretEnv: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"]
-    env: ["BRANCH_NAME=${_BRANCH}", "SHORT_SHA=${_SHORT_SHA}", "COMMIT_SHA=${_SHORT_SHA}"]
+    env: ["BRANCH_NAME=${_BRANCH}", "SHORT_SHA=${_SHORT_SHA}", "COMMIT_SHA=${_SHORT_SHA}", "COMMIT_SUBJECT=${_COMMIT_SUBJECT}", "COMMIT_AUTHOR=${_COMMIT_AUTHOR}"]
     args:
       - -ceu
       - |

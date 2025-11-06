@@ -32,6 +32,9 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker europe-west1-docker.pkg.dev
+
       - name: Preflight vars summary
         env:
           GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
@@ -52,7 +55,29 @@ jobs:
           echo "Repo:      $ARTIFACT_REPO"
           echo "DB bucket: $DB_BUCKET"
 
-      - name: Submit Cloud Build using repo pipeline
+      - name: Build and push Docker image
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          REGION: ${{ vars.GCP_REGION }}
+          SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+          ARTIFACT_REPO: ${{ vars.ARTIFACT_REPO }}
+        run: |
+          set -euo pipefail
+          : "${GCP_PROJECT_ID:=xbot-473616}"
+          : "${REGION:=europe-west1}"
+          : "${SERVICE:=x-bot-mei}"
+          : "${ARTIFACT_REPO:=x-bot-mei}"
+
+          SHORT_SHA="${{ github.sha }}"
+          IMAGE="${REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REPO}/${SERVICE}:${SHORT_SHA}"
+
+          echo "Building image: $IMAGE"
+          docker build -t "$IMAGE" .
+
+          echo "Pushing image: $IMAGE"
+          docker push "$IMAGE"
+
+      - name: Deploy to Cloud Run
         env:
           GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
           REGION: ${{ vars.GCP_REGION }}
@@ -67,9 +92,28 @@ jobs:
           : "${ARTIFACT_REPO:=x-bot-mei}"
           : "${DB_BUCKET:=xbot-473616-x-bot-mei-db}"
 
+          SHORT_SHA="${{ github.sha }}"
+          IMAGE="${REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REPO}/${SERVICE}:${SHORT_SHA}"
+
           gcloud config set project "$GCP_PROJECT_ID"
 
-          gcloud builds submit \
-            --config deploy/cloudbuild.yaml \
-            --gcs-source-staging-dir=gs://${DB_BUCKET}/cloudbuild-staging \
-            --substitutions _REGION="$REGION",_SERVICE="$SERVICE",_REPO="$ARTIFACT_REPO",_BUCKET_DB="$DB_BUCKET",_SHORT_SHA="${{ github.sha }}",_BRANCH="${{ github.ref_name }}"
+          # Get secrets from Secret Manager
+          SECRET_LIST="TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN:latest,ADMIN_API_TOKEN=ADMIN_API_TOKEN:latest"
+          if gcloud secrets describe OPENROUTER_API_KEY >/dev/null 2>&1; then
+            SECRET_LIST="${SECRET_LIST},OPENROUTER_API_KEY=OPENROUTER_API_KEY:latest"
+          fi
+
+          ENV_VARS="^~^CHROMA_DB_URL=https://x-chroma-295511624125.europe-west1.run.app~CHROMA_DB_PATH=/mnt/db~SHOW_TOPIC_ID=0~SUSPEND_GUARDRAILS=1~WARDEN_MINIMAL=0~POST_MODEL=x-ai/grok-4-fast~EMBED_MODEL=openai/text-embedding-3-large~UMBRAL_SIMILITUD=0.75~SIM_DIM=3072~TOPICS_COLLECTION=topics_collection_3072~UMBRAL_SIMILITUD_LINE=0.52~WARMUP_ANCHORS=200~NOVELTY_JACCARD_MAX=0.28~NOVELTY_COS_CEILING=0.84~STYLE_MIN=0.90~GOLDSET_NPZ_GCS_URI=gs://xbot-473616-x-bot-mei-db/goldset/goldset_v2_audited.npz"
+
+          echo "Deploying to Cloud Run: $IMAGE"
+          gcloud run deploy "${SERVICE}" \
+            --region "${REGION}" \
+            --allow-unauthenticated \
+            --max-instances 1 \
+            --min-instances 0 \
+            --image "$IMAGE" \
+            --port 8080 \
+            --set-env-vars="$ENV_VARS" \
+            --set-secrets "$SECRET_LIST" \
+            --add-volume=name=dbvol,type=cloud-storage,bucket="${DB_BUCKET}" \
+            --add-volume-mount=volume=dbvol,mount-path=/mnt/db

@@ -2,7 +2,9 @@ name: Deploy to Cloud Run (via Cloud Build)
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - 'claude/**'
   workflow_dispatch: {}
 
 concurrency:

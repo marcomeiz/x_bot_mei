@@ -43,8 +43,8 @@ steps:
       - -c
       - |
         echo "${_BRANCH}" > .cb_branch
-        echo "${_COMMIT_SUBJECT:-Deploy}" > .cb_commit_subject
-        echo "${_COMMIT_AUTHOR:-Claude}" > .cb_commit_author
+        echo "Deploy ${_SHORT_SHA}" > .cb_commit_subject
+        echo "Claude" > .cb_commit_author
 
   # Notify start
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim

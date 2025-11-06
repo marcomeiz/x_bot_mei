@@ -23,14 +23,7 @@ from prompt_context import build_prompt_context
 from style_guard import audit_and_improve_comment
 from variant_generators import (
     GenerationSettings,
-    CommentResult,
-    CommentAssessment,
     generate_all_variants,
-    regenerate_single_variant,
-    compress_to_short,
-    expand_to_long,
-    assess_comment_opportunity,
-    generate_comment_reply,
 )
 from metrics import Timer
 from src.goldset import GOLDSET_MIN_SIMILARITY, max_similarity_to_goldset
@@ -250,92 +243,7 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
     # RAG: delegar recuperación de anclas al generador de variantes (NN por defecto)
     gold_examples = None
 
-    # --- Adaptive mode ---
-    variant_mode = os.getenv("VARIANT_MODE", "standard").strip().lower()
-    if variant_mode == "adaptive":
-        adaptive_max = max(1, int(os.getenv("ADAPTIVE_MAX_VARIANTS", "3") or 3))
-        holgura = float(os.getenv("ADAPTIVE_HOLGURA", "0.03") or 0.03)
-
-        def _speaks_to_you(text: str) -> bool:
-            lower = (text or "").lower()
-            if not lower:
-                return False
-            import re as _re
-            return bool(
-                _re.search(r"\byou\b", lower)
-                or _re.search(r"\byou['’]re\b", lower)
-                or _re.search(r"\byou['’]ll\b", lower)
-                or _re.search(r"\byour\b", lower)
-            )
-
-        def _strong_pass(text: str) -> bool:
-            sim = max_similarity_to_goldset((text or "").strip(), generate_if_missing=True)
-            if sim is None:
-                return False
-            return _speaks_to_you(text) and (sim >= GOLDSET_MIN_SIMILARITY + holgura)
-
-        logger.info("Adaptive variant mode enabled (max=%s, holgura=%.03f).", adaptive_max, holgura)
-        drafts: Dict[str, str] = {"short": "", "mid": "", "long": ""}
-        variant_errors: Dict[str, str] = {}
-
-        # 1) Single creative: generate mid
-        try:
-            with Timer("g_llm_single_mid", labels={"model": GENERATION_MODEL}):
-                mid = regenerate_single_variant("mid", topic_abstract, context, settings)  # type: ignore[name-defined]
-        except Exception as exc:
-            logger.error("Error generating mid variant (adaptive): %s", exc, exc_info=True)
-            mid = None
-
-        if not mid:
-            variant_errors["mid"] = "No se pudo generar la variante 'mid' en modo adaptativo."
-        else:
-            drafts["mid"] = mid
-
-        # Early-stop if strong pass and max variants permits
-        produced = 1 if drafts["mid"] else 0
-        if drafts["mid"] and _strong_pass(drafts["mid"]) and produced >= min(adaptive_max, 1):
-            logger.info("Early-stop: mid variant passes strongly. Returning only mid.")
-            return {"mid": drafts["mid"], "short": "", "long": "", "variant_errors": variant_errors}
-
-        if adaptive_max >= 2 and drafts["mid"]:
-            # 2) Compress to short
-            try:
-                with Timer("g_llm_adapt_compress", labels={"model": GENERATION_MODEL}):
-                    short = compress_to_short(drafts["mid"], GENERATION_MODEL)
-                drafts["short"] = (short or "").strip()
-                produced += 1 if drafts["short"] else 0
-            except Exception as exc:
-                logger.warning("Fallo al comprimir a 'short' en modo adaptativo: %s", exc)
-                variant_errors["short"] = "Error al comprimir a 'short'"
-
-            if drafts["short"] and _strong_pass(drafts["short"]) and produced >= min(adaptive_max, 2):
-                logger.info("Early-stop: short variant passes strongly. Returning mid+short.")
-                return {
-                    "short": drafts["short"],
-                    "mid": drafts["mid"],
-                    "long": "",
-                    "variant_errors": variant_errors,
-                }
-
-        if adaptive_max >= 3 and drafts["mid"]:
-            # 3) Expand to long
-            try:
-                with Timer("g_llm_adapt_expand", labels={"model": GENERATION_MODEL}):
-                    long = expand_to_long(drafts["mid"], GENERATION_MODEL)
-                drafts["long"] = (long or "").strip()
-            except Exception as exc:
-                logger.warning("Fallo al expandir a 'long' en modo adaptativo: %s", exc)
-                variant_errors["long"] = "Error al expandir a 'long'"
-
-        # Return whatever we produced
-        result = {
-            "short": drafts.get("short", ""),
-            "mid": drafts.get("mid", ""),
-            "long": drafts.get("long", ""),
-        }
-        if variant_errors:
-            result["variant_errors"] = variant_errors
-        return result
+    # --- Adaptive mode has been removed in favor of the single-call standard generator ---
 
     last_error = ""
     provider_error_message = ""
@@ -380,54 +288,8 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
     return {"error": error_message}
 
 
-def generate_comment_from_text(source_text: str) -> CommentDraft:
-    """Generate a conversational comment responding to arbitrary source text."""
-    context = build_prompt_context()
-    settings = _build_settings()
-    last_style_feedback = ""
-    last_error = ""
-
-    assessment: CommentAssessment = assess_comment_opportunity(source_text, context, settings)
-    if not assessment.should_comment:
-        reason = assessment.reason or "No hay valor claro para aportar."
-        logger.info("Comentario omitido por evaluación previa: %s", reason)
-        raise CommentSkip(reason)
-
-    for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
-        logger.info("Intento %s/%s de generar comentario para interacción.", attempt, MAX_GENERATION_ATTEMPTS)
-        try:
-            result: CommentResult = generate_comment_reply(
-                source_text, context, settings, assessment=assessment
-            )
-
-            # --- v4.0 Guardian Layer ---
-            audited_comment, was_rewritten = audit_and_improve_comment(
-                result.comment, source_text, context.contract
-            )
-            result.comment = audited_comment
-            if was_rewritten:
-                result.metadata["rewritten_by_guardian"] = True
-            # --- End Guardian Layer ---
-
-            metadata = dict(result.metadata)
-            metadata.setdefault("assessment_reason", assessment.reason)
-            if assessment.hook and "assessment_hook" not in metadata:
-                metadata["assessment_hook"] = assessment.hook
-            if assessment.risk and "assessment_risk" not in metadata:
-                metadata["assessment_risk"] = assessment.risk
-            return CommentDraft(comment=result.comment, insight=result.insight, metadata=metadata)
-        except Exception as exc:
-            last_error = str(exc)
-            logger.error("Error generando comentario en intento %s: %s", attempt, exc, exc_info=True)
-
-    # En el nuevo flujo, tratamos los rechazos de estilo como errores genéricos y
-    # delegamos la validación detallada al Grader en proposal_service.
-    message = "No se pudo generar un comentario válido."
-    if last_style_feedback:
-        message += f" Auditoría de estilo fallida: {last_style_feedback}"
-    if last_error:
-        message += f" Último error: {last_error}"
-    raise RuntimeError(message)
+# The function 'generate_comment_from_text' has been removed as it was part of an
+# obsolete comment generation system that has been fully deprecated.
 
 
 def find_relevant_topic(sample_size: int = 3):

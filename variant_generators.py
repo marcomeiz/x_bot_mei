@@ -11,14 +11,12 @@ from typing import Dict, List, Optional, Tuple
 import yaml
 
 from llm_fallback import llm
-from metrics import Timer
-from diagnostics_logger import diagnostics
 from src.prompt_loader import load_prompt
 from src.settings import AppSettings
 from src.lexicon import get_stopwords
 from logger_config import logger
 from prompt_context import PromptContext
-from style_guard import StyleRejection
+from style_guard import StyleRejection, improve_style, label_sections, revise_for_style
 from writing_rules import (
     BANNED_WORDS,
     FormatProfile,
@@ -37,9 +35,7 @@ from writing_rules import (
     _WORD_REGEX,
     BANNED_SUFFIXES,
 )
-from src.goldset import (
-    retrieve_goldset_examples_random,
-)
+from src.goldset import retrieve_goldset_examples
 
 
 @dataclass(frozen=True)
@@ -47,6 +43,22 @@ class GenerationSettings:
     generation_model: str
     validation_model: str
     generation_temperature: float = 0.6
+
+
+@dataclass
+class ABGenerationResult:
+    draft_a: str
+    draft_b: str
+    reasoning_summary: Optional[str] = None
+    metadata: Dict[str, object] = field(default_factory=dict)
+
+
+@dataclass
+class VariantCResult:
+    draft: str
+    category: str
+    reasoning_summary: Optional[str] = None
+    metadata: Dict[str, object] = field(default_factory=dict)
 
 
 @dataclass
@@ -88,81 +100,1176 @@ def _contrast_analysis_prompt():
     prompts_dir = AppSettings.load().prompts_dir
     return load_prompt(prompts_dir, "generation/contrast_analysis")
 
-def generate_all_variants(
+
+DEFAULT_WARDEN_GUARDRAILS = {
+    "enforce_no_commas": True,
+    "enforce_no_and_or": True,
+    "words_per_line": {"min": 5, "max": 12},
+    "mid_chars": {"min": 180, "max": 230},
+    "long_chars": {"min": 240, "max": 280},
+    "suspend_guardrails": False,
+    "minimal_mode": False,
+    "forbidden_em_dash": "—",
+}
+
+
+def _merge_guardrail_defaults(target: Dict[str, object], source: Dict[str, object]) -> None:
+    for key, value in source.items():
+        if isinstance(value, dict) and isinstance(target.get(key), dict):
+            _merge_guardrail_defaults(target[key], value)  # type: ignore[arg-type]
+        else:
+            target[key] = value
+
+
+def _default_warden_config_path() -> Path:
+    env_path = os.getenv("WARDEN_CONFIG_PATH")
+    if env_path:
+        return Path(env_path)
+    return Path(__file__).resolve().parent / "config" / "warden.yaml"
+
+
+@lru_cache(maxsize=1)
+def _load_guardrail_config() -> Dict[str, object]:
+    config = copy.deepcopy(DEFAULT_WARDEN_GUARDRAILS)
+    path = _default_warden_config_path()
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            raw = yaml.safe_load(fh) or {}
+        if isinstance(raw, dict):
+            payload = raw.get("comment_guardrails") if "comment_guardrails" in raw else raw
+            if isinstance(payload, dict):
+                _merge_guardrail_defaults(config, payload)
+            else:
+                logger.warning("Warden config at %s must map keys to values; ignoring custom section.", path)
+        else:
+            logger.warning("Warden config at %s must be a mapping; using defaults.", path)
+    except FileNotFoundError:
+        logger.info("Warden config not found at %s. Using defaults.", path)
+    except Exception as exc:
+        logger.warning("Failed to load warden config from %s: %s. Using defaults.", path, exc)
+    return config
+
+
+def _env_bool_override(var_name: str, current: bool) -> bool:
+    value = os.getenv(var_name)
+    if value is None:
+        return current
+    normalized = value.strip().lower()
+    if not normalized:
+        return current
+    return normalized in {"1", "true", "yes", "y"}
+
+
+def _env_int_override(var_name: str, current: int) -> int:
+    value = os.getenv(var_name)
+    if value is None:
+        return current
+    try:
+        return int(value)
+    except ValueError:
+        logger.warning("Invalid integer for %s=%s. Keeping %s.", var_name, value, current)
+        return current
+
+
+def _env_str_override(var_name: str, current: str) -> str:
+    value = os.getenv(var_name)
+    if value is None or value == "":
+        return current
+    return value
+
+
+def _cfg_int(value: object, default: int) -> int:
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+
+
+_guardrail_cfg = _load_guardrail_config()
+
+ENFORCE_NO_COMMAS = _env_bool_override("ENFORCE_NO_COMMAS", bool(_guardrail_cfg.get("enforce_no_commas", True)))
+ENFORCE_NO_AND_OR = _env_bool_override("ENFORCE_NO_AND_OR", bool(_guardrail_cfg.get("enforce_no_and_or", True)))
+
+words_cfg = _guardrail_cfg.get("words_per_line", {}) if isinstance(_guardrail_cfg.get("words_per_line"), dict) else {}
+mid_cfg = _guardrail_cfg.get("mid_chars", {}) if isinstance(_guardrail_cfg.get("mid_chars"), dict) else {}
+long_cfg = _guardrail_cfg.get("long_chars", {}) if isinstance(_guardrail_cfg.get("long_chars"), dict) else {}
+
+WARDEN_WPL_LO = _env_int_override("WARDEN_WORDS_PER_LINE_LO", _cfg_int(words_cfg.get("min"), 5))
+WARDEN_WPL_HI = _env_int_override("WARDEN_WORDS_PER_LINE_HI", _cfg_int(words_cfg.get("max"), 12))
+MID_MIN = _env_int_override("MID_MIN", _cfg_int(mid_cfg.get("min"), 180))
+MID_MAX = _env_int_override("MID_MAX", _cfg_int(mid_cfg.get("max"), 230))
+LONG_MIN = _env_int_override("LONG_MIN", _cfg_int(long_cfg.get("min"), 240))
+LONG_MAX = _env_int_override("LONG_MAX", _cfg_int(long_cfg.get("max"), 280))
+
+SUSPEND_GUARDRAILS = _env_bool_override("SUSPEND_GUARDRAILS", bool(_guardrail_cfg.get("suspend_guardrails", False)))
+WARDEN_MINIMAL = _env_bool_override("WARDEN_MINIMAL", bool(_guardrail_cfg.get("minimal_mode", False)))
+FORBIDDEN_EM_DASH = _env_str_override("FORBIDDEN_EM_DASH", str(_guardrail_cfg.get("forbidden_em_dash", "—")))
+
+
+STOPWORDS = get_stopwords()
+
+HEDGING_REGEX = re.compile(
+    r"\b(i think|maybe|probably|seems|appears|kind of|sort of|in my opinion|i feel|could|might)\b",
+    re.I,
+)
+CLICHE_REGEX = re.compile(
+    r"\b(let'?s dive in|game[- ]?changing|unlock(ing)? potential|revolutionary|cutting[- ]edge|synergy|disruption|leverage|empower|unleash|10x|next[- ]level|paradigm|world[- ]class|best[- ]in[- ]class)\b",
+    re.I,
+)
+HYPE_REGEX = re.compile(
+    r"\b(guarantee|instant|effortless|secret sauce|never fail|zero risk|magic|overnight)\b",
+    re.I,
+)
+NON_ENGLISH_CHARS = re.compile(r"[áéíóúñüÁÉÍÓÚÑÜ]")
+# Heurística adicional para detectar español sin acentos (casos ASCII)
+SPANISH_HINTS = {
+    # Stopwords y partículas comunes
+    "de", "la", "el", "y", "que", "en", "no", "se", "los", "por", "un", "una",
+    "para", "con", "del", "las", "como", "le", "lo", "su", "al", "más", "si", "ya",
+    "muy", "pero", "porque", "cuando", "donde", "sobre",
+    # Palabras de uso frecuente en nuestros ejemplos
+    "tiempo", "bloquea", "trabajo", "reuniones", "haz", "ahora",
+}
+END_PUNCT = re.compile(r"[.!?]$")
+
+def _one_sentence_per_line(text: str) -> bool:
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    if not lines:
+        return False
+    for l in lines:
+        if not END_PUNCT.search(l):
+            return False
+        if re.search(r"[.!?].+?[.!?]", l):
+            return False
+    return True
+
+def _avg_words_per_line_between(text: str, lo: int = WARDEN_WPL_LO, hi: int = WARDEN_WPL_HI) -> bool:
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    if not lines:
+        return False
+    for l in lines:
+        words = re.findall(r"\b[\w']+\b", l)
+        if not (lo <= len(words) <= hi):
+            return False
+    return True
+
+def _english_only(text: str) -> bool:
+    # Si hay caracteres claramente no ingleses (acentos/ñ), no es inglés
+    if NON_ENGLISH_CHARS.search(text):
+        return False
+    # Heurística: si aparecen tokens comunes del español aun sin acentos, considerar no inglés
+    tokens = re.findall(r"\b[\w']+\b", text.lower())
+    if any(tok in SPANISH_HINTS for tok in tokens):
+        return False
+    return True
+
+def _no_banned_language(text: str) -> Optional[str]:
+    if HEDGING_REGEX.search(text):
+        return "hedging"
+    if CLICHE_REGEX.search(text):
+        return "cliche"
+    if HYPE_REGEX.search(text):
+        return "hype"
+    return None
+
+def _range_ok(label: str, s: str) -> bool:
+    n = len(s)
+    if label == "short":
+        return n <= 160
+    if label == "mid":
+        return MID_MIN <= n <= MID_MAX
+    if label == "long":
+        return LONG_MIN <= n <= LONG_MAX
+    return n < 280
+
+def _pick_hooks_for_variants(rng: random.Random, count: int) -> List[int]:
+    """Return indices into HOOK_GUIDELINES ensuring variety."""
+    population = list(range(len(HOOK_GUIDELINES)))
+    if count >= len(population):
+        rng.shuffle(population)
+        return population[:count]
+    return rng.sample(population, count)
+
+
+def _build_shared_rules() -> str:
+    return (
+        "Common guardrails for every variant:\n"
+        f"{hook_menu()}\n"
+        "- First sentence MUST deploy the chosen hook in ≤8 words (unless the format overrides it).\n"
+        f"{visual_anchor_prompt()}"
+        f"{words_blocklist_prompt()}"
+        f"{comma_guard_prompt()}"
+        f"{conjunction_guard_prompt()}"
+        "- Zero emojis, hashtags, or Spanish. English only.\n"
+        "- Everything under 280 characters.\n"
+        f"{closing_rule_prompt()}"
+    )
+
+
+def _format_block(label: str, format_text: str, hook_name: str, allow_analogy: bool) -> str:
+    analogy_line = (
+        "- Optional: include one tight analogy if it uses drawable imagery (max one short clause).\n"
+        if allow_analogy
+        else "- Do NOT use analogies in this variant.\n"
+    )
+    return (
+        f"Variant {label} guardrails:\n"
+        f"- Hook type: {hook_name}. Show it in the first 3 words.\n"
+        f"{format_text}"
+        f"{analogy_line}"
+        "- Prefer verbs and nouns over adjectives. If a descriptor isn't measurable, replace it with an action.\n"
+    )
+
+
+def _enforce_variant_compliance(
+    label: str,
+    draft: str,
+    format_profile: Optional[FormatProfile],
+    allow_analogy: bool,
+) -> None:
+    issues = detect_banned_elements(draft)
+    # Honor ENV toggles for commas and conjunctions at enforcement time
+    if not ENFORCE_NO_COMMAS:
+        issues = [i for i in issues if "uses commas" not in i]
+    if not ENFORCE_NO_AND_OR:
+        issues = [i for i in issues if "uses conjunction" not in i]
+    if issues:
+        raise StyleRejection(f"Variant {label} rejected: {', '.join(issues)}.")
+
+    if format_profile:
+        is_valid, reason = validate_format(draft, format_profile)
+        if not is_valid:
+            if format_profile.mandatory:
+                raise StyleRejection(f"Variant {label} broke mandatory format '{format_profile.name}': {reason}.")
+            else:
+                logger.warning(f"Variant {label} did not fully comply with optional format '{format_profile.name}': {reason}. Allowing to pass.")
+
+    analogy_hits = count_analogy_markers(draft)
+    if allow_analogy:
+        if analogy_hits > 1:
+            raise StyleRejection(f"Variant {label} uses too many analogies ({analogy_hits}).")
+    else:
+        if analogy_hits:
+            raise StyleRejection(f"Variant {label} must not use analogies.")
+
+
+DEFAULT_POST_CATEGORIES: List[Dict[str, str]] = [
+    {
+        "key": "contrast_statement",
+        "name": "Contrast Statement",
+        "pattern": (
+            "Present two opposing ideas to create an instant reveal. Invalidate a common approach (Don't do X), then "
+            "present a stronger alternative (Do Y) — position Y as the obvious solution."
+        ),
+    },
+    {
+        "key": "perspective_reframe",
+        "name": "Perspective Reframe",
+        "pattern": (
+            "Start with a universal truth the reader recognizes. Introduce a twist that reframes it — turn a negative "
+            "(struggle) into a necessary element for a positive outcome (victory)."
+        ),
+    },
+    {
+        "key": "friction_reduction",
+        "name": "Friction Reduction Argument",
+        "pattern": (
+            "Directly address analysis paralysis or fear to start. Break an intimidating goal into an absurdly small, "
+            "manageable first step that motivates immediate action."
+        ),
+    },
+    {
+        "key": "identity_redefinition",
+        "name": "Identity Redefinition",
+        "pattern": (
+            "Dismantle a limiting label (e.g., 'I'm not a salesperson'). Replace it with a simpler, authentic requirement "
+            "that feels attainable and aligned with the reader's identity."
+        ),
+    },
+    {
+        "key": "parallel_contrast_aphorism",
+        "name": "Parallel Contrast Aphorism",
+        "pattern": (
+            "Use parallel, aphoristic contrast to juxtapose two ideas. Start from a familiar saying (If A is B), then "
+            "present a surprising counterpart (then C is D). Keep symmetry and punch."
+        ),
+    },
+    {
+        "key": "demonstrative_principle",
+        "name": "Demonstrative Principle",
+        "pattern": (
+            "Teach a copywriting rule by showing. Contrast a 'bad' version (feature) with a 'good' version (benefit), "
+            "then conclude with the principle demonstrated."
+        ),
+    },
+    {
+        "key": "counterintuitive_principle",
+        "name": "Counterintuitive Principle",
+        "pattern": (
+            "State a counterintuitive rule as a near-universal law that challenges a popular belief. Push the reader to "
+            "adopt a more effective method by reframing the goal."
+        ),
+    },
+    {
+        "key": "process_promise",
+        "name": "Process Promise",
+        "pattern": (
+            "Validate the reader's frustration: change isn't instant. Offer a future promise — tiny, consistent effort adds up "
+            "to a total transformation. Encourage patience and trust in the process."
+        ),
+    },
+    {
+        "key": "common_villain_exposure",
+        "name": "Common Villain Exposure",
+        "pattern": (
+            "Recreate a recognizable negative scenario the reader detests. Expose and criticize the shared villain to build "
+            "instant trust, positioning the writer as an ally."
+        ),
+    },
+    {
+        "key": "hidden_benefits_reveal",
+        "name": "Hidden Benefits Reveal",
+        "pattern": (
+            "Start with a promise to reveal the non-obvious value of an action. Use a short list to enumerate specific, "
+            "unexpected benefits — make the abstract tangible."
+        ),
+    },
+    {
+        "key": "values_manifesto",
+        "name": "Values Manifesto",
+        "pattern": (
+            "Redefine a popular idea with a value hierarchy in a compact list. Use A > B comparisons to prioritize deep "
+            "principles over superficial alternatives."
+        ),
+    },
+    {
+        "key": "delayed_gratification_formula",
+        "name": "Delayed Gratification Formula",
+        "pattern": (
+            "State a direct cause-effect between present sacrifice and future reward. Structure like: Do the hard thing today, "
+            "get the desired outcome tomorrow. Motivate disciplined action."
+        ),
+    },
+    {
+        "key": "excuse_invalidation",
+        "name": "Excuse Invalidation",
+        "pattern": (
+            "Identify a common external excuse (the blamed villain). Then absolve it and redirect responsibility to an internal "
+            "action or inaction, empowering the reader."
+        ),
+    },
+    {
+        "key": "revealing_definition",
+        "name": "Revealing Definition",
+        "pattern": (
+            "Redefine a known concept with a sharp metaphor that reveals its overlooked essence, raising its perceived value."
+        ),
+    },
+    {
+        "key": "fundamental_maxim",
+        "name": "Fundamental Maxim",
+        "pattern": (
+            "Present a core principle as a non-negotiable rule of the domain. Reset priorities by exposing the true hierarchy."
+        ),
+    },
+    {
+        "key": "paradox_statement",
+        "name": "Paradoxical Statement",
+        "pattern": (
+            "Drop a claim that sounds self-contradictory to break the reader's pattern. Hook curiosity, then resolve the paradox "
+            "with a practical reason that proves the rule."
+        ),
+    },
+]
+
+
+POST_CATEGORIES_PATH = os.getenv(
+    "POST_CATEGORIES_PATH",
+    os.path.join(os.path.abspath(os.path.dirname(__file__)), "config", "post_categories.json"),
+)
+
+BULLET_CATEGORIES = {
+    "hidden_benefits_reveal",
+    "values_manifesto",
+    "demonstrative_principle",
+    "friction_reduction",
+}
+
+_CACHED_POST_CATEGORIES: List[Dict[str, str]] = []
+
+TAIL_SAMPLING_COUNT = int(os.getenv("TAIL_SAMPLING_COUNT", "3") or 3)
+
+REVIEWER_PROFILES: List[Dict[str, str]] = [
+    {
+        "name": "Contrarian Reviewer",
+        "role": (
+            "You are obsessed with tail-distribution insights. You hate safe takes and call out any mainstream phrasing. "
+            "Your job is to force the writer to lead with a bold, uncomfortable truth that still fits the ICP."
+        ),
+        "focus": (
+            "Identify where the draft slips into common wisdom. Suggest one sharper, lower-probability angle or detail that hits harder."
+        ),
+    },
+    {
+        "name": "Compliance Reviewer",
+        "role": (
+            "You enforce the COOlogy style contract. No hedging, no bloated sentences, voice must stay NYC bar sharp."
+        ),
+        "focus": (
+            "Point the exact spots where tone drifts, verbs weaken, or the contract/ICP are violated. Offer a direct correction."
+        ),
+    },
+    {
+        "name": "Clarity Reviewer",
+        "role": (
+            "You are ruthless about clarity and specificity. If something sounds abstract, you demand a concrete example or metric."
+        ),
+        "focus": (
+            "Highlight vague claims, missing metrics, or fuzzy stakes. Suggest what tangible detail would make it undeniable."
+        ),
+    },
+]
+
+SENTENCE_SPLIT_REGEX = re.compile(r"(?<=[.!?])\s+")
+
+
+def load_post_categories() -> List[Dict[str, str]]:
+    global _CACHED_POST_CATEGORIES
+    if _CACHED_POST_CATEGORIES:
+        return _CACHED_POST_CATEGORIES
+    try:
+        if POST_CATEGORIES_PATH and os.path.exists(POST_CATEGORIES_PATH):
+            with open(POST_CATEGORIES_PATH, "r", encoding="utf-8") as f:
+                data = f.read().strip()
+                if data:
+                    import json
+
+                    parsed = json.loads(data)
+                    valid = []
+                    for item in parsed:
+                        if not isinstance(item, dict):
+                            continue
+                        key = (item.get("key") or "").strip()
+                        name = (item.get("name") or "").strip()
+                        pattern = (item.get("pattern") or "").strip()
+                        structure = (item.get("structure") or "").strip()
+                        why = (item.get("why") or "").strip()
+                        if key and name and pattern:
+                            valid.append(
+                                {
+                                    "key": key,
+                                    "name": name,
+                                    "pattern": pattern,
+                                    "structure": structure,
+                                    "why": why,
+                                }
+                            )
+                    if valid:
+                        _CACHED_POST_CATEGORIES = valid
+                        logger.info(f"Loaded {len(valid)} post categories from JSON.")
+                        return _CACHED_POST_CATEGORIES
+    except Exception as exc:
+        logger.warning(f"Failed to load post categories from '{POST_CATEGORIES_PATH}': {exc}")
+    _CACHED_POST_CATEGORIES = DEFAULT_POST_CATEGORIES
+    return _CACHED_POST_CATEGORIES
+
+
+def pick_random_post_category() -> Dict[str, str]:
+    return random.choice(load_post_categories())
+
+
+def ensure_under_limit_via_llm(
+    text: str,
+    model: str,
+    limit: int = 280,
+    attempts: int = 4,
+) -> str:
+    attempt = 0
+    best = text
+    while attempt < attempts:
+        attempt += 1
+        prompt = (
+            f"Rewrite the text so the TOTAL characters are <= {limit}. Preserve meaning and readability. "
+            f"Do NOT add quotes, emojis or hashtags. Prefer short words and compact phrasing. Return ONLY JSON: "
+            f'{{"text": "<final text under {limit} chars>"}}. Text must be <= {limit} characters.\n\n'
+            f"TEXT: {best}"
+        )
+        try:
+            data = llm.chat_json(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "You are a ruthless editor returning strict JSON only."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.25,
+            )
+            candidate = (data or {}).get("text") if isinstance(data, dict) else None
+            if isinstance(candidate, str) and candidate.strip():
+                candidate = candidate.strip()
+                if len(candidate) <= limit:
+                    return candidate
+                best = candidate
+        except Exception:
+            continue
+    return best
+
+
+def _compact_text(text: str, limit: int = 1200) -> str:
+    cleaned = re.sub(r"\s+", " ", (text or "")).strip()
+    if len(cleaned) <= limit:
+        return cleaned
+    cut = cleaned[:limit].rstrip()
+    if " " in cut:
+        cut = cut[: cut.rfind(" ")].rstrip()
+    return cut + "…"
+
+
+def _ensure_question_at_end(text: str) -> str:
+    stripped = text.rstrip()
+    if stripped.endswith("?"):
+        return stripped[:-1] + "."
+    return stripped.rstrip(".!") + "."
+
+
+def ensure_char_range_via_llm(text: str, model: str, lo: int, hi: int) -> str:
+    """Attempt to rewrite text to fit within [lo, hi] characters while preserving punch and V3.1 tone.
+
+    Returns the best candidate (may still be out of range if provider fails).
+    """
+    text = (text or "").strip()
+    if not text:
+        return text
+    best = text
+    try:
+        prompt = (
+            f"Rewrite the text to keep brutal, street-smart tone and fit between {lo} and {hi} characters.\n"
+            "- One sentence per line. Keep short, punchy lines.\n"
+            "- No commas. No hashtags. English only.\n"
+            "Return ONLY the rewritten text.\n\n"
+            f"TEXT:\n{text}"
+        )
+        data = llm.chat_text(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a ruthless editor returning plain text only."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+        )
+        candidate = (data or "").strip()
+        if candidate:
+            best = candidate
+    except Exception:
+        return best
+    return best
+
+
+def regenerate_single_variant(
+    label: str,
     topic_abstract: str,
     context: PromptContext,
     settings: GenerationSettings,
-    gold_examples: Optional[List[str]] = None,
-) -> Tuple[Dict[str, str], Dict[str, str]]:
-    """Generates three distinct tweet variants (short, mid, long) using a single, comprehensive LLM call."""
-    import time
-    start_time = time.time()
+) -> Optional[str]:
+    """Ask the LLM to generate only one variant (short/mid/long) with V3.1 voice and target char range.
 
-    # Load settings to get centralized length constraints
-    app_settings = AppSettings.load()
-    lengths = app_settings.variant_lengths
+    Returns the draft string or None on failure.
+    """
+    label = label.lower().strip()
+    if label not in {"short", "mid", "long"}:
+        return None
+    lo, hi = (0, 160) if label == "short" else ((180, 230) if label == "mid" else (240, 280))
+    sys = (
+        "You are a world-class ghostwriter. Follow the style contract and ICP exactly. "
+        "Return ONLY strict JSON."
+        "\n\n<STYLE_CONTRACT>\n" + context.contract + "\n</STYLE_CONTRACT>\n\n"
+        "Audience ICP:\n<ICP>\n" + context.icp + "\n</ICP>\n\n"
+        "<FINAL_REVIEW_GUIDELINES>\n" + context.final_guidelines + "\n</FINAL_REVIEW_GUIDELINES>"
+    )
+    user = (
+        f"Generate ONLY the '{label}' tweet draft for the topic below.\n"
+        f"- Preserve VOICE V3.1 (brutal, street-smart, zero polite).\n"
+        f"- English only. No hashtags. No commas.\n"
+        f"- Aim for {lo}–{hi} characters (hard target).\n\n"
+        f"Topic:\n{topic_abstract}\n\n"
+        "Return JSON ONLY: {\n"
+        f"  \"{label}\": \"...\"\n"
+        "}"
+    )
+    try:
+        data = llm.chat_json(
+            model=settings.generation_model,
+            messages=[
+                {"role": "system", "content": sys},
+                {"role": "user", "content": user},
+            ],
+            temperature=max(0.0, min(1.0, settings.generation_temperature)),
+        )
+        if not isinstance(data, dict):
+            return None
+        draft = str(data.get(label) or "").strip()
+        if not draft:
+            return None
+        return draft
+    except Exception:
+        return None
+
+
+def _limit_lines(text: str, max_lines: int = 2) -> str:
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return text.strip()
+    if max_lines <= 0:
+        return " ".join(lines)
+    if len(lines) <= max_lines:
+        return "\n".join(lines)
+    if max_lines == 1:
+        return " ".join(lines)
+    first = lines[0]
+    second = " ".join(lines[1:])
+    return "\n".join([first, second])
+
+
+def _enforce_line_limit(text: str, max_lines: int = 2) -> str:
+    lines = [ln.rstrip() for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return text.strip()
+    if len(lines) <= max_lines:
+        return "\n".join(lines)
+    if max_lines == 1:
+        return " ".join(lines)
+    first = lines[0]
+    second = " ".join(lines[1:])
+    return "\n".join([first, second])
+
+
+def _limit_sentences(text: str, max_sentences: int = 2) -> str:
+    if max_sentences <= 0:
+        return text.strip()
+    parts = re.split(r"(?<=[.!?])\s+", text.strip())
+    sentences = [p.strip() for p in parts if p.strip()]
+    if not sentences:
+        return text.strip()
+    clipped = sentences[:max_sentences]
+    if len(clipped) == 1:
+        return clipped[0]
+    return "\n".join(clipped)
+
+
+def _normalize_token(token: str) -> str:
+    word = token.lower().strip(".,!?\"'()[]{}")
+    if len(word) <= 2:
+        return ""
+    if word.endswith("ies") and len(word) > 4:
+        word = word[:-3] + "y"
+    elif word.endswith("ing") and len(word) > 4:
+        word = word[:-3]
+    elif word.endswith("ied") and len(word) > 4:
+        word = word[:-3] + "y"
+    elif word.endswith("ed") and len(word) > 3:
+        word = word[:-2]
+    elif word.endswith("es") and len(word) > 4:
+        word = word[:-2]
+    elif word.endswith("s") and len(word) > 3:
+        word = word[:-1]
+    return word
+
+
+def _normalized_token_set(text: str) -> set[str]:
+    tokens = re.findall(r"[A-Za-z']+", text.lower())
+    normalized = set()
+    for token in tokens:
+        norm = _normalize_token(token)
+        if norm and len(norm) >= 3 and norm not in STOPWORDS:
+            normalized.add(norm)
+    return normalized
+
+
+def _validate_comment_relevance(
+    source_excerpt: str,
+    comment_text: str,
+    context: PromptContext,
+    model: str,
+    key_terms: Optional[List[str]] = None,
+) -> CommentRelevance:
+    prompt = f"""
+We only want to reply if the comment clearly references the post and adds value to operators/COO ICP.
+
+POST (excerpt):
+\"\"\"{source_excerpt}\"\"\"
+
+COMMENT:
+\"\"\"{comment_text}\"\"\"
+
+Answer strictly as JSON:
+{{
+  "is_relevant": boolean,
+  "reason": string (<=160 chars)
+}}
+
+Mark is_relevant=true ONLY if the comment references a concrete detail/tension from the post AND extends it with a meaningful operator-focused insight or question.
+If the comment is vague, generic, or ignores the post's content, return false and explain why in reason.
+"""
+    if key_terms:
+        prompt += "\nKey focus terms: " + ", ".join(key_terms[:6]) + "\n"
+    system_message = (
+        "You are a strict reviewer preventing spammy replies. Enforce relevance to the excerpt and ICP value.\n\n<STYLE_CONTRACT>\n"
+        + context.contract
+        + "\n</STYLE_CONTRACT>\n\n<ICP>\n"
+        + context.icp
+        + "\n</ICP>\n\n<FINAL_REVIEW_GUIDELINES>\n"
+        + context.final_guidelines
+        + "\n</FINAL_REVIEW_GUIDELINES>"
+    )
+    try:
+        data = llm.chat_json(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.1,
+        )
+        if isinstance(data, dict):
+            relevant = bool(data.get("is_relevant", False))
+            reason = str(data.get("reason", "")).strip()[:160]
+            return CommentRelevance(is_relevant=relevant, reason=reason)
+    except Exception as exc:
+        logger.warning("Could not validate comment relevance: %s", exc)
+    return CommentRelevance(is_relevant=True, reason="Relevance not verified (fallback).")
+
+def assess_comment_opportunity(
+    source_text: str,
+    context: PromptContext,
+    settings: GenerationSettings,
+) -> CommentAssessment:
+    excerpt = _compact_text(source_text, limit=1200)
+    prompt = f"""
+We are deciding whether to reply to this post as a fractional COO ghostwriter whose north star is delivering value to operators.
+
+Post excerpt:
+\"\"\"{excerpt}\"\"\"
+
+Answer in strict JSON with:
+{{
+  "should_comment": boolean,
+  "reason": string (<=160 chars),
+  "hook": string (<=160 chars, optional),
+  "risk": string (<=160 chars, optional)
+}}
+
+Guidelines:
+- should_comment = true ONLY if we can credibly add value for our ICP: tactical advice, challenge, or question that advances the conversation.
+- Return false if the post is off-topic, purely self-promotional, or would force us into speculation.
+- reason must be specific (e.g., "Author is venting about churn math—can share handoff cadence tip").
+- If false, reason should state why (e.g., "Topic is crypto trading — outside ICP").
+"""
 
     system_message = (
-        "You are a world-class ghostwriter who follows instructions precisely. "
-        "You will perform a chain of thought process internally, but ONLY return the final JSON output."
-        "\n\n<STYLE_CONTRACT>\n"
+        "You are a strategist deciding whether to engage publicly. Protect the ICP focus and voice.\n\n<STYLE_CONTRACT>\n"
         + context.contract
-        + "\n</STYLE_CONTRACT>\n\n"
-        "Audience ICP:\n<ICP>\n"
+        + "\n</STYLE_CONTRACT>\n\n<ICP>\n"
         + context.icp
-        + "\n</ICP>\n\n"
-        "Complementary polish rules:\n<FINAL_REVIEW_GUIDELINES>\n"
+        + "\n</ICP>\n\n<FINAL_REVIEW_GUIDELINES>\n"
         + context.final_guidelines
         + "\n</FINAL_REVIEW_GUIDELINES>"
     )
 
     try:
-        # Style-RAG: retrieve random goldset examples to enforce a stronger voice signal
-        if gold_examples is None:
-            _t0 = time.time()
-            with Timer("g_goldset_random_retrieve", labels={"scope": "variants", "k": 5}):
-                gold_examples = retrieve_goldset_examples_random(k=5)
-            _elapsed_ms = round((time.time() - _t0) * 1000, 2)
-            logger.info(
-                "[RAG] Retrieved %s random goldset examples for prompt in %.2fms",
-                len(gold_examples),
-                _elapsed_ms,
-            )
-
-        gold_block = _format_gold_examples_for_prompt(gold_examples, limit=5)
-        if not gold_block.strip():
-            gold_block = "- (No reference examples available; rely on contract.)"
-        
-        # Load prompt from file and render with centralized length constraints
-        prompts_dir = app_settings.prompts_dir
-        prompt_spec = load_prompt(prompts_dir, "generation/all_variants_v4")
-        user_prompt = prompt_spec.render(
-            topic_abstract=topic_abstract,
-            gold_examples_block=gold_block,
-            len_short_max=lengths.short.max,
-            len_mid_min=lengths.mid.min,
-            len_mid_max=lengths.mid.max,
-            len_long_min=lengths.long.min,
-            len_long_max=lengths.long.max,
+        data = llm.chat_json(
+            model=settings.generation_model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
         )
-        
-        # Emit diagnostics to validate anchor block presence/format during smoke tests
-        try:
-            diagnostics.info(
-                "generation_prompt_gold_block",
-                {
-                    "topic_preview": (topic_abstract or "")[:160],
-                    "anchors_count": gold_block.count("\n") + (1 if gold_block.strip() else 0),
-                    "gold_block_preview": gold_block[:240],
-                },
+        if isinstance(data, dict):
+            should = bool(data.get("should_comment", False))
+            reason = str(data.get("reason", "")).strip()[:160]
+            hook = str(data.get("hook", "")).strip()[:160] if data.get("hook") else None
+            risk = str(data.get("risk", "")).strip()[:160] if data.get("risk") else None
+            logger.info(
+                "Comment assessment: should_comment=%s | reason=%s | hook=%s | risk=%s",
+                should,
+                reason,
+                hook,
+                risk,
             )
-        except Exception:
-            pass
+            return CommentAssessment(should_comment=should, reason=reason, hook=hook, risk=risk)
     except Exception as exc:
-        logger.error("Failed to load/render external prompt: %s. Cannot generate variants.", exc)
-        raise StyleRejection(f"Prompt loading failed: {exc}")
+        logger.warning("Could not assess comment opportunity: %s", exc)
+
+    return CommentAssessment(
+        should_comment=True,
+        reason="No LLM evaluation (fallback).",
+    )
+
+
+def _extract_key_terms(text: str, max_terms: int = 6) -> List[str]:
+    tokens = re.findall(r"[A-Za-z']+", text.lower())
+    seen: set[str] = set()
+    key_terms: List[str] = []
+    for token in tokens:
+        if len(token) < 4:
+            continue
+        if token in STOPWORDS:
+            continue
+        if token in seen:
+            continue
+        seen.add(token)
+        key_terms.append(token)
+        if len(key_terms) >= max_terms:
+            break
+    return key_terms
+
+
+def _build_ab_prompt(
+    topic_abstract: str,
+    context: PromptContext,
+    shared_rules: str,
+    variant_blocks: List[str],
+) -> str:
+    sections = [
+        "You are a ghostwriter. Your task is to write TWO distinct alternatives for a tweet based on the topic below. "
+        "Obey the contract, the ICP, and the formatting guardrails exactly. No extra narration.",
+        "**Contract for style and tone:**",
+        context.contract,
+        "---",
+        "**Complementary polish guardrails (do not override the contract/ICP):**",
+        context.final_guidelines,
+        "---",
+        f"**Topic:** {topic_abstract}",
+        shared_rules,
+    ]
+    sections.extend(variant_blocks)
+    sections.append(
+        "**CRITICAL OUTPUT REQUIREMENTS:**\n"
+        "- Provide two high-quality, distinct alternatives in English.\n"
+        "- Respect the assigned format and hook for each variant.\n"
+        "- Both alternatives MUST be under 280 characters.\n"
+        "- Output will be parsed automatically. Do not add labels like [A] or [B]."
+    )
+    return "\n\n".join(sections)
+
+
+def _build_system_message(context: PromptContext) -> str:
+    return (
+        "You are a world-class ghostwriter creating two tweet drafts. "
+        "Return ONLY strict JSON with exactly two string properties: draft_a and draft_b.\n\n"
+        "<STYLE_CONTRACT>\n"
+        + context.contract
+        + "\n</STYLE_CONTRACT>\n\n"
+        "Audience ICP:\n<ICP>\n"
+        + context.icp
+        + "\n</ICP>\n\n"
+        "Complementary polish rules (do not override the contract/ICP):\n<FINAL_REVIEW_GUIDELINES>\n"
+        + context.final_guidelines
+        + "\n</FINAL_REVIEW_GUIDELINES>"
+    )
+
+
+def _refine_single_tweet_style(raw_text: str, model: str, context: PromptContext) -> str:
+    prompt = (
+        "Polish the text to hit a sharper NYC bar voice — smart, direct, slightly impatient — while preserving meaning.\n"
+        "Respect the existing sentence count and order. Do not merge or add sentences.\n"
+        "Do NOT add emojis, hashtags, or Spanish.\n\n"
+        "Amplifiers (must do):\n"
+        "- First sentence must stay a hard hook (no soft lead-ins).\n"
+        "- Every sentence must describe something drawable; add micro-visual detail if missing.\n"
+        "- **Metaphor Audit:** If any analogy is abstract or philosophical, replace it with a direct, literal statement.\n"
+        "- If you see commas or conjunctions 'and'/'or' (or 'y'/'o'), split the idea into separate sentences instead.\n"
+        "- Cut adverbs ending in 'mente' or dull '-ly' fillers. Remove words: bueno, bien, solo, entonces, ya.\n"
+        "- Prefer verbs and nouns over adjectives. If an adjective is vague, swap it for a concrete action/object.\n"
+        "- Keep the inspirational hammer in the final sentence.\n"
+        f"{comma_guard_prompt()}"
+        f"{conjunction_guard_prompt()}"
+        f"{visual_anchor_prompt()}"
+        f"{words_blocklist_prompt()}"
+        "- Keep under 280 characters.\n\n"
+        f"RAW TEXT: --- {raw_text} ---"
+    )
+    system_message = (
+        "You are a world-class ghostwriter rewriting text into a specific style. "
+        "Follow the style contract exactly. Keep it concise and punchy.\n\n"
+        "<STYLE_CONTRACT>\n"
+        + context.contract
+        + "\n</STYLE_CONTRACT>\n\n"
+        "Audience ICP:\n<ICP>\n"
+        + context.icp
+        + "\n</ICP>\n\n"
+        "Complementary polish rules (do not override the contract/ICP):\n<FINAL_REVIEW_GUIDELINES>\n"
+        + context.final_guidelines
+        + "\n</FINAL_REVIEW_GUIDELINES>"
+    )
+    try:
+        text = llm.chat_text(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.6,
+        )
+        return text
+    except Exception:
+        return raw_text
+
+
+def _refine_single_tweet_style_flexible(raw_text: str, model: str, context: PromptContext) -> str:
+    prompt = (
+        "Refine the text while keeping the meaning, format, and cadence intact. Maintain the same number of sentences or bullet strikes.\n"
+        "Voice = NYC bar: smart, direct, a bit impatient. No emojis, no hashtags, no Spanish.\n\n"
+        "Amplifiers:\n"
+        "- Keep the opening punch stronger than before — hook in ≤8 words if format allows.\n"
+        "- Each sentence must be drawable and rooted in physical detail.\n"
+        "- **Metaphor Audit:** If any analogy is abstract or philosophical, replace it with a direct, literal statement.\n"
+        "- Remove commas and conjunctions 'and'/'or' ('y'/'o'). Split thoughts into separate sentences instead.\n"
+        "- Delete adverbs ending in 'mente' or filler '-ly' words. Ban: bueno, bien, solo, entonces, ya.\n"
+        "- Use actions/items instead of adjectives. If an adjective is vague, replace it.\n"
+        "- Ensure the final sentence is the inspirational hammer, no cheese.\n"
+        f"{comma_guard_prompt()}"
+        f"{conjunction_guard_prompt()}"
+        f"{visual_anchor_prompt()}"
+        f"{words_blocklist_prompt()}"
+        "- Keep the total under 280 characters.\n\n"
+        f"RAW TEXT: --- {raw_text} ---"
+    )
+    system_message = (
+        "You are a world-class ghostwriter rewriting text into a specific style. "
+        "Follow the style contract exactly, EXCEPT paragraph-count rules are explicitly overridden for this variant.\n\n"
+        "<STYLE_CONTRACT>\n"
+        + context.contract
+        + "\n</STYLE_CONTRACT>\n\n"
+        "Audience ICP:\n<ICP>\n"
+        + context.icp
+        + "\n</ICP>\n\n"
+        "Complementary polish rules (do not override the contract/ICP):\n<FINAL_REVIEW_GUIDELINES>\n"
+        + context.final_guidelines
+        + "\n</FINAL_REVIEW_GUIDELINES>"
+    )
+    try:
+        text = llm.chat_text(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.6,
+        )
+        return text
+    except Exception:
+        return raw_text
+
+
+def generate_all_variants(
+    topic_abstract: str,
+    context: PromptContext,
+    settings: GenerationSettings,
+    gold_examples: Optional[List[str]] = None,
+) -> Dict[str, str]:
+
+
+    """Generates three distinct tweet variants (short, mid, long) using a single, comprehensive LLM call."""
+
+
+    import time
+
+
+    start_time = time.time()
+
+
+
+
+
+    system_message = (
+
+
+        "You are a world-class ghostwriter who follows instructions precisely. "
+
+
+        "You will perform a chain of thought process internally, but ONLY return the final JSON output."
+
+
+        "\n\n<STYLE_CONTRACT>\n"
+
+
+        + context.contract
+
+
+        + "\n</STYLE_CONTRACT>\n\n"
+
+
+        "Audience ICP:\n<ICP>\n"
+
+
+        + context.icp
+
+
+        + "\n</ICP>\n\n"
+
+
+        "Complementary polish rules:\n<FINAL_REVIEW_GUIDELINES>\n"
+
+
+        + context.final_guidelines
+
+
+        + "\n</FINAL_REVIEW_GUIDELINES>"
+
+
+    )
+
+
+
+
+
+    user_prompt = f"""
+    **Prime Directive: Clarity of Diagnosis > Poetic Creativity.**
+    Your absolute priority is to be understood in 3 seconds. The goal is to provide a sharp, operational diagnosis, not a philosophical musing.
+
+    **Metaphor & Analogy Rule: Concrete & Drawable ONLY.**
+    - Any metaphor MUST be 100% concrete and visual (physical objects, tangible actions).
+    - Any abstract or philosophical metaphor (e.g., "the grief of a fantasy," "sacrificing control") is a failure.
+    - If you are in doubt, ALWAYS default to a literal, direct statement.
+
+    Your task is to generate three distinct, high-quality tweet variants based on the provided topic, each with a different length and structural feel. Follow these steps internally:
+
+
+
+
+
+    1.  **Analyze the Topic:**
+
+
+        -   Topic: "{topic_abstract}"
+
+
+
+
+
+    2.  **Internal Brainstorm (Chain of Thought):**
+
+
+        -   Generate 1-2 contrarian or non-obvious angles for this topic.
+
+
+        -   Select the strongest angle to use as the core theme for all three versions.
+
+
+
+
+
+    3.  **Drafting (Internal Thought):**
+
+
+                -   **Version A (The Surgical Diagnosis):** Write a 1-2 line knockout blow (≤150 characters). It must NOT be a vague positive statement. It MUST be a brutal, specific operational or financial diagnosis that attacks the ICP's failed math, false identity, or broken system. (Example: 'Stop being the highest-paid 
+
+        0/hr employee in your own business.')
+
+
+                -   **Version B (Standard):** Write a standard-length draft (180–220 characters) with a solid rhythm.
+
+
+        -   **Version C (Extended):** Write a longer draft (240–280 characters) that tells a mini-story or ends with a strong, imperative call to action.
+
+
+        -   Ensure all drafts adhere to the style contract (Hormozi cadence: short, one-sentence paragraphs, no hedging).
+
+
+
+
+
+                4.  **Final Output:**
+
+
+
+
+
+                    -   Return ONLY a strict JSON object with the three final, polished drafts.
+
+
+
+
+
+                    -   All drafts MUST be in English. Adhere to this rule strictly.
+
+
+
+
+
+            
+
+
+
+
+
+            
+
+
+
+
+
+            
+
+
+
+
+
+            
+
+
+
+
+
+            
+
+
+
+
+
+                **CRITICAL OUTPUT FORMAT:**
+
+
+    Return ONLY a strict JSON object with the following structure:
+
+
+    {{
+
+
+      "draft_short": "<Final polished text for the short version>",
+
+
+      "draft_mid": "<Final polished text for the mid-length version>",
+
+
+      "draft_long": "<Final polished text for the long version>"
+
+
+    }}
+
+
+    """
+
+
+
+
+
+    # Override inline prompt with externalized template
+    try:
+        prompts_dir = AppSettings.load().prompts_dir
+        user_prompt = load_prompt(prompts_dir, "generation/all_variants").render(
+            topic_abstract=topic_abstract,
+            gold_examples=gold_examples or [],
+        )
+    except Exception:
+        # Fallback to the inline prompt above if loading fails
+        pass
 
     logger.info("Generating all variants via single-call multi-length prompt...")
+
+
+    
+
 
     try:
         resp = llm.chat_json(
@@ -174,6 +1281,7 @@ def generate_all_variants(
             temperature=max(0.0, min(1.0, settings.generation_temperature)),
         )
 
+        # Accept both schemas: {short,mid,long} or {draft_short,draft_mid,draft_long}
         def map_to_drafts(payload: Dict[str, object]) -> Dict[str, str]:
             return {
                 "short": str(payload.get("short") or payload.get("draft_short") or "").strip(),
@@ -190,6 +1298,7 @@ def generate_all_variants(
         drafts = map_to_drafts(resp)
 
         if not all_present(drafts):
+            # Single, cheap retry to enforce schema
             try:
                 minimal_user = (
                     "Return ONLY strict JSON with keys {\"short\",\"mid\",\"long\"} under 280 chars each. "
@@ -216,21 +1325,867 @@ def generate_all_variants(
             f"[PERF] Single-call for all variants took {time.time() - start_time:.2f} seconds."
         )
 
+        # Raw mode: NO guardrails (return raw drafts for VOICE tuning)
+        if SUSPEND_GUARDRAILS:
+            return (
+                {
+                    "short": (drafts.get("short") or "").strip(),
+                    "mid": (drafts.get("mid") or "").strip(),
+                    "long": (drafts.get("long") or "").strip(),
+                },
+                {},
+            )
+
+        # Minimal Warden with style rewrite (V3.1 by default):
+        if WARDEN_MINIMAL:
+            cleaned: Dict[str, str] = {}
+            failed_variants: Dict[str, str] = {}
+            import re as _re
+            COMMA_RE = _re.compile(r"[,\uFF0C\u060C\uFE10\uFE11\uFE50\uFE51]")
+
+            def _minimal_failure_reason(label: str, text: str) -> str:
+                if not text:
+                    return "Missing content."
+                if not _english_only(text):
+                    return "Contains non-English characters."
+                if _re.search(r"#[A-Za-z0-9_]+", text):
+                    return "Contains hashtags."
+                if COMMA_RE.search(text):
+                    return "Contains commas."
+                if FORBIDDEN_EM_DASH in text:
+                    return "Contains em dash (—)."
+                if not _range_ok(label, text):
+                    return f"Length {len(text)} outside allowed range."
+                return "Failed minimal guardrails."
+
+            for label in ("short", "mid", "long"):
+                draft = (drafts.get(label) or "").strip()
+                if not draft:
+                    ok = None
+                    for _ in range(2):
+                        ok = regenerate_single_variant(label, topic_abstract, context, settings)
+                        if ok:
+                            break
+                    if not ok:
+                        failed_variants[label] = _minimal_failure_reason(label, draft)
+                        cleaned[label] = ""
+                        continue
+                    draft = ok.strip()
+
+                def _passes_minimal(s: str) -> bool:
+                    if not _english_only(s):
+                        return False
+                    if _re.search(r"#[A-Za-z0-9_]+", s):
+                        return False
+                    if COMMA_RE.search(s):
+                        return False
+                    if FORBIDDEN_EM_DASH in s:
+                        return False
+                    return _range_ok(label, s)
+
+                if not _passes_minimal(draft):
+                    success = None
+                    for _ in range(2):
+                        regen = regenerate_single_variant(label, topic_abstract, context, settings)
+                        candidate = (regen or "").strip()
+                        if candidate and _passes_minimal(candidate):
+                            success = candidate
+                            break
+                    if not success:
+                        failed_variants[label] = _minimal_failure_reason(label, draft)
+                        cleaned[label] = ""
+                        continue
+                    draft = success or draft
+                cleaned[label] = draft
+            return cleaned, failed_variants
+
+        # Hard gate: clean, audit and enforce mechanical rules before returning
         def _strip_hashtags_and_fix(text: str) -> str:
             import re as _re
-            t = _re.sub(r"#[A-Za-z0-9_]+\\s?", "", text or "")
-            lines = [_re.sub(r"\s+", " ", ln).strip() for ln in t.splitlines() if ln.strip()]
+            # Remove hashtags and replace commas with dots, but preserve line breaks
+            t = _re.sub(r"#[A-Za-z0-9_]+", "", text or "")
+            t = t.replace(",", ".")
+            lines = []
+            for ln in t.splitlines():
+                # Collapse internal whitespace per line and strip ends
+                norm = _re.sub(r"\s+", " ", ln).strip()
+                if norm:
+                    lines.append(norm)
             return "\n".join(lines)
 
-        cleaned_drafts = {k: _strip_hashtags_and_fix(v) for k, v in drafts.items()}
-        
-        # The new architecture delegates all validation to the LLM Judge.
-        # We return the cleaned drafts and an empty dictionary for failed variants.
-        return cleaned_drafts, {}
+        def _mechanical_repair(text: str, *, enforce_no_commas: bool = ENFORCE_NO_COMMAS) -> str:
+            import re as _re
+            if not text:
+                return ""
+            t = text
+            # Strip URLs, emojis, hashtags
+            t = _re.sub(r"(https?://\S+|\bwww\.[^\s]+)", "", t)
+            t = _re.sub(r"#[A-Za-z0-9_]+", "", t)
+            t = _re.sub(r"[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\u2600-\u26FF\u2700-\u27BF]", "", t)
+            if enforce_no_commas:
+                t = t.replace(",", ".")
+            # Normalize whitespace per sentence
+            # Break on sentence boundaries first
+            sentences = []
+            parts = _re.split(r"(?<=[.!?])\s+", t.strip())
+            for part in parts:
+                s = _re.sub(r"\s+", " ", part.strip())
+                if not s:
+                    continue
+                if s[-1] not in ".!?":
+                    s += "."
+                sentences.append(s)
+            # Rewrap to keep <= WARDEN_WPL_HI words per line; preserve lines that are short
+            lines: list[str] = []
+            for s in sentences:
+                words = _re.findall(r"\b[\w']+\b", s)
+                if not words:
+                    continue
+                # Chunk by HI to avoid long lines; keep punctuation on each line
+                for i in range(0, len(words), WARDEN_WPL_HI):
+                    chunk = words[i : i + WARDEN_WPL_HI]
+                    if not chunk:
+                        continue
+                    line = " ".join(chunk).strip()
+                    if line and line[-1] not in ".!?":
+                        line += "."
+                    lines.append(line)
+            # Final cleanup
+            return "\n".join(ln.strip() for ln in lines if ln.strip())
+
+        def _validate_variant(label: str, draft: str) -> str:
+            audit_payload: Optional[Dict[str, object]] = None
+            draft = _strip_hashtags_and_fix(draft)
+            # Warden audit+rewrite using the style contract
+            try:
+                improved, audit_payload = improve_style(draft, context.contract, mode="tweet")
+                draft = _strip_hashtags_and_fix(improved)
+            except StyleRejection as e:
+                reason = f"Variant {label} rejected by style audit: {e}"
+                logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                raise StyleRejection(reason)
+
+            # Mechanical compliance (no commas/and-or/hashtags/AI-patterns)
+            try:
+                _enforce_variant_compliance(label.upper(), draft, format_profile=None, allow_analogy=False)
+            except StyleRejection:
+                # Deterministic mechanical repair pass
+                # Label core sections; preserve core truth and hammer
+                try:
+                    labels = label_sections(draft, context.contract)
+                except Exception:
+                    labels = {"preserve_indices": []}
+                preserve_idx = set(int(i) for i in labels.get("preserve_indices", []) if isinstance(i, int))
+
+                # If preserved lines violate mechanics that would force splitting or punctuation changes → reject (voice wins)
+                lines = [ln.strip() for ln in draft.splitlines() if ln.strip()]
+
+                def _words(nline: str) -> int:
+                    import re as _re
+                    return len(_re.findall(r"\b[\w']+\b", nline))
+
+                for pi in preserve_idx:
+                    if 0 <= pi < len(lines):
+                        pline = lines[pi]
+                        if ENFORCE_NO_COMMAS and "," in pline:
+                            msg = f"Variant {label}: repair would degrade preserved core (comma in preserved line)"
+                            logger.warning(f"WARDEN_FAIL_CATEGORY=voice; {msg}")
+                            raise StyleRejection(msg)
+                        if _words(pline) > WARDEN_WPL_HI:
+                            msg = f"Variant {label}: repair would need to split preserved line (>{WARDEN_WPL_HI} words)"
+                            logger.warning(f"WARDEN_FAIL_CATEGORY=voice; {msg}")
+                            raise StyleRejection(msg)
+
+                draft2 = _mechanical_repair(draft)
+                try:
+                    _enforce_variant_compliance(label.upper(), draft2, format_profile=None, allow_analogy=False)
+                    draft = draft2
+                except StyleRejection:
+                    # One compacting attempt if still failing (length only)
+                    draft3 = ensure_under_limit_via_llm(draft2, settings.generation_model, limit=280)
+                    draft3 = _strip_hashtags_and_fix(draft3)
+                    _enforce_variant_compliance(label.upper(), draft3, format_profile=None, allow_analogy=False)
+                    draft = draft3
+
+            # Additional Warden checks
+            if FORBIDDEN_EM_DASH in draft:
+                reason = f"Variant {label} rejected: em dash (—) not allowed."
+                logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                raise StyleRejection(reason)
+            if not _english_only(draft):
+                reason = f"Variant {label} rejected: non-English characters."
+                logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                raise StyleRejection(reason)
+            banned_hit = _no_banned_language(draft)
+            if banned_hit:
+                # Cliché contextual: allow if auditor judged it as allowed
+                if banned_hit == "cliche" and isinstance(audit_payload, dict) and str(audit_payload.get("cliche_context", "")).lower() == "allowed":
+                    pass
+                else:
+                    reason = f"Variant {label} rejected: {banned_hit} language."
+                    logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                    raise StyleRejection(reason)
+            if not _one_sentence_per_line(draft):
+                reason = f"Variant {label} rejected: one sentence per line required."
+                logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                raise StyleRejection(reason)
+            if not _avg_words_per_line_between(draft, WARDEN_WPL_LO, WARDEN_WPL_HI):
+                reason = f"Variant {label} rejected: sentence length {WARDEN_WPL_LO}–{WARDEN_WPL_HI} words per line."
+                logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                raise StyleRejection(reason)
+            if not _range_ok(label, draft):
+                if len(draft) > 280:
+                    draft2 = ensure_under_limit_via_llm(draft, settings.validation_model, limit=280)
+                    draft2 = _strip_hashtags_and_fix(draft2)
+                    if not _range_ok(label, draft2):
+                        reason = f"Variant {label} rejected: char range after compaction."
+                        logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                        raise StyleRejection(reason)
+                    draft = draft2
+                else:
+                    reason = f"Variant {label} rejected: wrong char range."
+                    logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                    raise StyleRejection(reason)
+            if ENFORCE_NO_COMMAS and "," in draft:
+                reason = f"Variant {label} rejected: commas not allowed."
+                logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                raise StyleRejection(reason)
+            if ENFORCE_NO_AND_OR and re.search(r"\band\s*/\s*or\b", draft, re.I):
+                reason = f"Variant {label} rejected: 'and/or' not allowed."
+                logger.warning(f"WARDEN_FAIL_REASON={reason}")
+                raise StyleRejection(reason)
+            return draft
+
+        VARIANT_MAX_ATTEMPTS = 3
+
+        def _clean_variant_with_retries(label: str, seed: str) -> Tuple[str, Optional[str]]:
+            attempts = 0
+            candidate = seed
+            last_error = ""
+            while attempts < VARIANT_MAX_ATTEMPTS:
+                candidate_stripped = (candidate or "").strip()
+                if candidate_stripped:
+                    try:
+                        return _validate_variant(label, candidate_stripped), None
+                    except StyleRejection as err:
+                        last_error = (str(err) or "").strip()
+                        logger.warning(
+                            "Variant %s failed validation (attempt %s/%s): %s",
+                            label,
+                            attempts + 1,
+                            VARIANT_MAX_ATTEMPTS,
+                            last_error,
+                        )
+                else:
+                    last_error = "Missing content."
+                    logger.warning("Variant %s missing content; attempting regeneration.", label)
+
+                candidate = regenerate_single_variant(label, topic_abstract, context, settings)
+                attempts += 1
+                if candidate:
+                    logger.info("Variant %s regenerated (attempt %s/%s).", label, attempts, VARIANT_MAX_ATTEMPTS)
+
+            return "", (last_error or f"Variant {label} failed after {VARIANT_MAX_ATTEMPTS} attempts.").strip()
+
+        cleaned: Dict[str, str] = {}
+        failed_variants: Dict[str, str] = {}
+        for label in ("short", "mid", "long"):
+            text, err = _clean_variant_with_retries(label, drafts.get(label, ""))
+            cleaned[label] = text
+            if err:
+                trimmed = err if len(err) <= 120 else err[:117] + "..."
+                failed_variants[label] = trimmed
+
+        return cleaned, failed_variants
+
+
+
+
 
     except Exception as e:
+
+
         logger.error(f"Error in single-call all-variant generation: {e}", exc_info=True)
+
+
         raise StyleRejection(f"Failed to generate variants: {e}")
 
-# The rest of the file containing comment generation logic and other helpers remains unchanged.
-# For brevity, it is not included in this display but will be part of the file write.
+
+def generate_comment_reply(
+    source_text: str,
+    context: PromptContext,
+    settings: GenerationSettings,
+    assessment: Optional[CommentAssessment] = None,
+) -> CommentResult:
+    """
+    Generate a single conversational reply/comment anchored on the provided source text.
+    The output keeps the ICP voice and ends with an invitation to continue the conversation.
+    """
+    rng = random.Random(hash(source_text) & 0xFFFFFFFF)
+    excerpt = _compact_text(source_text, limit=1200)
+    key_terms = _extract_key_terms(excerpt)
+    gold_examples = retrieve_goldset_examples(excerpt, k=3)
+    tail_angles = _verbalized_tail_sampling(
+        topic_abstract=excerpt,
+        context=context,
+        model=settings.generation_model,
+        rag_context=gold_examples,
+        max_angles=TAIL_SAMPLING_COUNT,
+    )
+    tail_block = _format_tail_angles_for_prompt(tail_angles) or "No tail angles surfaced; rely on doctrinal instincts."
+    gold_block = _format_gold_examples_for_prompt(gold_examples) or "Anchors unavailable. Mirror the contract tone precisely."
+
+    use_question = rng.random() < 0.5
+    if use_question:
+        closing_instruction = "CRITICAL: End with an ultra-intelligent, non-obvious question that 90% of people wouldn't think to ask. This question should spark genuine conversation, not be a generic 'What do you think?'."
+    else:
+        closing_instruction = "CRITICAL: The comment MUST stand on its own as a complete piece of high-value insight. It should not ask a question."
+
+    key_terms_block = ""
+    if key_terms:
+        key_terms_block = (
+            "\nYou MUST explicitly reference at least one of these terms (quote or clearly paraphrase) to prove we read the post: "
+            + ", ".join(key_terms)
+            + "."
+        )
+    hook_line = ""
+    if assessment and assessment.hook:
+        hook_line = f"\nFocus your reply on this wedge: {assessment.hook}"
+    risk_line = ""
+    if assessment and assessment.risk:
+        risk_line = f"\nAvoid this pitfall: {assessment.risk}"
+
+    prompt_spec = _comment_generation_prompt()
+    prompt = prompt_spec.render(
+        excerpt=excerpt,
+        closing_instruction=closing_instruction,
+        banned_words=", ".join(sorted(BANNED_WORDS)),
+        key_terms_block=key_terms_block,
+        hook_line=hook_line,
+        risk_line=risk_line,
+        tail_block=tail_block,
+        gold_block=gold_block,
+    )
+
+    system_message = (
+        "You are a fractional COO ghostwriter crafting a conversation-driving reply. "
+        "Balance conviction with respect—build on the author's perspective instead of tearing it down. "
+        "Respect the style contract, ICP and complementary guidelines strictly.\n\n<STYLE_CONTRACT>\n"
+        + context.contract
+        + "\n</STYLE_CONTRACT>\n\n<ICP>\n"
+        + context.icp
+        + "\n</ICP>\n\n<FINAL_REVIEW_GUIDELINES>\n"
+        + context.final_guidelines
+        + "\n</FINAL_REVIEW_GUIDELINES>"
+    )
+
+    comment = ""
+    insight = None
+    internal_feedback = ""
+    try:
+        data = llm.chat_json(
+            model=settings.generation_model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.55,
+        )
+        
+        if isinstance(data, dict):
+            status = data.get("status")
+            if status == "NO_COMMENT":
+                reason = data.get("reason", "No specific reason provided.")
+                logger.info("Comment skipped by strategic filter: %s", reason)
+                raise CommentSkip(reason)
+            if status == "COMMENT":
+                comment = str(data.get("comment", "")).strip()
+
+        if not comment:
+            # Fallback for cases where the model might fail to produce the structured JSON
+            raw = llm.chat_text(
+                model=settings.generation_model,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.65,
+            )
+            if isinstance(raw, str):
+                comment = raw.strip()
+    except CommentSkip:
+        raise  # Re-raise to be caught by the calling function
+    except Exception as e:
+        logger.error(f"Error during comment generation: {e}", exc_info=True)
+        comment = ""
+        insight = None
+
+    if not comment:
+        raise StyleRejection("LLM did not generate a valid comment.")
+
+    revised_comment, feedback = _apply_internal_debate(
+        "COMMENT",
+        comment,
+        excerpt,
+        context,
+        tail_angles,
+        settings.validation_model,
+    )
+    if revised_comment and revised_comment.strip():
+        comment = revised_comment.strip()
+    if feedback:
+        internal_feedback = feedback
+
+    # --- NEW POST-PROCESSING FOR FLEXIBLE COMMENTS ---
+    # Goal: Preserve human-like structure (1-3 sentences) while enforcing key constraints.
+    comment = comment.strip()
+
+    # 1. Enforce strict 140 character limit
+    if len(comment) > 140:
+        comment = ensure_under_limit_via_llm(
+            comment, settings.validation_model, 140, attempts=4
+        )
+    if len(comment) > 140:
+        raise StyleRejection("Comment exceeds 140 characters after adjustments.")
+
+    # 2. Basic compliance check (allowing commas/conjunctions for a more human feel)
+    issues = []
+    lower_comment = comment.lower()
+    tokens = _WORD_REGEX.findall(lower_comment)
+    for banned in BANNED_WORDS:
+        if banned in tokens:
+            issues.append(f"contains banned word '{banned}'")
+    suffix_hits = [
+        token
+        for token in tokens
+        if any(token.endswith(suffix) for suffix in BANNED_SUFFIXES) and len(token) > 2
+    ]
+    if suffix_hits:
+        issues.append(
+            "contains forbidden suffix words: " + ", ".join(sorted(set(suffix_hits)))
+        )
+    if issues:
+        raise StyleRejection(f"Comment rejected: {', '.join(issues)}.")
+
+    # 3. Sentence count validation (1-3 sentences allowed)
+    sentence_count = _count_sentences(comment)
+    if not (1 <= sentence_count <= 3):
+        raise StyleRejection(
+            f"Comment must have 1-3 sentences, but found {sentence_count}."
+        )
+
+    relevance = _validate_comment_relevance(
+        excerpt,
+        comment,
+        context,
+        settings.validation_model,
+        key_terms=key_terms,
+    )
+    if not relevance.is_relevant:
+        raise StyleRejection(f"Comment discarded as irrelevant: {relevance.reason}")
+
+    audit = "Custom comment validation applied (human format)."
+
+    metadata: Dict[str, object] = {"audit": audit, "source_excerpt": excerpt}
+    if insight:
+        metadata["insight"] = insight
+    if assessment:
+        metadata["assessment_reason"] = assessment.reason
+        if assessment.hook:
+            metadata["assessment_hook"] = assessment.hook
+        if assessment.risk:
+            metadata["assessment_risk"] = assessment.risk
+    if key_terms:
+        metadata["key_terms"] = key_terms
+    metadata["relevance_reason"] = relevance.reason
+    metadata["tail_angles"] = tail_angles
+    if gold_examples:
+        metadata["gold_examples"] = gold_examples
+    metadata["tail_block"] = tail_block
+    metadata["style_anchors_block"] = gold_block
+    if internal_feedback:
+        metadata["internal_feedback"] = internal_feedback
+    
+    # Since the hook is no longer part of the prompt, we remove it from metadata.
+    # metadata["hook"] = hook.name
+
+    return CommentResult(comment=comment.strip(), insight=insight, metadata=metadata)
+
+
+def _verbalized_tail_sampling(
+    topic_abstract: str,
+    context: PromptContext,
+    model: str,
+    rag_context: Optional[List[str]] = None,
+    max_angles: int = TAIL_SAMPLING_COUNT,
+) -> List[Dict[str, str]]:
+    """Generate low-probability hook ideas to prime final drafts."""
+
+    if max_angles <= 0:
+        return []
+
+    system_message = (
+        "You are a contrarian strategist hunting tail-distribution insights while staying relevant to the COO ICP.\n"
+        "Respect the style contract, ICP, and complementary guidelines. Respond ONLY with strict JSON.\n\n"
+        "<STYLE_CONTRACT>\n"
+        + context.contract
+        + "\n</STYLE_CONTRACT>\n"
+        "<ICP>\n"
+        + context.icp
+        + "\n</ICP>\n"
+        "<FINAL_REVIEW_GUIDELINES>\n"
+        + context.final_guidelines
+        + "\n</FINAL_REVIEW_GUIDELINES>"
+    )
+
+    rag_section = ""
+    if rag_context:
+        rag_section = "\nInspirational Context:\n" + "\n".join(f"- {doc}" for doc in rag_context) + "\n"
+    prompt_spec = _tail_sampling_prompt()
+    user_prompt = prompt_spec.render(
+        topic=topic_abstract,
+        tail_count=max_angles,
+        rag_section=rag_section,
+    )
+
+    try:
+        resp = llm.chat_json(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.55,
+        )
+        angles = resp.get("angles") if isinstance(resp, dict) else None
+        if not isinstance(angles, list):
+            return []
+        cleaned: List[Dict[str, str]] = []
+        for item in angles[:max_angles]:
+            angle = str(item.get("angle", "")).strip()
+            if not angle:
+                continue
+            cleaned.append(
+                {
+                    "probability": str(item.get("probability", "0.09")).strip() or "0.09",
+                    "angle": angle,
+                    "mainstream": str(item.get("mainstream", "")).strip(),
+                    "rationale": str(item.get("rationale", "")).strip(),
+                }
+            )
+        return cleaned
+    except Exception as exc:
+        logger.warning("Tail sampling failed: %s", exc)
+        return []
+
+
+def _generate_contrast_analysis(
+    topic_abstract: str,
+    context: PromptContext,
+    model: str,
+    rag_context: Optional[List[str]] = None,
+) -> Dict[str, str]:
+    system_message = (
+        "You analyse narratives for a COO-focused audience. Respect the style contract, ICP, and complementary guidelines."
+        " Respond ONLY with strict JSON.\n\n<STYLE_CONTRACT>\n"
+        + context.contract
+        + "\n</STYLE_CONTRACT>\n<ICP>\n"
+        + context.icp
+        + "\n</ICP>\n<FINAL_REVIEW_GUIDELINES>\n"
+        + context.final_guidelines
+        + "\n</FINAL_REVIEW_GUIDELINES>"
+    )
+
+    rag_section = ""
+    if rag_context:
+        rag_section = "\nInspirational Context:\n" + "\n".join(f"- {doc}" for doc in rag_context) + "\n"
+    prompt_spec = _contrast_analysis_prompt()
+    user_prompt = prompt_spec.render(
+        topic=topic_abstract,
+        rag_section=rag_section,
+    )
+
+
+    try:
+        resp = llm.chat_json(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.35,
+        )
+        if isinstance(resp, dict):
+            winner = str(resp.get("winner", "")).strip()
+            if winner in {"mainstream", "contrarian"}:
+                return {
+                    "mainstream": str(resp.get("mainstream", "")).strip(),
+                    "contrarian": str(resp.get("contrarian", "")).strip(),
+                    "winner": winner,
+                    "reason": str(resp.get("reason", "")).strip(),
+                }
+    except Exception as exc:
+        logger.warning("Contrast analysis failed: %s", exc)
+    return {}
+
+
+def _count_sentences(text: str) -> int:
+    sentences = [s for s in SENTENCE_SPLIT_REGEX.split(text.strip()) if s]
+    return len(sentences)
+
+
+def _format_tail_angles_for_prompt(tail_angles: List[Dict[str, str]]) -> str:
+    if not tail_angles:
+        return ""
+    formatted = []
+    for idx, item in enumerate(tail_angles, 1):
+        line = f"{idx}. [p={item['probability']}] {item['angle']}"
+        if item.get("rationale"):
+            line += f" (Why: {item['rationale']})"
+        formatted.append(line)
+    return "\n".join(formatted)
+
+
+def _format_gold_examples_for_prompt(examples: List[str], limit: int = 3) -> str:
+    if not examples:
+        return ""
+    lines: List[str] = []
+    for idx, example in enumerate(examples[:limit], 1):
+        snippet = _compact_text(example, limit=140)
+        lines.append(f"{idx}. {snippet}")
+    return "\n".join(lines)
+
+
+def _run_internal_reviews(
+    variant_label: str,
+    draft: str,
+    topic_abstract: str,
+    context: PromptContext,
+    tail_angles: List[Dict[str, str]],
+    model: str,
+) -> str:
+    if not REVIEWER_PROFILES:
+        return ""
+
+    feedback_blocks: List[str] = []
+    tail_section = _format_tail_angles_for_prompt(tail_angles)
+
+    for reviewer in REVIEWER_PROFILES:
+        system_message = (
+            reviewer["role"]
+            + "\n\nRespect the COOlogy style contract, ICP, and complementary guidelines. Respond ONLY with strict JSON."
+            + "\n\n<STYLE_CONTRACT>\n"
+            + context.contract
+            + "\n</STYLE_CONTRACT>\n<ICP>\n"
+            + context.icp
+            + "\n</ICP>\n<FINAL_REVIEW_GUIDELINES>\n"
+            + context.final_guidelines
+            + "\n</FINAL_REVIEW_GUIDELINES>"
+        )
+
+        user_prompt = """
+Variant: {variant_label}
+Topic: {topic}
+Current draft:
+---
+{draft}
+---
+
+{tail_section}
+
+Provide up to 3 bullet critiques focused on: {focus}
+Format strictly as {{"bullets": ["..."]}}. Bullets ≤ 140 characters.
+""".format(
+            variant_label=variant_label,
+            topic=topic_abstract,
+            draft=draft,
+            tail_section=("Tail angles to respect:\n" + tail_section) if tail_section else "",
+            focus=reviewer["focus"],
+        )
+
+        try:
+            resp = llm.chat_json(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.25,
+            )
+        except Exception as exc:
+            logger.warning("Internal review (%s) failed: %s", reviewer["name"], exc)
+            continue
+
+        bullets = resp.get("bullets") if isinstance(resp, dict) else None
+        if not isinstance(bullets, list):
+            continue
+        cleaned = [str(b).strip() for b in bullets if str(b).strip()]
+        if cleaned:
+            feedback_blocks.append(f"{reviewer['name']}: " + " | ".join(cleaned))
+
+    return "\n".join(feedback_blocks)
+
+
+def _revise_with_reviews(
+    variant_label: str,
+    draft: str,
+    feedback: str,
+    topic_abstract: str,
+    context: PromptContext,
+    tail_angles: List[Dict[str, str]],
+    model: str,
+) -> Optional[str]:
+    if not feedback.strip():
+        return None
+
+    tail_section = _format_tail_angles_for_prompt(tail_angles)
+    variant_rules = {
+        "A": "Stay under 280 characters. One punchy paragraph or 1–2 short sentences.",
+        "B": "Exactly two sentences. No filler. ≤280 characters.",
+        "C": "Exactly one sentence. Ruthless. ≤280 characters.",
+        "COMMENT": "≤140 characters. One tight paragraph. Tie back to the author's core term and advance the conversation.",
+    }
+    variant_instruction = variant_rules.get(variant_label.upper(), "Stay under 280 characters.")
+
+    user_prompt = """
+Variant {variant_label} must be rewritten using the internal feedback.
+
+Topic: {topic}
+Current draft:
+---
+{draft}
+---
+
+Feedback received:
+{feedback}
+
+{tail_block}
+
+Rewrite constraints:
+- {variant_instruction}
+- Maintain COOlogy style contract, ICP, and complementary guidelines.
+- Zero hedging, no corporate tone, keep it human and direct.
+- Return ONLY the revised text (no quotes or comments).
+""".format(
+        variant_label=variant_label,
+        topic=topic_abstract,
+        draft=draft,
+        feedback=feedback,
+        tail_block=("Tail angles to honor:\n" + tail_section) if tail_section else "",
+        variant_instruction=variant_instruction,
+    )
+
+    system_message = (
+        "You are a world-class ghostwriter revising copy after an internal debate."
+        " Respect the style contract, ICP, and complementary guidelines strictly."
+        "\n\n<STYLE_CONTRACT>\n"
+        + context.contract
+        + "\n</STYLE_CONTRACT>\n<ICP>\n"
+        + context.icp
+        + "\n</ICP>\n<FINAL_REVIEW_GUIDELINES>\n"
+        + context.final_guidelines
+        + "\n</FINAL_REVIEW_GUIDELINES>"
+    )
+
+    try:
+        revised = llm.chat_text(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.4,
+        )
+        if isinstance(revised, str):
+            return revised.strip()
+    except Exception as exc:
+        logger.warning("Could not apply internal review (%s): %s", variant_label, exc)
+    return None
+
+
+def _apply_internal_debate(
+    variant_label: str,
+    draft: str,
+    topic_abstract: str,
+    context: PromptContext,
+    tail_angles: List[Dict[str, str]],
+    model: str,
+) -> Tuple[str, str]:
+    feedback = _run_internal_reviews(variant_label, draft, topic_abstract, context, tail_angles, model)
+    if not feedback:
+        return draft, ""
+    logger.info("Internal feedback for variant %s:\n%s", variant_label, feedback)
+    revised = _revise_with_reviews(variant_label, draft, feedback, topic_abstract, context, tail_angles, model)
+    if revised and revised.strip():
+        return revised.strip(), feedback
+    return draft, feedback
+
+
+def _summarise_feedback(feedback: str) -> Optional[str]:
+    if not feedback:
+        return None
+    first_line = feedback.split("\n", 1)[0]
+    return first_line.strip() if first_line.strip() else None
+
+
+def _build_reasoning_summary(
+    tail_angles: List[Dict[str, str]],
+    contrast: Dict[str, str],
+    feedback_map: Dict[str, str],
+) -> str:
+    lines = ["🧠 Internal reasoning"]
+    if tail_angles:
+        top_angles = [f"[p={item['probability']}] {item['angle']}" for item in tail_angles[:3]]
+        lines.append("• Tail angles: " + " / ".join(top_angles))
+    if contrast and contrast.get("winner"):
+        winner = contrast["winner"].capitalize()
+        reason = contrast.get("reason") or contrast.get(winner.lower(), "")
+        summary = f"• Contrast winner: {winner} — {reason[:120]}" if reason else f"• Contrast winner: {winner}"
+        lines.append(summary)
+    for label in ("A", "B", "C"):
+        fb = _summarise_feedback(feedback_map.get(label, ""))
+        if fb:
+            lines.append(f"• Reviewer {label}: {fb}")
+    return "\n".join(lines)
+
+
+def _enforce_sentence_count(
+    text: str,
+    desired_count: int,
+    context: PromptContext,
+    model: str,
+) -> str:
+    instruction = (
+        f"Rewrite the text to EXACTLY {desired_count} sentence{'s' if desired_count != 1 else ''}. "
+        "Keep the persona, ICP, and tone contract intact. No bullets, no numbering, no emojis."
+    )
+    try:
+        rewritten = llm.chat_text(
+            model=model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a world-class ghostwriter who must obey the style contract, ICP, and final review guidelines.\n\n"
+                        "<STYLE_CONTRACT>\n"
+                        + context.contract
+                        + "\n</STYLE_CONTRACT>\n\n"
+                        "<ICP>\n"
+                        + context.icp
+                        + "\n</ICP>\n\n"
+                        "<FINAL_REVIEW_GUIDELINES>\n"
+                        + context.final_guidelines
+                        + "\n</FINAL_REVIEW_GUIDELINES>"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": instruction + "\n\nTEXT:\n" + text,
+                },
+            ],
+            temperature=0.4,
+        )
+        return rewritten.strip() if isinstance(rewritten, str) and rewritten.strip() else text
+    except Exception as exc:
+        logger.warning("Could not adjust sentence count: %s", exc)
+        return text

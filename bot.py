@@ -1,5 +1,5 @@
 import logging_bootstrap  # <-- inicialización temprana de Cloud Logging
-print("---- ESTA ES LA PUTA VERSIÓN NUEVA DEL CÓDIGO: v_FINAL ----", flush=True)
+print("[SYSTEM] X Bot Mei v2.0 - Production Build Initialized", flush=True)
 
 import os
 import re

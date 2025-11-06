@@ -389,136 +389,7 @@ class ProposalService:
             enable_b=available_b,
         )
 
-        context = build_prompt_context()
-        label_map = {0: "A", 1: "B", 2: "C"}
         draft_map = {"A": draft_a, "B": draft_b, "C": draft_c}
-        if LOG_GENERATED_VARIANTS:
-            for label, text_variant in draft_map.items():
-                logger.info("[CHAT_ID: %s] Draft %s generated (%s chars):\n%s", chat_id, label, len(text_variant or ""), text_variant or "<vacío>")
-        evaluations: Dict[str, Dict[str, object]] = {}
-        for idx, draft in enumerate([draft_a, draft_b, draft_c]):
-            label = label_map[idx]
-            if draft:
-                raw_eval = evaluate_draft(draft, context)
-                evaluations[label] = raw_eval or {}
-            else:
-                evaluations[label] = {}
-
-        normalized_evals = self._normalize_evaluations(evaluations)
-        # Log initial metrics for all variants before refinement
-        try:
-            initial_similar, initial_pair = self._check_variant_similarity(draft_map)
-            pair_similarity_payload = None
-            if initial_pair and (initial_pair[0] and initial_pair[1]):
-                pair_similarity_payload = {
-                    "labels": f"{initial_pair[0]}-{initial_pair[1]}",
-                    "similarity": float(initial_pair[2] or 0.0),
-                }
-            log_post_metrics(
-                chat_id=chat_id,
-                topic=topic,
-                drafts=draft_map,
-                evaluations=normalized_evals,
-                pair_similarity=pair_similarity_payload,
-                blocked=False,
-            )
-        except Exception:
-            logger.debug("Diag logging (initial) skipped due to an error.")
-        updated_variants = False
-        refined_labels = set()
-        for label in ("A", "B", "C"):
-            eval_data = normalized_evals.get(label)
-            text = draft_map.get(label) or ""
-            others = {k: v for k, v in draft_map.items() if k != label}
-            if self._should_refine_variant(eval_data, text):
-                refined = self._refine_variant(label, text, eval_data or {}, topic_abstract or "", context, others)
-                if refined and refined != text:
-                    draft_map[label] = refined
-                    eval_raw = evaluate_draft(refined, context) or {}
-                    evaluations[label] = eval_raw
-                    normalized_evals[label] = self._normalize_evaluations({label: eval_raw}).get(label, eval_data)
-                    updated_variants = True
-                    refined_labels.add(label)
-
-        if updated_variants:
-            draft_a, draft_b, draft_c = draft_map["A"], draft_map["B"], draft_map["C"]
-            normalized_evals = self._normalize_evaluations(evaluations)
-            similar, pair_info_after = self._check_variant_similarity(draft_map)
-            if similar:
-                labels = " y ".join(pair_info_after[:2]) if pair_info_after else ""
-                sim_value = pair_info_after[2] if pair_info_after else 0.0
-                logger.warning(
-                    "[CHAT_ID: %s] Variantes aún similares tras reescritura (%s, sim=%.2f). Regenerando…",
-                    chat_id,
-                    labels,
-                    sim_value,
-                )
-                try:
-                    log_post_metrics(
-                        chat_id=chat_id,
-                        topic=topic,
-                        drafts=draft_map,
-                        evaluations=normalized_evals,
-                        pair_similarity={"labels": labels.replace(" y ", "-"), "similarity": float(sim_value)},
-                        blocked=True,
-                        blocking_reason=f"variant_similarity>=threshold ({sim_value:.2f} >= {VARIANT_SIMILARITY_THRESHOLD})",
-                    )
-                except Exception:
-                    logger.debug("Diag logging (similarity block) skipped due to an error.")
-                self.telegram.send_message(chat_id, get_message("variants_similar_after"))
-                return False
-
-        # Construir fuente de variante por etiqueta normalizada short/mid/long
-        variant_sources_map = {
-            "short": ("refine" if "A" in refined_labels else "gen"),
-            "mid": ("refine" if "B" in refined_labels else "gen"),
-            "long": ("refine" if "C" in refined_labels else "gen"),
-        }
-        check_results_post = self._check_contract_requirements(
-            draft_map,
-            piece_id=topic_id,
-            variant_sources=variant_sources_map,
-            log_stage="POST",
-        )
-        if LOG_GENERATED_VARIANTS:
-            for label, text in draft_map.items():
-                logger.info("[CHAT_ID: %s] Draft %s generated (%s chars):\n%s", chat_id, label, len((text or "")), text or "<vacío>")
-        at_least_one_passed_post = bool(check_results_post) and any(check_results_post)
-        if not at_least_one_passed_post:
-            if ignore_similarity:
-                self.telegram.send_message(
-                    chat_id,
-                    get_message("contract_failure"),
-                    reply_markup=self.telegram.get_new_tweet_keyboard(),
-                )
-                try:
-                    log_post_metrics(
-                        chat_id=chat_id,
-                        topic=topic,
-                        drafts=draft_map,
-                        evaluations=normalized_evals,
-                        blocked=True,
-                        blocking_reason="style_llm_judge_failed (no valid variants)",
-                    )
-                except Exception:
-                    logger.debug("Diag logging (contract block) skipped due to an error.")
-                return False
-            self.telegram.send_message(chat_id, get_message("contract_retry"))
-            try:
-                log_post_metrics(
-                    chat_id=chat_id,
-                    topic=topic,
-                    drafts=draft_map,
-                    evaluations=normalized_evals,
-                    blocked=True,
-                    blocking_reason="style_llm_judge_failed (retry requested)",
-                )
-            except Exception:
-                logger.debug("Diag logging (contract retry) skipped due to an error.")
-            return False
-        if at_least_one_passed_post:
-            logger.info("[CONTROL] Al menos un draft pasó la validación (POST). Enviando al usuario.")
-
         if LOG_GENERATED_VARIANTS:
             for label, text in draft_map.items():
                 logger.info("[CHAT_ID: %s] Draft %s generated:\n%s", chat_id, label, text or "<vacío>")
@@ -531,15 +402,15 @@ class ProposalService:
             draft_map["B"] if draft_map["B"] else None,
             draft_map["C"] if draft_map["C"] else None,
             "Multi-length",
-            evaluations=normalized_evals,
+            evaluations={},
             labels=labeled_drafts,
             errors=variant_errors,
         )
 
         # Add LLM Judge validation summary to the message
-        if check_results_post:
+        if check_results_pre:
             judge_labels = ["A", "B", "C"]
-            summary_parts = [f"{label}: {'✅' if passed else '❌'}" for label, passed in zip(judge_labels, check_results_post)]
+            summary_parts = [f"{label}: {'✅' if passed else '❌'}" for label, passed in zip(judge_labels, check_results_pre)]
             summary_line = " | ".join(summary_parts)
             message_text += f"\n\n<b>LLM Judge:</b> {summary_line}"
 
@@ -563,7 +434,7 @@ class ProposalService:
                     chat_id=chat_id,
                     topic=topic,
                     drafts=draft_map,
-                    evaluations=normalized_evals,
+                    evaluations={},
                     blocked=False,
                 )
             except Exception:

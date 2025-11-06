@@ -18,6 +18,16 @@ from persona import get_style_contract_text
 from prompt_context import build_prompt_context
 from src.settings import AppSettings
 
+# Load length constraints from configuration (DRY principle - no hardcoding!)
+_settings = AppSettings.load()
+_variant_lengths = _settings.variant_lengths
+
+SHORT_MAX = _variant_lengths.short.max
+MID_MIN = _variant_lengths.mid.min or 140  # fallback for backward compatibility
+MID_MAX = _variant_lengths.mid.max
+LONG_MIN = _variant_lengths.long.min or 240  # fallback for backward compatibility
+LONG_MAX = _variant_lengths.long.max
+
 
 @dataclass
 class TweetVariant:
@@ -83,19 +93,23 @@ REQUIREMENTS:
 4. Create tension with contrast, paradox, or inversion
 5. Each variant MUST be different in approach and proof
 
-LENGTH REQUIREMENTS:
-- SHORT: ≤140 characters (punchy, one core insight)
-- MID: 140-230 characters (adds context or example)
-- LONG: 240-280 characters (full story with proof)
+⚠️ CRITICAL LENGTH REQUIREMENTS (MUST COMPLY EXACTLY):
+- SHORT: Maximum {SHORT_MAX} characters total. NOT ONE CHARACTER MORE.
+- MID: Between {MID_MIN}-{MID_MAX} characters total. STAY IN THIS RANGE.
+- LONG: Between {LONG_MIN}-{LONG_MAX} characters total. STAY IN THIS RANGE.
+
+⚠️ IF YOU EXCEED THESE LIMITS, YOUR OUTPUT WILL BE REJECTED. COUNT CAREFULLY.
 
 Return ONLY valid JSON (no markdown, no explanation):
 {{
-  "short": "tweet text here",
-  "mid": "tweet text here",
-  "long": "tweet text here"
+  "short": "tweet text here (≤{SHORT_MAX} chars)",
+  "mid": "tweet text here ({MID_MIN}-{MID_MAX} chars)",
+  "long": "tweet text here ({LONG_MIN}-{LONG_MAX} chars)"
 }}
 
-REMEMBER: Street-level means conversational. No corporate speak. No academic tone. Write like you're texting a smart friend."""
+REMEMBER:
+- Street-level means conversational. No corporate speak. No academic tone. Write like you're texting a smart friend.
+- COUNT YOUR CHARACTERS. Each variant must fit its length requirement EXACTLY."""
 
     try:
         response = llm.chat_json(
@@ -226,11 +240,7 @@ def basic_sanity_check(text: str) -> Tuple[bool, str]:
 def validate_length(text: str, label: str) -> Tuple[bool, str]:
     """
     Validate tweet length according to variant type.
-
-    Requirements:
-    - SHORT: ≤140 chars
-    - MID: 140-230 chars
-    - LONG: 240-280 chars
+    Uses configuration from settings.dev.yaml (variant_lengths).
 
     Returns:
         (is_valid, failure_reason)
@@ -238,16 +248,73 @@ def validate_length(text: str, label: str) -> Tuple[bool, str]:
     length = len(text)
 
     if label == "short":
-        if length > 140:
-            return False, f"Too long for SHORT: {length} > 140 chars"
+        if length > SHORT_MAX:
+            return False, f"Too long for SHORT: {length} > {SHORT_MAX} chars"
     elif label == "mid":
-        if length < 140 or length > 230:
-            return False, f"Wrong length for MID: {length} (need 140-230 chars)"
+        if length < MID_MIN or length > MID_MAX:
+            return False, f"Wrong length for MID: {length} (need {MID_MIN}-{MID_MAX} chars)"
     elif label == "long":
-        if length < 240 or length > 280:
-            return False, f"Wrong length for LONG: {length} (need 240-280 chars)"
+        if length < LONG_MIN or length > LONG_MAX:
+            return False, f"Wrong length for LONG: {length} (need {LONG_MIN}-{LONG_MAX} chars)"
 
     return True, ""
+
+
+def compact_to_length(text: str, label: str, model: str) -> Optional[str]:
+    """
+    Attempt to compact text using LLM to fit within length requirements.
+
+    Args:
+        text: Text that's too long
+        label: Variant type ('short', 'mid', 'long')
+        model: LLM model to use for compaction
+
+    Returns:
+        Compacted text or None if failed
+    """
+    if label == "short":
+        target_min, target_max = 0, SHORT_MAX
+    elif label == "mid":
+        target_min, target_max = MID_MIN, MID_MAX
+    elif label == "long":
+        target_min, target_max = LONG_MIN, LONG_MAX
+    else:
+        return None
+
+    logger.info(f"Attempting to compact {label.upper()} variant ({len(text)} chars) to {target_min}-{target_max} range...")
+
+    prompt = f"""Rewrite this text to fit EXACTLY within {target_min}-{target_max} characters.
+Keep the core message and street-level tone. Remove filler words. Be ruthless.
+
+Original text ({len(text)} chars):
+{text}
+
+Return ONLY the compacted text. No quotes, no explanations. Just the text."""
+
+    try:
+        compacted = llm.chat_text(
+            model=model,
+            messages=[{
+                "role": "system",
+                "content": "You are a ruthless editor. Preserve meaning while cutting words. Return plain text only."
+            }, {
+                "role": "user",
+                "content": prompt
+            }],
+            temperature=0.3,  # Low temp for consistent editing
+        )
+
+        compacted = compacted.strip()
+        if len(compacted) >= target_min and len(compacted) <= target_max:
+            logger.info(f"✓ Successfully compacted to {len(compacted)} chars")
+            return compacted
+        else:
+            logger.warning(f"Compaction resulted in {len(compacted)} chars (outside {target_min}-{target_max} range)")
+            return None
+
+    except Exception as e:
+        logger.error(f"Failed to compact text: {e}")
+        return None
 
 
 def generate_and_validate(topic: str) -> TweetGeneration:
@@ -291,18 +358,42 @@ def generate_and_validate(topic: str) -> TweetGeneration:
             )
             continue
 
-        # Length check
+        # Length check with automatic compaction if needed
         valid, reason = validate_length(text, label)
         if not valid:
             logger.warning(f"{label.upper()} failed length check: {reason}")
-            results[label] = TweetVariant(
-                text=text,
-                label=label,
-                valid=False,
-                length=length,
-                failure_reason=reason
-            )
-            continue
+
+            # Try to compact using LLM
+            settings = AppSettings.load()
+            compacted = compact_to_length(text, label, settings.post_model)
+
+            if compacted:
+                # Re-validate compacted text
+                valid_compacted, reason_compacted = validate_length(compacted, label)
+                if valid_compacted:
+                    logger.info(f"✓ {label.upper()} compacted successfully from {len(text)} to {len(compacted)} chars")
+                    text = compacted  # Use compacted version
+                    length = len(text)
+                else:
+                    logger.warning(f"{label.upper()} compaction failed validation: {reason_compacted}")
+                    results[label] = TweetVariant(
+                        text=text,
+                        label=label,
+                        valid=False,
+                        length=length,
+                        failure_reason=f"Compaction failed: {reason_compacted}"
+                    )
+                    continue
+            else:
+                # Compaction failed, mark as invalid
+                results[label] = TweetVariant(
+                    text=text,
+                    label=label,
+                    valid=False,
+                    length=length,
+                    failure_reason=reason
+                )
+                continue
 
         # Contract validation
         validation = validate_against_contract(text, label)

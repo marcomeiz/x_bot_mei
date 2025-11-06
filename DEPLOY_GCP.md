@@ -132,6 +132,35 @@ Current Trigger
   - `gcloud builds triggers run activadorx --project=xbot-473616 --region=europe-west1 --branch=main`
 
 Troubleshooting (quick)
+- **Error 401 "No cookie auth credentials found" (OpenAI/OpenRouter authentication failure):**
+  - **Causa:** Variable de entorno `OPENROUTER_API_KEY` no configurada en Cloud Run.
+  - **Ubicación del problema:**
+    - `llm_fallback.py:48` - Cliente para generación de texto/JSON
+    - `embeddings_manager.py:220` - Cliente para embeddings
+  - **Solución:**
+    1. Verificar que el secreto existe en Secret Manager:
+       ```bash
+       gcloud secrets describe OPENROUTER_API_KEY --project=$PROJECT_ID
+       ```
+    2. Si no existe, crear el secreto:
+       ```bash
+       echo -n "tu-api-key-aqui" | gcloud secrets create OPENROUTER_API_KEY \
+         --data-file=- --project=$PROJECT_ID
+       ```
+    3. Verificar que Cloud Run tiene acceso al secreto:
+       ```bash
+       gcloud run services describe $SERVICE --region=$REGION --project=$PROJECT_ID \
+         --format="value(spec.template.spec.containers[0].env)"
+       ```
+    4. Si falta, redeploy con el secreto configurado (ver Quick Start paso 2 y 3).
+    5. Verificar permisos del Service Account de Cloud Run:
+       ```bash
+       gcloud projects add-iam-policy-binding $PROJECT_ID \
+         --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
+         --role="roles/secretmanager.secretAccessor"
+       ```
+  - **Validación:** Revisar logs de Cloud Run buscando "OPENROUTER_API_KEY no configurada" o errores 401.
+
 - Substitutions errors like "SECRET_LIST" or "IMG" not valid:
   - Cloud Build substitutes `$VAR` in the YAML. We escape bash vars with `$$` inside `deploy/cloudbuild.yaml`.
   - Ensure the file uses `$$IMG`, `$$ENV_VARS`, `$$SECRET_LIST` and appends with `"$$SECRET_LIST,..."`.

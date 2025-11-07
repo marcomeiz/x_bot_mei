@@ -59,18 +59,34 @@ class TelegramClient:
         safe_category = self.escape(category_name) if category_name else None
         error_map = errors or {}
 
-        header: list[str] = ["<b>Propuestas listas</b>"]
+        # Check if we're in single adaptive mode (only one variant provided)
+        variants = [draft_a, draft_b, draft_c]
+        valid_variants = [v for v in variants if v and v.strip()]
+        is_single_adaptive = len(valid_variants) == 1
+
+        header: list[str] = ["<b>Propuesta lista</b>" if is_single_adaptive else "<b>Propuestas listas</b>"]
         if self.show_topic_id or not source_pdf:
             header.append(f"<b>ID:</b> {safe_id}")
         if safe_abstract:
             header.append(f"<b>Tema:</b> {safe_abstract}")
         if safe_source:
             header.append(f"<b>Origen:</b> {safe_source}")
-        if draft_c and safe_category:
+        if draft_c and safe_category and not is_single_adaptive:
             header.append(f"<b>Categoría (C):</b> {safe_category}")
         header.append("")
         header.append("Pulsa ✅ para aprobar o selecciona el bloque de código para copiar.")
 
+        # Single adaptive mode: show only the one valid variant without A/B/C labels
+        if is_single_adaptive:
+            single_draft = next(v for v in variants if v and v.strip())
+            safe_text = self.escape(single_draft)
+            sections = [
+                "\n".join(header),
+                f"📝 <b>Tweet</b> · {len(single_draft)}/280\n<pre><code>{safe_text}</code></pre>"
+            ]
+            return "\n\n".join(sections).strip()
+
+        # Multi-variant mode: show A/B/C blocks as before
         blocks = [
             self._format_variant_block("🅰️", "A", draft_a, evaluations, error=error_map.get("short")),
             self._format_variant_block("🅱️", "B", draft_b, evaluations, error=error_map.get("mid")),

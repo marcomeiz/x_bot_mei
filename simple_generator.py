@@ -113,34 +113,27 @@ Count every single character. If you fail again, generation will abort."""
 {context.icp}
 </TARGET_AUDIENCE>
 
-REQUIREMENTS:
-1. Follow ALL criteria from Contract Section 8: Quality Check
-2. Use street-level tone (Section 2: "Write like you talk")
-3. Include concrete proof: numbers, examples, or vivid scenarios
-4. Create tension with contrast, paradox, or inversion
-5. **CRITICAL:** Avoid AI-polish tells (Section 9: "AI-polish tells")
+CORE PRINCIPLE: Sound typed by someone who knows their shit, not crafted by a copywriter.
 
-⚠️ AVOID AI-POLISH PATTERNS (sound human, not architected):
-- NO perfect 3-part parallel structures ("floods X, kills Y, shreds Z")
-- NO two perfectly balanced closing one-liners ("Scarcity sells. Discipline protects.")
-- NO "copywriting manual" structure (setup → Bullshit → perfect example → moral)
-- NO compressed case studies ("did X, got Y, learned Z" - too round)
-- Let one transition be slightly rough (humans don't craft every sentence perfectly)
-- Not every ending needs to land like a mic drop
+The contract covers quality. Your job: avoid AI tells. Learn from these contrasts:
 
-✅ STRUCTURE OPTIONS (use what fits the content):
-- **Prose flow:** Good for simple insights, but avoid making it too "essay-like"
-- **Lists with line breaks:** When you have multiple points, use actual line breaks (not compressed prose)
-- **Direct signals:** "Last month:", "Result:", "Here's what happened:" (sounds more typed, less crafted)
-- **Mix formats:** Start with prose, shift to list if it helps breathe
+━━━ EXAMPLE 1: Waitlists ━━━
 
-📝 EXAMPLES - LEARN THE DIFFERENCE:
+❌ TOO POLISHED (AI tell: perfect architecture):
+"You think packing your waitlist boosts revenue. Bullshit. It floods you with flakes, kills scarcity, shreds quality. Cap it hard at 25 spots. I did—turned away 150, but those 25 converted 4x higher and raved. Scarcity sells. Discipline protects your edge."
+→ Problem: 3-part parallels ("floods, kills, shreds"), two perfect closers ("Scarcity sells. Discipline protects"), every sentence serves clear purpose
 
-❌ MEJORABLE (too "copywriting manual" / compressed):
+✅ BETTER (sounds human):
+"Waitlists are broken. I capped mine at 25 and turned away like 150 people. Those 25? 4x conversion. Not saying it's the only way but scarcity worked for me."
+→ Why: Casual phrasing ("like 150"), rougher transitions, ending doesn't stick perfect landing
+
+━━━ EXAMPLE 2: Saying No ━━━
+
+❌ TOO STRUCTURED (AI tell: case study template):
 "You're a solopreneur, not a vending machine. You say yes to every random ask because money's money. Bullshit. That's how you kill focus. Last month I turned down 4 gigs, stuck to one project. Finished my core project twice as fast, energy actually back. Protect your scope or burn out."
-→ Problem: Too compressed, "case study" feel, every sentence has clear purpose, ending too round
+→ Problem: Compressed prose, perfect case study flow, every data point clean, ending too round
 
-✅ GOOD (sounds typed, uses structure):
+✅ BETTER (typed thought with structure):
 "You're a solopreneur, not a vending machine.
 You keep saying yes to every random ask because \"money's money\".
 Bullshit. That's how you murder your focus.
@@ -152,9 +145,23 @@ Last month I drew a hard line:
 Result: finished it in half the time, with energy left instead of brain fog.
 
 Say it clear: protect your scope or slowly delete yourself."
-→ Why it works: Line breaks, list format, direct signals ("Last month:", "Result:"), less essay-like, ending is raw not polished
+→ Why: Line breaks for breathing, list when needed, less essay-like, raw ending
 
-KEY PRINCIPLE: Less essay, more typed thought. Structure should help clarity, not show off architecture.
+━━━ EXAMPLE 3: Content Creation ━━━
+
+❌ TOO DIDACTIC (AI tell: PowerPoint structure):
+"Buried in client work, ghosting your own content? That kills inbound. Truth: post 3x/week from real wins. I systematized it—10 hours/week batching. Shared how a client saved 10h/week → 7 qualified DMs in a day. Your experiences are gold. Mine them or stay invisible."
+→ Problem: "Truth:" header sounds like webinar, "systematized" is corporate, data too packaged, ending like tagline
+
+✅ BETTER (compressed natural flow):
+"Buried in client work and ghosting your own content? That's why inbound is dead. Post 3x/week from real client wins. Shared how a client saved 10h/week batching email → 7 qualified DMs in 24h. Your work is gold. Use it or stay invisible."
+→ Why: No didactic headers, natural flow, arrow (→) not explanation, simpler verb ("use" not "mine"), still punchy
+
+━━━ PATTERN TO INTERNALIZE ━━━
+AI writes like: Setup → Lesson Label → Perfect Case Study → Tagline Closer
+Humans write like: Rough start → maybe a list if needed → story with loose edges → ending that's strong but not too clean
+
+Use structure (line breaks, lists, arrows) when it helps CLARITY, not to show architecture.
 
 ⚠️ ADAPTIVE LENGTH REQUIREMENT:
 - Range: {target_min}-{target_max} characters total
@@ -183,7 +190,7 @@ REMEMBER:
                 "role": "user",
                 "content": prompt
             }],
-            temperature=0.7 if attempt == 1 else 0.5,  # Lower temp on refinement for precision
+            temperature=0.8 if attempt == 1 else 0.6,  # Higher temp for natural variation, slightly lower on refinement
         )
 
         if not isinstance(response, dict):

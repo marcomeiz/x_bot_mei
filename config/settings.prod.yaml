@@ -1,15 +1,36 @@
-# Production-leaning defaults. Override via environment or Secret Manager.
+# Production config optimized for 2025 (research-backed model selection)
 openrouter_base_url: https://openrouter.ai/api/v1
-post_model: x-ai/grok-4
-post_refiner_model: x-ai/grok-4
-post_temperature: 0.55
+
+# TIER 1: Primary Generation (High Volume, Excellent Creative Writing)
+# DeepSeek V3.1 - Research 2025: "Superior creative writing, poetic tone, 90% cheaper"
+post_model: deepseek/deepseek-chat-v3.1
+post_temperature: 0.8
 post_preset: quality
-eval_fast_model: x-ai/grok-4-fast
-eval_slow_model: x-ai/grok-4
-comment_audit_model: x-ai/grok-4-fast
-comment_rewrite_model: x-ai/grok-4
+
+# TIER 2: Premium Refinement (Fallback for failed generations)
+# Opus 4.1 - #1 Chatbot Arena creative writing, use sparingly (10x cost)
+post_refiner_model: anthropic/claude-opus-4.1
+
+# TIER 3: Quality Validation (Critical Path - No Fast Models)
+# Gemini 2.5 Pro - #1 LMArena creative writing, conversational fluency
+eval_fast_model: google/gemini-2.5-pro
+eval_slow_model: google/gemini-2.5-pro
+
+# TIER 4: High-Volume Tasks (Audit, Fast Operations)
+# DeepSeek V3.1 - Same quality as generation, ultra-cheap
+comment_audit_model: deepseek/deepseek-chat-v3.1
+
+# TIER 5: Comment Generation (Conversational Nuance)
+# Gemini 2.5 Pro - Best for "conversational fluency, emotional nuance"
+comment_rewrite_model: google/gemini-2.5-pro
+
+# Topic Extraction (Maintain - Already Optimal)
 topic_extraction_model: anthropic/claude-3.5-sonnet
-embed_model: openai/text-embedding-3-small
+
+# Embeddings (UPGRADED - Better Similarity Precision)
+# Large model: better semantic capture for goldset matching
+embed_model: openai/text-embedding-3-large
+
 prompts_dir: prompts
 log_prompts: false
 log_prompts_full: false

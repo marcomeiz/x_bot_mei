@@ -72,7 +72,7 @@ class TweetGeneration:
         return all(v.valid for v in [self.short, self.mid, self.long])
 
 
-def generate_adaptive_variant(topic: str, attempt: int = 1) -> str:
+def generate_adaptive_variant(topic: str, attempt: int = 1, model_override: Optional[str] = None) -> str:
     """
     Generate a single adaptive-length tweet following the Elastic Voice Contract.
 
@@ -82,6 +82,7 @@ def generate_adaptive_variant(topic: str, attempt: int = 1) -> str:
     Args:
         topic: The topic abstract to write about
         attempt: Attempt number (1 = initial, 2 = refinement)
+        model_override: Optional model to use instead of default
 
     Returns:
         Tweet text (or empty string on failure)
@@ -208,8 +209,11 @@ REMEMBER:
 - COUNT YOUR CHARACTERS CAREFULLY."""
 
     try:
-        # Hybrid strategy: use post_refiner_model on attempt 2 (fallback to premium model)
-        model_to_use = settings.post_refiner_model if attempt == 2 else settings.post_model
+        # Model selection: override > hybrid strategy (refiner on attempt 2) > default
+        if model_override:
+            model_to_use = model_override
+        else:
+            model_to_use = settings.post_refiner_model if attempt == 2 else settings.post_model
         temp = 0.8 if attempt == 1 else 0.6  # Higher temp for natural variation, slightly lower on refinement
 
         logger.info(f"[LLM] Generation attempt {attempt}: model={model_to_use}, temp={temp}")
@@ -418,7 +422,7 @@ def truncate_to_length(text: str, target_max: int, target_min: int = 0) -> str:
     return result
 
 
-def generate_and_validate(topic: str) -> TweetGeneration:
+def generate_and_validate(topic: str, model_override: Optional[str] = None) -> TweetGeneration:
     """
     Adaptive Strategy: Generate a single optimal-length tweet (140-270 chars).
 
@@ -431,15 +435,16 @@ def generate_and_validate(topic: str) -> TweetGeneration:
 
     Args:
         topic: Topic abstract to write about
+        model_override: Optional model to use instead of default
 
     Returns:
         TweetGeneration with adaptive variant in 'long' field (short/mid are empty/invalid)
     """
-    logger.info(f"[Adaptive Strategy] Generating tweet for topic: {topic[:100]}...")
+    logger.info(f"[Adaptive Strategy] Generating tweet for topic: {topic[:100]}... Model: {model_override or 'default'}")
 
     # === STEP 1: Generate adaptive variant ===
     logger.info("Step 1: Generating adaptive variant (140-270 chars, optimal length)...")
-    tweet_text = generate_adaptive_variant(topic, attempt=1)
+    tweet_text = generate_adaptive_variant(topic, attempt=1, model_override=model_override)
 
     if not tweet_text:
         logger.error("Failed to generate adaptive variant")
@@ -478,7 +483,7 @@ def generate_and_validate(topic: str) -> TweetGeneration:
         logger.info("Step 3: Refining adaptive variant (attempt 2)...")
 
         # Refine once
-        tweet_text_refined = generate_adaptive_variant(topic, attempt=2)
+        tweet_text_refined = generate_adaptive_variant(topic, attempt=2, model_override=model_override)
 
         if not tweet_text_refined:
             logger.error("Refinement failed: could not generate adaptive variant")

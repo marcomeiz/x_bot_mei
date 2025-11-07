@@ -27,6 +27,7 @@ MODEL_PRICING = {
     "anthropic/claude-opus-4.1": {"input": 0.015, "output": 0.075},
     "anthropic/claude-3.5-sonnet": {"input": 0.003, "output": 0.015},
     "deepseek/deepseek-chat-v3.1": {"input": 0.00014, "output": 0.00028},
+    "openai/gpt-4o": {"input": 0.0025, "output": 0.01},
     # Fallback genérico
     "_default": {"input": 0.001, "output": 0.002},
 }

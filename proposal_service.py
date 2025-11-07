@@ -71,8 +71,8 @@ class ProposalService:
         self.refiner_model = settings.post_refiner_model
 
     # ------------------------------------------------------------------ public
-    def do_the_work(self, chat_id: int, deadline: Optional[float] = None) -> None:
-        logger.info("[CHAT_ID: %s] Iniciando nuevo ciclo de generación.", chat_id)
+    def do_the_work(self, chat_id: int, deadline: Optional[float] = None, model_override: Optional[str] = None) -> None:
+        logger.info("[CHAT_ID: %s] Iniciando nuevo ciclo de generación. Model: %s", chat_id, model_override or "default")
         per_topic_gen_retries = int(os.getenv("GENERATION_RETRIES_PER_TOPIC", "1") or 1)
 
         def _deadline_exceeded() -> bool:
@@ -104,7 +104,7 @@ class ProposalService:
                 self.telegram.send_message(chat_id, JOB_TIMEOUT_MESSAGE)
                 return
             try:
-                if self.propose_tweet(chat_id, topic, deadline=deadline):
+                if self.propose_tweet(chat_id, topic, deadline=deadline, model_override=model_override):
                     logger.info("[CHAT_ID: %s] Propuesta enviada correctamente.", chat_id)
                     return
             except ProviderGenerationError:
@@ -122,7 +122,7 @@ class ProposalService:
             self.telegram.send_message(chat_id, JOB_TIMEOUT_MESSAGE)
             return
         try:
-            if self.propose_tweet(chat_id, topic, ignore_similarity=True, deadline=deadline):
+            if self.propose_tweet(chat_id, topic, ignore_similarity=True, deadline=deadline, model_override=model_override):
                 logger.info("[CHAT_ID: %s] Propuesta enviada con similitud permitida para el mismo tema.", chat_id)
                 return
         except ProviderGenerationError:
@@ -193,6 +193,7 @@ class ProposalService:
         topic: Dict,
         ignore_similarity: bool = False,
         deadline: Optional[float] = None,
+        model_override: Optional[str] = None,
     ) -> bool:
         topic_abstract = topic.get("abstract")
         topic_id = topic.get("topic_id")
@@ -254,7 +255,7 @@ class ProposalService:
 
         try:
             with Timer("g_generate_variants", labels={"chat_id": chat_id}):
-                gen_result = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
+                gen_result = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity, model_override=model_override)
             _process_generation_result(gen_result)
 
         except ProviderGenerationError:
@@ -272,7 +273,7 @@ class ProposalService:
                         if remaining <= 0 or remaining < MIN_LLM_WINDOW_SECONDS:
                             self.telegram.send_message(chat_id, JOB_TIMEOUT_MESSAGE)
                             return False
-                    gen_result = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity)
+                    gen_result = generate_tweet_from_topic(topic_abstract, ignore_similarity=ignore_similarity, model_override=model_override)
                     _process_generation_result(gen_result)
                 except ProviderGenerationError:
                     raise

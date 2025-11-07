@@ -212,7 +212,7 @@ REMEMBER:
         model_to_use = settings.post_refiner_model if attempt == 2 else settings.post_model
         temp = 0.8 if attempt == 1 else 0.6  # Higher temp for natural variation, slightly lower on refinement
 
-        logger.info(f"[LLM] Generation attempt {attempt}: model={model_to_use}, temp={temp}")
+        logger.info(f"[LLM] Generation attempt {attempt}: model={model_to_use}, temp={temp}, max_tokens=200")
 
         response = llm.chat_json(
             model=model_to_use,
@@ -221,6 +221,7 @@ REMEMBER:
                 "content": prompt
             }],
             temperature=temp,
+            max_tokens=200,  # Production cost control: tweet (~60) + JSON wrapper (~40) + buffer
         )
 
         if not isinstance(response, dict):
@@ -291,7 +292,7 @@ Return ONLY valid JSON (no markdown):
 PASS CRITERIA: Must pass at least 8 out of 10 criteria (aim for 4/5 or better as contract states)."""
 
     try:
-        logger.info(f"[LLM] Contract validation: model={settings.eval_fast_model}, temp=0.1")
+        logger.info(f"[LLM] Contract validation: model={settings.eval_fast_model}, temp=0.1, max_tokens=500")
 
         response = llm.chat_json(
             model=settings.eval_fast_model,  # Use fast model for validation
@@ -300,6 +301,7 @@ PASS CRITERIA: Must pass at least 8 out of 10 criteria (aim for 4/5 or better as
                 "content": prompt
             }],
             temperature=0.1,  # Low temp for consistent validation
+            max_tokens=500,  # Production cost control: validation JSON (~300) + reasoning (~200)
         )
 
         if not isinstance(response, dict):

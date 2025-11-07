@@ -145,12 +145,23 @@ Aim for **4 / 5 or better** across items. Lower is fix-able; higher means publis
 
 ## 9) Elastic Red Flags
 
-- Motivation wallpaper (no tension or proof).  
-- Over-templated rhythm (five equal lines).  
-- Preachy imperatives with no boundary.  
-- Too polished or “AI-clean”.  
-- Numbers with no emotional anchor.  
+**General issues:**
+- Motivation wallpaper (no tension or proof).
+- Over-templated rhythm (five equal lines).
+- Preachy imperatives with no boundary.
+- Numbers with no emotional anchor.
 - Soft abstractions (*success, greatness, impact*) ungrounded.
+
+**AI-polish tells (avoid these):**
+- Perfect 3-part parallel structures (*"floods X, kills Y, shreds Z"*).
+- Two perfectly balanced closing one-liners (*"Short sells. Discipline wins."*).
+- Every sentence serving clear narrative purpose with no roughness.
+- Overly symmetric constructions (setup → 3 reasons → proof → 2-line closer).
+- Zero filler words or natural speech patterns (*"like", "honestly", "idk"*).
+- Transitions that are too clean (real typing has hiccups).
+- Endings that always stick the landing (not every thought needs a mic drop).
+
+**Fix:** Mix polished insight with raw edges. Sound typed fast, not crafted slow. Let one sentence be a bit loose. Not every line needs perfect structure.
 
 ---
 
@@ -168,11 +179,12 @@ If any answer is “no,” adjust one variable — never all.
 
 ## 11) Final Reminders
 
-- **Essence over form.** Style serves substance.  
-- **Variation over cloning.** Every post should feel lived, not printed.  
-- **Proof over poetry.** Numbers or examples keep it honest.  
-- **Belief before instruction.** Conviction is the real hook.  
-- **Flow over format.** A little mess is human.  
+- **Essence over form.** Style serves substance.
+- **Variation over cloning.** Every post should feel lived, not printed.
+- **Proof over poetry.** Numbers or examples keep it honest.
+- **Belief before instruction.** Conviction is the real hook.
+- **Flow over format.** A little mess is human.
+- **Imperfection is human.** Avoid perfect symmetry. Not every sentence needs architectural balance. Sound typed, not sculpted.  
 
 ---
 

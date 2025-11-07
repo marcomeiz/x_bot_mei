@@ -291,7 +291,7 @@ Return ONLY valid JSON (no markdown):
 PASS CRITERIA: Must pass at least 8 out of 10 criteria (aim for 4/5 or better as contract states)."""
 
     try:
-        logger.info(f"[LLM] Contract validation: model={settings.eval_fast_model}, temp=0.1, max_tokens=500")
+        logger.info(f"[LLM] Contract validation: model={settings.eval_fast_model}, temp=0.1")
 
         response = llm.chat_json(
             model=settings.eval_fast_model,  # Use fast model for validation
@@ -300,7 +300,6 @@ PASS CRITERIA: Must pass at least 8 out of 10 criteria (aim for 4/5 or better as
                 "content": prompt
             }],
             temperature=0.1,  # Low temp for consistent validation
-            max_tokens=500,  # Production cost control: validation JSON (~300) + reasoning (~200)
         )
 
         if not isinstance(response, dict):

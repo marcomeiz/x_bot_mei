@@ -76,6 +76,7 @@ def _run_evaluation(text: str, context: PromptContext, rubric: Dict[str, Any]) -
                 {"role": "user", "content": prompt},
             ],
             temperature=0.1,
+            max_tokens=1024,  # Sufficient for evaluation rubric JSON response
         )
         return payload if isinstance(payload, dict) else None
     except Exception as e:

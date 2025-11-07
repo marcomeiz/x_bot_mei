@@ -602,6 +602,7 @@ def ensure_under_limit_via_llm(
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.25,
+                max_tokens=512,  # Sufficient for edited text + JSON wrapper
             )
             candidate = (data or {}).get("text") if isinstance(data, dict) else None
             if isinstance(candidate, str) and candidate.strip():
@@ -655,6 +656,7 @@ def ensure_char_range_via_llm(text: str, model: str, lo: int, hi: int) -> str:
                 {"role": "user", "content": prompt},
             ],
             temperature=0.3,
+            max_tokens=512,  # Sufficient for edited text output
         )
         candidate = (data or "").strip()
         if candidate:
@@ -703,6 +705,7 @@ def regenerate_single_variant(
                 {"role": "user", "content": user},
             ],
             temperature=max(0.0, min(1.0, settings.generation_temperature)),
+            max_tokens=1024,  # Sufficient for single variant + JSON wrapper
         )
         if not isinstance(data, dict):
             return None
@@ -828,6 +831,7 @@ If the comment is vague, generic, or ignores the post's content, return false an
                 {"role": "user", "content": prompt},
             ],
             temperature=0.1,
+            max_tokens=256,  # Sufficient for relevance assessment JSON
         )
         if isinstance(data, dict):
             relevant = bool(data.get("is_relevant", False))
@@ -882,6 +886,7 @@ Guidelines:
                 {"role": "user", "content": prompt},
             ],
             temperature=0.3,
+            max_tokens=512,  # Sufficient for comment assessment JSON
         )
         if isinstance(data, dict):
             should = bool(data.get("should_comment", False))
@@ -1279,6 +1284,7 @@ def generate_all_variants(
                 {"role": "user", "content": user_prompt},
             ],
             temperature=max(0.0, min(1.0, settings.generation_temperature)),
+            max_tokens=2048,  # Sufficient for 3 variants + JSON wrapper + CoT reasoning
         )
 
         # Accept both schemas: {short,mid,long} or {draft_short,draft_mid,draft_long}
@@ -1312,6 +1318,7 @@ def generate_all_variants(
                         {"role": "user", "content": minimal_user},
                     ],
                     temperature=0.2,
+                    max_tokens=1024,  # Retry with sufficient tokens for 3 variants
                 )
                 if isinstance(fix, dict):
                     drafts = map_to_drafts(fix)
@@ -1690,6 +1697,7 @@ def generate_comment_reply(
                 {"role": "user", "content": prompt},
             ],
             temperature=0.55,
+            max_tokens=1024,  # Sufficient for comment + insight + reasoning
         )
         
         if isinstance(data, dict):
@@ -1856,6 +1864,7 @@ def _verbalized_tail_sampling(
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.55,
+            max_tokens=2048,  # Sufficient for tail sampling analysis with multiple angles
         )
         angles = resp.get("angles") if isinstance(resp, dict) else None
         if not isinstance(angles, list):
@@ -1914,6 +1923,7 @@ def _generate_contrast_analysis(
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.35,
+            max_tokens=2048,  # Sufficient for contrast analysis with perspectives
         )
         if isinstance(resp, dict):
             winner = str(resp.get("winner", "")).strip()
@@ -2011,6 +2021,7 @@ Format strictly as {{"bullets": ["..."]}}. Bullets ≤ 140 characters.
                     {"role": "user", "content": user_prompt},
                 ],
                 temperature=0.25,
+                max_tokens=1024,  # Sufficient for internal review bullets
             )
         except Exception as exc:
             logger.warning("Internal review (%s) failed: %s", reviewer["name"], exc)
@@ -2095,6 +2106,7 @@ Rewrite constraints:
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.4,
+            max_tokens=512,  # Sufficient for revised variant
         )
         if isinstance(revised, str):
             return revised.strip()
@@ -2184,6 +2196,7 @@ def _enforce_sentence_count(
                 },
             ],
             temperature=0.4,
+            max_tokens=1024,  # Sufficient for rewritten variant with style improvements
         )
         return rewritten.strip() if isinstance(rewritten, str) and rewritten.strip() else text
     except Exception as exc:

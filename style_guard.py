@@ -137,6 +137,7 @@ Return ONLY strict JSON:
                 {"role": "user", "content": prompt},
             ],
             temperature=0.1,
+            max_tokens=512,  # Sufficient for style audit JSON response
         )
         return data if isinstance(data, dict) else {}
     except Exception as e:
@@ -225,6 +226,7 @@ LINES (0-based):
                 {"role": "user", "content": prompt},
             ],
             temperature=0.1,
+            max_tokens=256,  # Sufficient for section labeling JSON
         )
         if not isinstance(data, dict):
             raise ValueError("Invalid labeler response")
@@ -291,6 +293,7 @@ TEXT:
                 {"role": "user", "content": user},
             ],
             temperature=0.8,
+            max_tokens=1024,  # Sufficient for style-improved text output
         )
         return out.strip()
     except Exception:
@@ -439,6 +442,7 @@ Return a strict JSON object with your findings.
                 {"role": "user", "content": prompt},
             ],
             temperature=0.1,
+            max_tokens=1024,  # Sufficient for comment audit with corrected text
         )
 
         if not isinstance(data, dict):

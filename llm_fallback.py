@@ -21,6 +21,25 @@ except Exception:
     DEFAULT_TIMEOUT_SECONDS = None
 
 
+# Pricing por 1M tokens (OpenRouter, aproximados)
+MODEL_PRICING = {
+    "google/gemini-2.5-pro": {"input": 0.001875, "output": 0.015},
+    "anthropic/claude-opus-4.1": {"input": 0.015, "output": 0.075},
+    "anthropic/claude-3.5-sonnet": {"input": 0.003, "output": 0.015},
+    "deepseek/deepseek-chat-v3.1": {"input": 0.00014, "output": 0.00028},
+    # Fallback genérico
+    "_default": {"input": 0.001, "output": 0.002},
+}
+
+
+def _estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
+    """Estima el costo de una llamada LLM basado en los tokens."""
+    pricing = MODEL_PRICING.get(model, MODEL_PRICING["_default"])
+    input_cost = (input_tokens / 1_000_000) * pricing["input"]
+    output_cost = (output_tokens / 1_000_000) * pricing["output"]
+    return input_cost + output_cost
+
+
 def _parse_json_robust(text: str) -> Any:
     # Log raw response for debugging Gemini verbosity
     logger.info(f"[LLM_RESPONSE_RAW] Length: {len(text)} chars, First 500 chars: {text[:500]}")
@@ -76,9 +95,33 @@ class OpenRouterLLM:
         request_timeout = timeout if timeout is not None else DEFAULT_TIMEOUT_SECONDS
         if request_timeout is not None:
             kwargs["timeout"] = float(request_timeout)
+
         try:
             resp = self.client.chat.completions.create(**kwargs)
-            return (resp.choices[0].message.content or "").strip()
+            content = (resp.choices[0].message.content or "").strip()
+
+            # Token usage logging (detectar sangría de tokens)
+            if hasattr(resp, "usage") and resp.usage:
+                input_tokens = resp.usage.prompt_tokens
+                output_tokens = resp.usage.completion_tokens
+                total_tokens = resp.usage.total_tokens
+                cost = _estimate_cost(model, input_tokens, output_tokens)
+
+                logger.info(
+                    f"[TOKEN_USAGE] model={model} | "
+                    f"input={input_tokens:,} | output={output_tokens:,} | total={total_tokens:,} | "
+                    f"cost=${cost:.6f} | temp={temperature} | json_mode={json_mode}"
+                )
+
+                # Alerta si output tokens son excesivos (>2000 para cualquier llamada)
+                if output_tokens > 2000:
+                    logger.warning(
+                        f"[TOKEN_BLEEDING] ⚠️ High output tokens detected! "
+                        f"model={model} output={output_tokens:,} tokens (${cost:.6f})"
+                    )
+
+            return content
+
         except Exception as e:
             # Retry without response_format if provider rejects it
             msg = str(e).lower()
@@ -90,8 +133,24 @@ class OpenRouterLLM:
                 }
                 if request_timeout is not None:
                     fallback_kwargs["timeout"] = float(request_timeout)
+
                 resp = self.client.chat.completions.create(**fallback_kwargs)
-                return (resp.choices[0].message.content or "").strip()
+                content = (resp.choices[0].message.content or "").strip()
+
+                # Token usage logging para fallback también
+                if hasattr(resp, "usage") and resp.usage:
+                    input_tokens = resp.usage.prompt_tokens
+                    output_tokens = resp.usage.completion_tokens
+                    total_tokens = resp.usage.total_tokens
+                    cost = _estimate_cost(model, input_tokens, output_tokens)
+
+                    logger.info(
+                        f"[TOKEN_USAGE] (fallback) model={model} | "
+                        f"input={input_tokens:,} | output={output_tokens:,} | total={total_tokens:,} | "
+                        f"cost=${cost:.6f} | temp={temperature}"
+                    )
+
+                return content
             raise
 
     def chat_text(

@@ -1,14 +1,16 @@
 # Production config optimized for 2025 (research-backed model selection)
 openrouter_base_url: https://openrouter.ai/api/v1
 
-# TIER 1: Primary Generation (High Volume, Excellent Creative Writing)
-# Claude Opus 4.1 - #1 Chatbot Arena creative writing, best style consistency
-post_model: anthropic/claude-opus-4.1
+# TIER 1: Primary Generation (High Volume, Cost-Effective)
+# Gemini 2.5 Pro - #1 LMArena creative writing, conversational fluency
+# Handles 85%+ of cases at $0.005/generation
+post_model: google/gemini-2.5-pro
 post_temperature: 0.8
 post_preset: quality
 
 # TIER 2: Premium Refinement (Fallback for failed generations)
-# Opus 4.1 - #1 Chatbot Arena creative writing, use sparingly (10x cost)
+# Claude Opus 4.1 - #1 Chatbot Arena creative writing, style consistency
+# Only used on validation failures (~15%), $0.058/generation
 post_refiner_model: anthropic/claude-opus-4.1
 
 # TIER 3: Quality Validation (Critical Path - No Fast Models)

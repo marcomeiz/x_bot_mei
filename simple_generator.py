@@ -208,13 +208,19 @@ REMEMBER:
 - COUNT YOUR CHARACTERS CAREFULLY."""
 
     try:
+        # Hybrid strategy: use post_refiner_model on attempt 2 (fallback to premium model)
+        model_to_use = settings.post_refiner_model if attempt == 2 else settings.post_model
+        temp = 0.8 if attempt == 1 else 0.6  # Higher temp for natural variation, slightly lower on refinement
+
+        logger.info(f"[LLM] Generation attempt {attempt}: model={model_to_use}, temp={temp}")
+
         response = llm.chat_json(
-            model=settings.post_model,
+            model=model_to_use,
             messages=[{
                 "role": "user",
                 "content": prompt
             }],
-            temperature=0.8 if attempt == 1 else 0.6,  # Higher temp for natural variation, slightly lower on refinement
+            temperature=temp,
         )
 
         if not isinstance(response, dict):
@@ -285,6 +291,8 @@ Return ONLY valid JSON (no markdown):
 PASS CRITERIA: Must pass at least 8 out of 10 criteria (aim for 4/5 or better as contract states)."""
 
     try:
+        logger.info(f"[LLM] Contract validation: model={settings.eval_fast_model}, temp=0.1")
+
         response = llm.chat_json(
             model=settings.eval_fast_model,  # Use fast model for validation
             messages=[{

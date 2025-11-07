@@ -212,7 +212,7 @@ REMEMBER:
         model_to_use = settings.post_refiner_model if attempt == 2 else settings.post_model
         temp = 0.8 if attempt == 1 else 0.6  # Higher temp for natural variation, slightly lower on refinement
 
-        logger.info(f"[LLM] Generation attempt {attempt}: model={model_to_use}, temp={temp}, max_tokens=200")
+        logger.info(f"[LLM] Generation attempt {attempt}: model={model_to_use}, temp={temp}")
 
         response = llm.chat_json(
             model=model_to_use,
@@ -221,7 +221,6 @@ REMEMBER:
                 "content": prompt
             }],
             temperature=temp,
-            max_tokens=200,  # Production cost control: tweet (~60) + JSON wrapper (~40) + buffer
         )
 
         if not isinstance(response, dict):

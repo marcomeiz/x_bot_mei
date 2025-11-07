@@ -209,7 +209,7 @@ def _log_similarity(topic_abstract: str, ignore_similarity: bool) -> None:
     logger.info("Comprobación de similitud finalizada.")
 
 
-def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = True) -> Dict[str, object]:
+def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = True, model_override: Optional[str] = None) -> Dict[str, object]:
     """
     Generate 3 tweet variants using the simplified generator.
 
@@ -222,13 +222,13 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
     provider_error_message = ""
 
     for attempt in range(1, MAX_GENERATION_ATTEMPTS + 1):
-        logger.info("Intento de generación de IA %s/%s…", attempt, MAX_GENERATION_ATTEMPTS)
+        logger.info("Intento de generación de IA %s/%s… Model: %s", attempt, MAX_GENERATION_ATTEMPTS, model_override or "default")
         try:
             # Use the simplified generator
             from simple_generator import generate_and_validate
 
             with Timer("g_llm_simple_generation", labels={"attempt": attempt}):
-                generation = generate_and_validate(topic_abstract)
+                generation = generate_and_validate(topic_abstract, model_override=model_override)
 
             # Extract valid variants
             variant_errors = {}

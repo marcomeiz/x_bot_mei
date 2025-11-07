@@ -155,7 +155,7 @@ _dispatcher_thread = threading.Thread(target=_job_dispatcher, daemon=True)
 _dispatcher_thread.start()
 
 
-def _schedule_generation(chat_id: int) -> None:
+def _schedule_generation(chat_id: int, model_override: Optional[str] = None) -> None:
     if not _acquire_chat_lock(chat_id):
         telegram_client.send_message(chat_id, get_message("queue_busy"))
         return
@@ -163,14 +163,16 @@ def _schedule_generation(chat_id: int) -> None:
         "chat_id": chat_id,
         "func": proposal_service.do_the_work,
         "args": (chat_id,),
+        "kwargs": {"model_override": model_override} if model_override else {},
     }
     try:
         _job_queue.put_nowait(job)
         logger.info(
-            "[CHAT_ID: %s] Job encolado (queue=%s/%s).",
+            "[CHAT_ID: %s] Job encolado (queue=%s/%s). Model: %s",
             chat_id,
             _job_queue.qsize(),
             JOB_QUEUE_MAXSIZE,
+            model_override or "default",
         )
     except Full:
         _release_chat_lock(chat_id)
@@ -192,6 +194,22 @@ def _process_update(update: Dict) -> None:
         if text == "/g":
             logger.info("[CHAT_ID: %s] Comando '/g' recibido.", chat_id)
             _schedule_generation(chat_id)
+            return
+        elif text == "/g1":
+            logger.info("[CHAT_ID: %s] Comando '/g1' recibido (DeepSeek V3.1).", chat_id)
+            _schedule_generation(chat_id, model_override="deepseek/deepseek-chat-v3.1")
+            return
+        elif text == "/g2":
+            logger.info("[CHAT_ID: %s] Comando '/g2' recibido (Gemini 2.5 Pro).", chat_id)
+            _schedule_generation(chat_id, model_override="google/gemini-2.5-pro")
+            return
+        elif text == "/g3":
+            logger.info("[CHAT_ID: %s] Comando '/g3' recibido (Claude Opus 4.1).", chat_id)
+            _schedule_generation(chat_id, model_override="anthropic/claude-opus-4.1")
+            return
+        elif text == "/g4":
+            logger.info("[CHAT_ID: %s] Comando '/g4' recibido (GPT-4o).", chat_id)
+            _schedule_generation(chat_id, model_override="openai/gpt-4o")
             return
         elif text.startswith("/c"):
             logger.info("[CHAT_ID: %s] Comando '/c' recibido.", chat_id)

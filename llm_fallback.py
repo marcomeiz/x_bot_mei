@@ -55,6 +55,7 @@ class OpenRouterLLM:
         temperature: float,
         json_mode: bool,
         timeout: Optional[float] = None,
+        max_tokens: Optional[int] = None,
     ) -> str:
         kwargs: Dict[str, Any] = {
             "model": model,
@@ -63,6 +64,8 @@ class OpenRouterLLM:
         }
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
+        if max_tokens is not None:
+            kwargs["max_tokens"] = max_tokens
         request_timeout = timeout if timeout is not None else DEFAULT_TIMEOUT_SECONDS
         if request_timeout is not None:
             kwargs["timeout"] = float(request_timeout)
@@ -91,8 +94,9 @@ class OpenRouterLLM:
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
         timeout: Optional[float] = None,
+        max_tokens: Optional[int] = None,
     ) -> str:
-        return self._call(model=model, messages=messages, temperature=temperature, json_mode=False, timeout=timeout)
+        return self._call(model=model, messages=messages, temperature=temperature, json_mode=False, timeout=timeout, max_tokens=max_tokens)
 
     def chat_json(
         self,
@@ -101,8 +105,9 @@ class OpenRouterLLM:
         messages: List[Dict[str, str]],
         temperature: float = 0.2,
         timeout: Optional[float] = None,
+        max_tokens: Optional[int] = None,
     ) -> Any:
-        text = self._call(model=model, messages=messages, temperature=temperature, json_mode=True, timeout=timeout)
+        text = self._call(model=model, messages=messages, temperature=temperature, json_mode=True, timeout=timeout, max_tokens=max_tokens)
         return _parse_json_robust(text)
 
 

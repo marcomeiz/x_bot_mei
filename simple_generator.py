@@ -123,21 +123,38 @@ REQUIREMENTS:
 ⚠️ AVOID AI-POLISH PATTERNS (sound human, not architected):
 - NO perfect 3-part parallel structures ("floods X, kills Y, shreds Z")
 - NO two perfectly balanced closing one-liners ("Scarcity sells. Discipline protects.")
-- NO overly symmetric construction (setup → 3 reasons → proof → perfect 2-line closer)
+- NO "copywriting manual" structure (setup → Bullshit → perfect example → moral)
+- NO compressed case studies ("did X, got Y, learned Z" - too round)
 - Let one transition be slightly rough (humans don't craft every sentence perfectly)
 - Not every ending needs to land like a mic drop
 
-✅ INSTEAD, aim for:
-- Mix polished insight with raw edges
-- Sound typed fast, not sculpted
-- Let the structure breathe (not every sentence needs clear narrative purpose)
-- One or two sentences can be looser/less architectural
+✅ STRUCTURE OPTIONS (use what fits the content):
+- **Prose flow:** Good for simple insights, but avoid making it too "essay-like"
+- **Lists with line breaks:** When you have multiple points, use actual line breaks (not compressed prose)
+- **Direct signals:** "Last month:", "Result:", "Here's what happened:" (sounds more typed, less crafted)
+- **Mix formats:** Start with prose, shift to list if it helps breathe
 
-GOOD EXAMPLE (sounds human):
-"Waitlists are broken. I capped mine at 25 and turned away like 150 people. Those 25? 4x conversion. Not saying it's the only way but scarcity worked for me."
+📝 EXAMPLES - LEARN THE DIFFERENCE:
 
-BAD EXAMPLE (too polished/AI):
-"You think packing your waitlist boosts revenue. Bullshit. It floods you with flakes, kills scarcity, shreds quality. Cap it at 25. Scarcity sells. Discipline wins."
+❌ MEJORABLE (too "copywriting manual" / compressed):
+"You're a solopreneur, not a vending machine. You say yes to every random ask because money's money. Bullshit. That's how you kill focus. Last month I turned down 4 gigs, stuck to one project. Finished my core project twice as fast, energy actually back. Protect your scope or burn out."
+→ Problem: Too compressed, "case study" feel, every sentence has clear purpose, ending too round
+
+✅ GOOD (sounds typed, uses structure):
+"You're a solopreneur, not a vending machine.
+You keep saying yes to every random ask because \"money's money\".
+Bullshit. That's how you murder your focus.
+
+Last month I drew a hard line:
+- Turned down 4 off-scope gigs
+- Stuck to one core project
+
+Result: finished it in half the time, with energy left instead of brain fog.
+
+Say it clear: protect your scope or slowly delete yourself."
+→ Why it works: Line breaks, list format, direct signals ("Last month:", "Result:"), less essay-like, ending is raw not polished
+
+KEY PRINCIPLE: Less essay, more typed thought. Structure should help clarity, not show off architecture.
 
 ⚠️ ADAPTIVE LENGTH REQUIREMENT:
 - Range: {target_min}-{target_max} characters total

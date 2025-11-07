@@ -32,6 +32,7 @@ from logger_config import logger
 from persona import get_style_contract_text
 from prompt_context import build_prompt_context
 from src.settings import AppSettings
+from src.goldset import retrieve_goldset_examples_random
 
 # Load length constraints from configuration (DRY principle - no hardcoding!)
 _settings = AppSettings.load()
@@ -91,6 +92,29 @@ def generate_adaptive_variant(topic: str, attempt: int = 1) -> str:
     # Adaptive length range: 140-270 chars
     target_min, target_max = 140, 270
 
+    # Sample 3 random golden examples for style learning (research-backed: 2-5 optimal)
+    try:
+        golden_examples = retrieve_goldset_examples_random(k=3)
+        logger.info(f"Retrieved {len(golden_examples)} golden examples for style reference")
+    except Exception as exc:
+        logger.warning(f"Failed to retrieve golden examples: {exc}. Proceeding without style examples.")
+        golden_examples = []
+
+    # Build golden style examples section if available
+    golden_section = ""
+    if golden_examples:
+        style_refs = "\n\n".join([
+            f"STYLE REFERENCE {i+1}:\n{ex}"
+            for i, ex in enumerate(golden_examples)
+        ])
+        golden_section = f"""
+<GOLDEN_STYLE_EXAMPLES>
+These are REAL published tweets. Learn the STYLE (tone, rhythm, voice), NOT the topics:
+
+{style_refs}
+</GOLDEN_STYLE_EXAMPLES>
+"""
+
     strictness_note = ""
     if attempt > 1:
         strictness_note = f"""
@@ -108,7 +132,7 @@ Count every single character. If you fail again, generation will abort."""
 <STYLE_CONTRACT>
 {context.contract}
 </STYLE_CONTRACT>
-
+{golden_section}
 <TARGET_AUDIENCE>
 {context.icp}
 </TARGET_AUDIENCE>

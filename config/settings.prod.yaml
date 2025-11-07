@@ -2,8 +2,8 @@
 openrouter_base_url: https://openrouter.ai/api/v1
 
 # TIER 1: Primary Generation (High Volume, Excellent Creative Writing)
-# DeepSeek V3.1 - Research 2025: "Superior creative writing, poetic tone, 90% cheaper"
-post_model: deepseek/deepseek-chat-v3.1
+# Claude Opus 4.1 - #1 Chatbot Arena creative writing, best style consistency
+post_model: anthropic/claude-opus-4.1
 post_temperature: 0.8
 post_preset: quality
 

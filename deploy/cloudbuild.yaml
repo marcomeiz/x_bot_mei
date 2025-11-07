@@ -86,7 +86,7 @@ steps:
           SECRET_LIST="$$SECRET_LIST,OPENROUTER_API_KEY=OPENROUTER_API_KEY:latest"
         fi
 
-        ENV_VARS="^~^CHROMA_DB_URL=https://x-chroma-295511624125.europe-west1.run.app~CHROMA_DB_PATH=/mnt/db~SHOW_TOPIC_ID=0~SUSPEND_GUARDRAILS=1~WARDEN_MINIMAL=0~POST_MODEL=x-ai/grok-4-fast~EMBED_MODEL=openai/text-embedding-3-large~UMBRAL_SIMILITUD=0.75~SIM_DIM=3072~TOPICS_COLLECTION=topics_collection_3072~UMBRAL_SIMILITUD_LINE=0.52~WARMUP_ANCHORS=200~NOVELTY_JACCARD_MAX=0.28~NOVELTY_COS_CEILING=0.84~STYLE_MIN=0.90~GOLDSET_NPZ_GCS_URI=gs://xbot-473616-x-bot-mei-db/goldset/goldset_v2_audited.npz~TOPICS_SHEET_ID=10cflUVvgh6UBMmlSvB2qOlNb5QFYBpqEsg4KQcIF23U~GOOGLE_SHEETS_CREDENTIALS_PATH=/secrets/topics-sync-credentials/key.json"
+        ENV_VARS="^~^CHROMA_DB_URL=https://x-chroma-295511624125.europe-west1.run.app~CHROMA_DB_PATH=/mnt/db~SHOW_TOPIC_ID=0~SUSPEND_GUARDRAILS=1~WARDEN_MINIMAL=0~POST_MODEL=anthropic/claude-opus-4.1~POST_TEMPERATURE=0.8~EMBED_MODEL=openai/text-embedding-3-large~UMBRAL_SIMILITUD=0.75~SIM_DIM=3072~TOPICS_COLLECTION=topics_collection_3072~UMBRAL_SIMILITUD_LINE=0.52~WARMUP_ANCHORS=200~NOVELTY_JACCARD_MAX=0.28~NOVELTY_COS_CEILING=0.84~STYLE_MIN=0.90~GOLDSET_NPZ_GCS_URI=gs://xbot-473616-x-bot-mei-db/goldset/goldset_v2_audited.npz~TOPICS_SHEET_ID=10cflUVvgh6UBMmlSvB2qOlNb5QFYBpqEsg4KQcIF23U~GOOGLE_SHEETS_CREDENTIALS_PATH=/secrets/topics-sync-credentials/key.json"
 
         gcloud run deploy "${_SERVICE}" \
           --region "${_REGION}" --allow-unauthenticated \

@@ -114,10 +114,30 @@ Count every single character. If you fail again, generation will abort."""
 </TARGET_AUDIENCE>
 
 REQUIREMENTS:
-1. Follow ALL 10 criteria from Contract Section 8: Quality Check
+1. Follow ALL criteria from Contract Section 8: Quality Check
 2. Use street-level tone (Section 2: "Write like you talk")
 3. Include concrete proof: numbers, examples, or vivid scenarios
 4. Create tension with contrast, paradox, or inversion
+5. **CRITICAL:** Avoid AI-polish tells (Section 9: "AI-polish tells")
+
+⚠️ AVOID AI-POLISH PATTERNS (sound human, not architected):
+- NO perfect 3-part parallel structures ("floods X, kills Y, shreds Z")
+- NO two perfectly balanced closing one-liners ("Scarcity sells. Discipline protects.")
+- NO overly symmetric construction (setup → 3 reasons → proof → perfect 2-line closer)
+- Let one transition be slightly rough (humans don't craft every sentence perfectly)
+- Not every ending needs to land like a mic drop
+
+✅ INSTEAD, aim for:
+- Mix polished insight with raw edges
+- Sound typed fast, not sculpted
+- Let the structure breathe (not every sentence needs clear narrative purpose)
+- One or two sentences can be looser/less architectural
+
+GOOD EXAMPLE (sounds human):
+"Waitlists are broken. I capped mine at 25 and turned away like 150 people. Those 25? 4x conversion. Not saying it's the only way but scarcity worked for me."
+
+BAD EXAMPLE (too polished/AI):
+"You think packing your waitlist boosts revenue. Bullshit. It floods you with flakes, kills scarcity, shreds quality. Cap it at 25. Scarcity sells. Discipline wins."
 
 ⚠️ ADAPTIVE LENGTH REQUIREMENT:
 - Range: {target_min}-{target_max} characters total
@@ -135,6 +155,7 @@ Return ONLY valid JSON (no markdown, no explanation):
 
 REMEMBER:
 - Street-level means conversational. No corporate speak. No academic tone.
+- Sound typed, not crafted. A little roughness is human.
 - Let the topic dictate the ideal length within the {target_min}-{target_max} range.
 - COUNT YOUR CHARACTERS CAREFULLY."""
 

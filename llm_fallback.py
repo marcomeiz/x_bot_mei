@@ -22,6 +22,10 @@ except Exception:
 
 
 def _parse_json_robust(text: str) -> Any:
+    # Log raw response for debugging Gemini verbosity
+    logger.info(f"[LLM_RESPONSE_RAW] Length: {len(text)} chars, First 500 chars: {text[:500]}")
+    logger.info(f"[LLM_RESPONSE_RAW] Last 500 chars: {text[-500:]}")
+
     try:
         return json.loads(text)
     except Exception:
@@ -36,6 +40,9 @@ def _parse_json_robust(text: str) -> Any:
                 return json.loads(text[a : b + 1])
             except Exception:
                 continue
+
+    # Log full response if parsing fails
+    logger.error(f"[LLM_RESPONSE_FULL] Could not parse JSON. Full response:\n{text}")
     raise ValueError("No valid JSON could be parsed from response")
 
 

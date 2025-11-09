@@ -62,6 +62,7 @@ class TweetGeneration:
     short: TweetVariant
     mid: TweetVariant
     long: TweetVariant
+    usage_info: Optional[Dict] = None  # Token usage: {model, input_tokens, output_tokens, cost}
 
     def get_valid_variants(self) -> List[TweetVariant]:
         """Return only the valid variants."""
@@ -526,7 +527,12 @@ def generate_and_validate(topic: str, model_override: Optional[str] = None) -> T
     else:
         logger.info("✓ Adaptive variant passed contract validation on first attempt")
 
-    # === STEP 4: Return result ===
+    # === STEP 4: Capture token usage ===
+    usage_info = llm.get_last_usage()
+    if usage_info:
+        logger.info(f"[USAGE_CAPTURED] {usage_info}")
+
+    # === STEP 5: Return result ===
     # Return TweetGeneration with adaptive variant in 'long' field
     # (short and mid are marked invalid - not used in adaptive strategy)
     generation = TweetGeneration(
@@ -539,7 +545,8 @@ def generate_and_validate(topic: str, model_override: Optional[str] = None) -> T
             length=len(tweet_text),
             validation_details=validation,
             failure_reason=None
-        )
+        ),
+        usage_info=usage_info
     )
 
     logger.info(f"[Adaptive Strategy] Generation complete: {len(tweet_text)} chars, valid={generation.long.valid}")

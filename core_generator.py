@@ -247,6 +247,9 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
                            attempt, len([v for v in result.values() if v]))
                 if variant_errors:
                     result["variant_errors"] = variant_errors
+                # Include usage_info for Telegram display
+                if generation.usage_info:
+                    result["usage_info"] = generation.usage_info
                 return result
 
             last_error = "; ".join(variant_errors.values()) or "Sin variantes válidas."

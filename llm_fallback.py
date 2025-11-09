@@ -1,5 +1,6 @@
 import os
 import json
+import threading
 from typing import Any, Dict, List, Optional
 
 from openai import OpenAI
@@ -10,6 +11,9 @@ from src.settings import AppSettings
 
 
 load_dotenv()
+
+# Thread-local storage para capturar último usage
+_thread_local = threading.local()
 
 # Timeout configurable vía env; si no se define o es <=0, no se aplica.
 _raw_timeout = os.getenv("LLM_REQUEST_TIMEOUT_SECONDS")
@@ -108,6 +112,15 @@ class OpenRouterLLM:
                 total_tokens = resp.usage.total_tokens
                 cost = _estimate_cost(model, input_tokens, output_tokens)
 
+                # Store in thread-local for retrieval
+                _thread_local.last_usage = {
+                    "model": model,
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "total_tokens": total_tokens,
+                    "cost": cost,
+                }
+
                 logger.info(
                     f"[TOKEN_USAGE] model={model} | "
                     f"input={input_tokens:,} | output={output_tokens:,} | total={total_tokens:,} | "
@@ -145,6 +158,15 @@ class OpenRouterLLM:
                     total_tokens = resp.usage.total_tokens
                     cost = _estimate_cost(model, input_tokens, output_tokens)
 
+                    # Store in thread-local for retrieval
+                    _thread_local.last_usage = {
+                        "model": model,
+                        "input_tokens": input_tokens,
+                        "output_tokens": output_tokens,
+                        "total_tokens": total_tokens,
+                        "cost": cost,
+                    }
+
                     logger.info(
                         f"[TOKEN_USAGE] (fallback) model={model} | "
                         f"input={input_tokens:,} | output={output_tokens:,} | total={total_tokens:,} | "
@@ -153,6 +175,10 @@ class OpenRouterLLM:
 
                 return content
             raise
+
+    def get_last_usage(self) -> Optional[Dict[str, Any]]:
+        """Retorna el usage de la última llamada LLM en este thread."""
+        return getattr(_thread_local, "last_usage", None)
 
     def chat_text(
         self,

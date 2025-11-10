@@ -1740,13 +1740,13 @@ def generate_comment_reply(
     # Goal: Preserve human-like structure (1-3 sentences) while enforcing key constraints.
     comment = comment.strip()
 
-    # 1. Enforce strict 140 character limit
-    if len(comment) > 140:
+    # 1. Enforce 230 character limit (flexible range: 0-230)
+    if len(comment) > 230:
         comment = ensure_under_limit_via_llm(
-            comment, settings.validation_model, 140, attempts=4
+            comment, settings.validation_model, 230, attempts=4
         )
-    if len(comment) > 140:
-        raise StyleRejection("Comment exceeds 140 characters after adjustments.")
+    if len(comment) > 230:
+        raise StyleRejection("Comment exceeds 230 characters after adjustments.")
 
     # 2. Basic compliance check (allowing commas/conjunctions for a more human feel)
     issues = []
@@ -2043,7 +2043,7 @@ def _revise_with_reviews(
         "A": "Stay under 280 characters. One punchy paragraph or 1–2 short sentences.",
         "B": "Exactly two sentences. No filler. ≤280 characters.",
         "C": "Exactly one sentence. Ruthless. ≤280 characters.",
-        "COMMENT": "≤140 characters. One tight paragraph. Tie back to the author's core term and advance the conversation.",
+        "COMMENT": "≤230 characters. One tight paragraph. Tie back to the author's core term and advance the conversation.",
     }
     variant_instruction = variant_rules.get(variant_label.upper(), "Stay under 280 characters.")
 

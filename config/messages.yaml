@@ -1,21 +1,119 @@
 messages:
-  job_timeout: "⌛ Estoy al máximo ahora mismo. Intenta nuevamente en unos segundos."
-  queue_busy: "⚠️ Ya estoy trabajando en tu última solicitud. Dame unos segundos."
-  queue_full: "⌛ Estoy al máximo ahora mismo. Intenta en breve."
-  generate_error: "❌ Ocurrió un error inesperado al generar la propuesta."
-  no_topics_available: "❌ No encontré temas disponibles para generar en este momento."
-  proposal_generation_failed: "❌ No pude generar propuesta para este tema. Inténtalo nuevamente en unos minutos."
+  # Welcome & Help
+  start_welcome: |
+    👋 <b>Bienvenido a X Bot Mei</b>
+
+    Tu asistente para generar tweets y comentarios de alta calidad usando IA.
+
+    <b>Comandos principales:</b>
+    /g — Generar tweet (Gemini 2.0)
+    /c — Generar comentario
+    /help — Ver todos los comandos
+
+    ¿Listo para empezar? Usa /g para generar tu primer tweet.
+
+  help_message: |
+    📚 <b>Comandos disponibles</b>
+
+    <b>🎯 Generación de Tweets:</b>
+    /g — Tweet con Gemini 2.0 Flash (recomendado)
+    /g1 — Tweet con DeepSeek Chat v3.1 (rápido)
+    /g2 — Tweet con Gemini 2.5 Pro (premium)
+    /g3 — Tweet con Claude Opus 4.1 (creativo)
+    /g4 — Tweet con GPT-4o (alternativo)
+
+    <b>💬 Comentarios:</b>
+    /c [texto del post] — Genera comentario para un post
+
+    <b>📝 Gestión de Temas:</b>
+    /tema [texto] — Agregar tema nuevo
+    /temas — Ver últimos 10 temas
+
+    <b>🔧 Utilidades:</b>
+    /pdfs — Ver estadísticas de publicaciones
+    /ping — Verificar conexión con base de datos
+    /help — Ver esta ayuda
+
+    <b>💡 Tips:</b>
+    • El bot usa Chain of Thought para mejorar calidad
+    • Los tweets pasan filtros anti-AI automáticos
+    • Los comentarios rechazan posts filosóficos/coach
+
+    ¿Preguntas? Contacta al admin.
+
+  job_timeout: |
+    ⌛ <b>Sistema al máximo</b>
+
+    Hay muchas solicitudes en este momento.
+
+    <b>¿Qué hacer?</b>
+    • Espera 30-60 segundos
+    • Intenta de nuevo
+    • Si persiste, usa /ping para verificar el sistema
+
+  queue_busy: |
+    ⚠️ <b>Ya estás en la cola</b>
+
+    Tu solicitud anterior aún se está procesando.
+
+    <b>Tiempo estimado:</b> 20-40 segundos
+    Recibirás el resultado pronto.
+
+  queue_full: |
+    ⌛ <b>Cola llena</b>
+
+    El sistema está procesando el máximo de solicitudes.
+
+    <b>¿Qué hacer?</b>
+    • Espera 1-2 minutos
+    • El sistema se liberará automáticamente
+    • Intenta de nuevo después
+
+  generate_error: |
+    ❌ <b>Error al generar</b>
+
+    Ocurrió un error inesperado.
+
+    <b>Intenta:</b>
+    • Usar otro modelo (/g1, /g2, /g3, /g4)
+    • Esperar 1 minuto y reintentar
+    • Contactar al admin si persiste
+
+  no_topics_available: |
+    ❌ <b>Sin temas disponibles</b>
+
+    No encontré temas en la base de datos.
+
+    <b>Solución:</b>
+    • Agrega un tema con /tema [texto]
+    • O contacta al admin
+
+  proposal_generation_failed: |
+    ❌ <b>No se pudo generar</b>
+
+    El modelo no pudo generar contenido para este tema.
+
+    <b>Intenta:</b>
+    • Generar de nuevo con /g
+    • Usar otro modelo (/g1, /g2, /g3)
+    • El tema podría ser muy genérico
   comment_missing_text: "Necesito que pegues el texto de la publicación después de /comentar."
-  comment_preparing: "💬 Preparando respuesta…"
+  comment_preparing: "💬 <b>Analizando post...</b>\n⏳ Esto tomará ~10-15 segundos"
   comment_post_snippet: "🗞️ Post: {snippet}"
   comment_skip_default_reason: "Sin ángulo claro para aportar valor."
-  comment_skip: "🙅‍♂️ Mejor no comentar: {reason}"
+  comment_skip: "🙅‍♂️ <b>Mejor no comentar:</b> {reason}"
   comment_style_rejected: "⚠️ El validador externo rechazó el comentario. Ajusta el texto o intenta de nuevo."
   comment_error: "❌ No pude generar un comentario ahora mismo. Inténtalo nuevamente en unos minutos."
-  selecting_topic: "🧠 Seleccionando tema…"
-  topic_label: "✍️ Tema: {abstract}"
-  topic_origin: "📄 Origen: {source}"
-  generating_variants: "Generando 3 alternativas de longitud variable…"
+  selecting_topic: "🧠 <b>Seleccionando tema...</b>\n📚 Revisando base de conocimiento"
+  topic_label: "✍️ <b>Tema:</b> {abstract}"
+  topic_origin: "📄 <b>Origen:</b> {source}"
+  generating_variants: |
+    ⚙️ <b>Generando tweet...</b>
+
+    🧠 Pensando (CoT)
+    ✍️ Escribiendo borrador
+    🔍 Auto-evaluando calidad
+    ⏱️ ~20-30 segundos
   provider_error: "❌ Error del proveedor LLM: {reason}"
   unexpected_error: "❌ Ocurrió un error inesperado: {error}"
   variants_similar_initial: "⚠️ Variantes muy similares. Buscando otros ángulos…"
@@ -37,6 +135,6 @@ messages:
   chroma_missing: "❌ CHROMA_DB_URL no está configurada."
   ping_success: "✅ Ping exitoso. Respuesta: {response}"
   ping_failure: "❌ Ping fallido: {error}"
-  unknown_command: "Comando no reconocido. Usa /generate para obtener propuestas."
+  unknown_command: "❓ Comando no reconocido. Usa /help para ver todos los comandos disponibles."
   db_query_error: "❌ No pude consultar la base de datos."
   variant_missing_note: "No se pudo generar esta variante."

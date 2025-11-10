@@ -33,7 +33,7 @@ curl -X POST "https://api.telegram.org/bot${BOT_TOKEN}/setMyCommands" \
       },
       {
         "command": "g",
-        "description": "🎯 Generar tweet (Gemini 2.0)"
+        "description": "🎯 Generar tweet (Claude Sonnet 4.5)"
       },
       {
         "command": "g1",

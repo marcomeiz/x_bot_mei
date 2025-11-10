@@ -2,11 +2,11 @@
 openrouter_base_url: https://openrouter.ai/api/v1
 
 # TIER 1: Primary Generation (High Volume, Best Quality)
-# Gemini 2.5 Pro - #1 LMArena creative writing, conversational fluency
-# Proven 0/10 corporate crap score, best style for solopreneur voice
-# Cost: ~$0.012/generation with max_tokens control
-post_model: google/gemini-2.5-pro
-post_temperature: 0.8
+# Claude Sonnet 4.5 - Latest model with superior reasoning and writing
+# Best for human-like conversational voice and anti-AI traits
+# Cost: ~$0.003/1K input tokens + $0.015/1K output tokens
+post_model: anthropic/claude-sonnet-4.5
+post_temperature: 0.7
 post_preset: quality
 
 # TIER 2: Premium Refinement (Fallback for failed generations)

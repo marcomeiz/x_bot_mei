@@ -6,7 +6,7 @@ messages:
     Tu asistente para generar tweets y comentarios de alta calidad usando IA.
 
     <b>Comandos principales:</b>
-    /g — Generar tweet (Gemini 2.0)
+    /g — Generar tweet (Claude Sonnet 4.5)
     /c — Generar comentario
     /help — Ver todos los comandos
 
@@ -16,9 +16,9 @@ messages:
     📚 <b>Comandos disponibles</b>
 
     <b>🎯 Generación de Tweets:</b>
-    /g — Tweet con Gemini 2.0 Flash (recomendado)
+    /g — Tweet con Claude Sonnet 4.5 (recomendado)
     /g1 — Tweet con DeepSeek Chat v3.1 (rápido)
-    /g2 — Tweet con Gemini 2.5 Pro (premium)
+    /g2 — Tweet con Gemini 2.5 Pro (alternativo)
     /g3 — Tweet con Claude Opus 4.1 (creativo)
     /g4 — Tweet con GPT-4o (alternativo)
 

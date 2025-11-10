@@ -20,6 +20,7 @@ jobs:
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       HF_INGEST_LIMIT: ${{ vars.HF_INGEST_LIMIT }}
+      ENABLE_REDDIT_INGESTION: "1"
       FALLBACK_PROVIDER_ORDER: openrouter
 
     steps:

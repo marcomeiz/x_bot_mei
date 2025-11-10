@@ -146,7 +146,7 @@ class ProposalService:
             get_message("comment_preparing"),
             get_message("comment_post_snippet", snippet=snippet),
         ]
-        self.telegram.send_message(chat_id, "\n".join(pre_lines))
+        self.telegram.send_message(chat_id, "\n".join(pre_lines), as_html=True)
 
         try:
             comment_result = generate_comment_from_text(cleaned)
@@ -207,12 +207,20 @@ class ProposalService:
 
         abstract_clean = self.telegram.clean_abstract(topic_abstract) if topic_abstract else ""
         abstract_display = f"{abstract_clean[:80]}…" if abstract_clean else ""
-        pre_lines = [get_message("selecting_topic")]
-        pre_lines.append(get_message("topic_label", abstract=abstract_display))
+
+        # Send progress messages one by one for real-time updates
+        self.telegram.send_message(chat_id, get_message("selecting_topic"), as_html=True)
+
+        topic_info = [get_message("topic_label", abstract=abstract_display)]
         if source_pdf:
-            pre_lines.append(get_message("topic_origin", source=source_pdf))
-        pre_lines.append(get_message("generating_variants"))
-        self.telegram.send_message(chat_id, "\n".join(pre_lines))
+            topic_info.append(get_message("topic_origin", source=source_pdf))
+        self.telegram.send_message(chat_id, "\n".join(topic_info), as_html=True)
+
+        # Small delay to ensure message is sent before generation starts
+        import time
+        time.sleep(0.3)
+
+        self.telegram.send_message(chat_id, get_message("generating_variants"), as_html=True)
 
         def _deadline_reached() -> bool:
             return deadline is not None and time.monotonic() >= deadline

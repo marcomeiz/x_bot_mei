@@ -115,7 +115,7 @@ Attempt #{iteration} of 2.
 Think naturally, like you're talking to yourself before writing."""
 
     try:
-        thinking = llm.chat(
+        thinking = llm.chat_text(
             model=thinking_model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.9

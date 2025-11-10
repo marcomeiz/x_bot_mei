@@ -36,6 +36,7 @@ from writing_rules import (
     BANNED_SUFFIXES,
 )
 from src.goldset import retrieve_goldset_examples
+from rules import allows_commas, allows_em_dash  # Contract-based rules (SINGLE SOURCE OF TRUTH)
 
 
 @dataclass(frozen=True)
@@ -187,7 +188,10 @@ def _cfg_int(value: object, default: int) -> int:
 
 _guardrail_cfg = _load_guardrail_config()
 
-ENFORCE_NO_COMMAS = _env_bool_override("ENFORCE_NO_COMMAS", bool(_guardrail_cfg.get("enforce_no_commas", True)))
+# ENFORCE_NO_COMMAS now respects the Voice Contract (SINGLE SOURCE OF TRUTH)
+# Contract says: "Simple periods and commas only" → commas are ALLOWED
+# Therefore: ENFORCE_NO_COMMAS = False (unless overridden by env var for backward compatibility)
+ENFORCE_NO_COMMAS = _env_bool_override("ENFORCE_NO_COMMAS", not allows_commas())  # Respects contract
 ENFORCE_NO_AND_OR = _env_bool_override("ENFORCE_NO_AND_OR", bool(_guardrail_cfg.get("enforce_no_and_or", True)))
 
 words_cfg = _guardrail_cfg.get("words_per_line", {}) if isinstance(_guardrail_cfg.get("words_per_line"), dict) else {}

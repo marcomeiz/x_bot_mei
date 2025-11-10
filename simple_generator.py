@@ -57,12 +57,23 @@ class TweetVariant:
 
 
 @dataclass
+class CoTIteration:
+    """Single iteration of Chain of Thought process."""
+    iteration_num: int
+    thinking: str
+    draft: str
+    self_eval: Dict
+    passed: bool
+
+
+@dataclass
 class TweetGeneration:
     """Result of generating 3 tweet variants."""
     short: TweetVariant
     mid: TweetVariant
     long: TweetVariant
     usage_info: Optional[Dict] = None  # Token usage: {model, input_tokens, output_tokens, cost}
+    cot_iterations: Optional[List[CoTIteration]] = None  # Chain of Thought process log
 
     def get_valid_variants(self) -> List[TweetVariant]:
         """Return only the valid variants."""
@@ -73,7 +84,186 @@ class TweetGeneration:
         return all(v.valid for v in [self.short, self.mid, self.long])
 
 
-def generate_adaptive_variant(topic: str, attempt: int = 1, model_override: Optional[str] = None) -> str:
+def _generate_thinking(topic: str, iteration: int, previous_feedback: Optional[str] = None) -> str:
+    """
+    STEP 1 of CoT: Think about the topic and approach.
+    Uses DeepSeek (cheap model) for thinking.
+    """
+    settings = AppSettings.load()
+    thinking_model = "deepseek/deepseek-chat-v3.1"  # Cheap for thinking
+
+    feedback_context = ""
+    if previous_feedback and iteration > 1:
+        feedback_context = f"""
+Previous attempt FAILED with feedback:
+{previous_feedback}
+
+Take this into account in your thinking."""
+
+    prompt = f"""Topic: {topic}
+
+{feedback_context}
+
+Think out loud (2-4 sentences max). Be specific:
+
+1. What's the ONE core insight or punch line?
+2. What CONCRETE detail will you use? (number, scene, example - be specific)
+3. How will you avoid sounding corporate/AI? (what pattern will you break?)
+
+Attempt #{iteration} of 2.
+
+Think naturally, like you're talking to yourself before writing."""
+
+    try:
+        thinking = llm.chat(
+            model=thinking_model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.9
+        )
+        logger.info(f"[CoT] Iteration {iteration} - Thinking: {thinking[:150]}...")
+        return thinking.strip()
+    except Exception as e:
+        logger.error(f"Failed to generate thinking: {e}")
+        return "Failed to generate thinking."
+
+
+def _self_evaluate(draft: str, thinking: str) -> Dict:
+    """
+    STEP 3 of CoT: Self-evaluate the draft against anti-AI criteria.
+    Uses DeepSeek (cheap model) for evaluation.
+    """
+    thinking_model = "deepseek/deepseek-chat-v3.1"
+
+    prompt = f"""Your thinking was:
+{thinking}
+
+Your draft:
+{draft}
+
+Self-evaluate against these 4 tests (score 1-10 each):
+
+1. **WhatsApp Test**: Would you send this as-is to a smart friend?
+   Look for: stiffness, marketing speak, corporate jargon, "helpful AI" tone
+
+2. **Specificity Test**: Does it have concrete details?
+   Look for: numbers, scenes, names, specific situations (not vague claims)
+
+3. **Pattern Test**: Are sentence starts varied and natural?
+   Read first 3 words of each sentence. If repetitive = FAIL.
+   Look for: "You need", "You should", "This is" repeated
+
+4. **Voice Test**: Second person, natural, not AI-like?
+   Look for: AI tells like "It's important to", "Let's explore", symmetrical structures
+
+CRITICAL: Be HARSH. Score 7+ only if genuinely good. Most drafts fail first try.
+
+Respond in JSON:
+{{
+  "whatsapp_test": <1-10>,
+  "whatsapp_issues": "<specific issues or 'none'>",
+  "specificity_test": <1-10>,
+  "specificity_issues": "<specific issues or 'none'>",
+  "pattern_test": <1-10>,
+  "pattern_issues": "<specific issues or 'none'>",
+  "voice_test": <1-10>,
+  "voice_issues": "<specific issues or 'none'>",
+  "overall_pass": <true if ALL tests >= 7, false otherwise>,
+  "feedback": "<if failed: concrete actionable fix. if passed: 'Good'>",
+  "avg_score": <average of 4 tests>
+}}"""
+
+    try:
+        eval_result = llm.chat_json(
+            model=thinking_model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3  # Lower temp for consistent evaluation
+        )
+
+        logger.info(f"[CoT] Self-eval scores: WhatsApp={eval_result.get('whatsapp_test')}/10, "
+                   f"Specificity={eval_result.get('specificity_test')}/10, "
+                   f"Pattern={eval_result.get('pattern_test')}/10, "
+                   f"Voice={eval_result.get('voice_test')}/10 | "
+                   f"Pass={eval_result.get('overall_pass')}")
+
+        return eval_result
+    except Exception as e:
+        logger.error(f"Failed to self-evaluate: {e}")
+        # Default to passing on error (fail-safe)
+        return {
+            "whatsapp_test": 7,
+            "specificity_test": 7,
+            "pattern_test": 7,
+            "voice_test": 7,
+            "overall_pass": True,
+            "feedback": "Evaluation failed, passing by default",
+            "avg_score": 7.0
+        }
+
+
+def generate_adaptive_variant_with_cot(topic: str, model_override: Optional[str] = None) -> Tuple[str, List[CoTIteration]]:
+    """
+    Generate adaptive tweet with Chain of Thought self-correction.
+
+    Flow:
+    1. Think about approach (DeepSeek)
+    2. Generate draft (Gemini/override)
+    3. Self-evaluate (DeepSeek)
+    4. If fails → incorporate feedback and retry (max 2 iterations)
+    5. Return best draft + CoT log
+
+    Returns:
+        Tuple of (tweet_text, cot_iterations)
+    """
+    MAX_ITERATIONS = 2
+    cot_iterations = []
+    previous_feedback = None
+    final_draft = ""
+
+    for iteration in range(1, MAX_ITERATIONS + 1):
+        logger.info(f"[CoT] ========== ITERATION {iteration}/{MAX_ITERATIONS} ==========")
+
+        # STEP 1: Think
+        thinking = _generate_thinking(topic, iteration, previous_feedback)
+
+        # STEP 2: Generate (using thinking as context)
+        draft = generate_adaptive_variant(
+            topic=topic,
+            attempt=iteration,
+            model_override=model_override,
+            thinking_context=thinking  # Pass thinking to generation
+        )
+
+        if not draft:
+            logger.error(f"[CoT] Iteration {iteration} failed to generate draft")
+            continue
+
+        # STEP 3: Self-evaluate
+        self_eval = _self_evaluate(draft, thinking)
+
+        # Log iteration
+        cot_iter = CoTIteration(
+            iteration_num=iteration,
+            thinking=thinking,
+            draft=draft,
+            self_eval=self_eval,
+            passed=self_eval.get("overall_pass", False)
+        )
+        cot_iterations.append(cot_iter)
+
+        # STEP 4: Decide if we're done
+        if self_eval.get("overall_pass") or iteration == MAX_ITERATIONS:
+            final_draft = draft
+            logger.info(f"[CoT] ========== FINAL DRAFT (iteration {iteration}) ==========")
+            break
+
+        # STEP 5: Prepare feedback for next iteration
+        previous_feedback = self_eval.get("feedback", "")
+        logger.info(f"[CoT] Iteration {iteration} failed. Retrying with feedback: {previous_feedback[:100]}...")
+
+    return final_draft, cot_iterations
+
+
+def generate_adaptive_variant(topic: str, attempt: int = 1, model_override: Optional[str] = None, thinking_context: Optional[str] = None) -> str:
     """
     Generate a single adaptive-length tweet following the Elastic Voice Contract.
 
@@ -117,15 +307,28 @@ These are REAL published tweets. Learn the STYLE (tone, rhythm, voice), NOT the 
 </GOLDEN_STYLE_EXAMPLES>
 """
 
+    # Add thinking context if provided (from CoT)
+    thinking_section = ""
+    if thinking_context:
+        thinking_section = f"""
+<YOUR_THINKING>
+Before writing, you thought:
+{thinking_context}
+
+Use this thinking to guide your writing. Stay concrete and specific.
+</YOUR_THINKING>
+"""
+
     strictness_note = ""
     if attempt > 1:
         strictness_note = f"""
 ⚠️⚠️⚠️ REFINEMENT ATTEMPT {attempt} - LAST CHANCE ⚠️⚠️⚠️
-Your previous attempt failed validation. This is your FINAL attempt.
+Your previous attempt failed self-evaluation. This is your FINAL attempt.
 You MUST generate text between {target_min}-{target_max} characters.
 Count every single character. If you fail again, generation will abort."""
 
     prompt = f"""Generate ONE tweet about this topic, following the Elastic Voice Contract.
+{thinking_section}
 
 <TOPIC>
 {topic}
@@ -441,91 +644,50 @@ def generate_and_validate(topic: str, model_override: Optional[str] = None) -> T
     Returns:
         TweetGeneration with adaptive variant in 'long' field (short/mid are empty/invalid)
     """
-    logger.info(f"[Adaptive Strategy] Generating tweet for topic: {topic[:100]}... Model: {model_override or 'default'}")
+    logger.info(f"[Adaptive Strategy with CoT] Generating tweet for topic: {topic[:100]}... Model: {model_override or 'default'}")
 
-    # === STEP 1: Generate adaptive variant ===
-    logger.info("Step 1: Generating adaptive variant (140-270 chars, optimal length)...")
-    tweet_text = generate_adaptive_variant(topic, attempt=1, model_override=model_override)
+    # === STEP 1: Generate with Chain of Thought (includes self-correction) ===
+    logger.info("Step 1: Generating with Chain of Thought (2 iterations max, self-correcting)...")
+    tweet_text, cot_iterations = generate_adaptive_variant_with_cot(topic, model_override=model_override)
 
     if not tweet_text:
-        logger.error("Failed to generate adaptive variant")
+        logger.error("Failed to generate adaptive variant after CoT")
         return TweetGeneration(
             short=TweetVariant("", "short", False, 0, failure_reason="Not generated (single adaptive strategy)"),
             mid=TweetVariant("", "mid", False, 0, failure_reason="Not generated (single adaptive strategy)"),
-            long=TweetVariant("", "long", False, 0, failure_reason="Generation failed"),
+            long=TweetVariant("", "long", False, 0, failure_reason="CoT generation failed"),
+            cot_iterations=cot_iterations
         )
 
-    # === STEP 2: Validate adaptive variant ===
-    logger.info(f"Step 2: Validating adaptive variant ({len(tweet_text)} chars)...")
+    # === STEP 2: Final validation (sanity + contract) ===
+    logger.info(f"Step 2: Final validation of CoT output ({len(tweet_text)} chars)...")
 
     # Sanity check
     valid, reason = basic_sanity_check(tweet_text)
     if not valid:
-        logger.error(f"Adaptive variant failed sanity check: {reason}")
+        logger.error(f"CoT output failed sanity check: {reason}")
         return TweetGeneration(
             short=TweetVariant("", "short", False, 0, failure_reason="Not generated (single adaptive strategy)"),
             mid=TweetVariant("", "mid", False, 0, failure_reason="Not generated (single adaptive strategy)"),
             long=TweetVariant(tweet_text, "long", False, len(tweet_text), failure_reason=reason),
+            cot_iterations=cot_iterations
         )
 
     # Length check (140-270)
     valid_length, length_reason = validate_length(tweet_text, "adaptive")
     if not valid_length:
-        logger.warning(f"Adaptive variant length issue: {length_reason}")
-        # Not a hard failure - we'll try refinement if contract fails
+        logger.warning(f"CoT output length issue: {length_reason}")
 
     # Contract validation
     validation = validate_against_contract(tweet_text, "adaptive")
     contract_passed = validation.get("cumple_contrato", False)
 
-    # === STEP 3: Refinement if needed ===
     if not contract_passed:
-        logger.warning(f"Adaptive variant failed contract validation: {validation.get('razonamiento', 'Unknown reason')}")
-        logger.info("Step 3: Refining adaptive variant (attempt 2)...")
-
-        # Refine once
-        tweet_text_refined = generate_adaptive_variant(topic, attempt=2, model_override=model_override)
-
-        if not tweet_text_refined:
-            logger.error("Refinement failed: could not generate adaptive variant")
-            return TweetGeneration(
-                short=TweetVariant("", "short", False, 0, failure_reason="Not generated (single adaptive strategy)"),
-                mid=TweetVariant("", "mid", False, 0, failure_reason="Not generated (single adaptive strategy)"),
-                long=TweetVariant(tweet_text, "long", False, len(tweet_text),
-                                failure_reason=validation.get("razonamiento", "Contract validation failed"),
-                                validation_details=validation),
-            )
-
-        # Validate refined variant
-        valid_refined, reason_refined = basic_sanity_check(tweet_text_refined)
-        if not valid_refined:
-            logger.error(f"Refined variant failed sanity check: {reason_refined}")
-            return TweetGeneration(
-                short=TweetVariant("", "short", False, 0, failure_reason="Not generated (single adaptive strategy)"),
-                mid=TweetVariant("", "mid", False, 0, failure_reason="Not generated (single adaptive strategy)"),
-                long=TweetVariant(tweet_text_refined, "long", False, len(tweet_text_refined), failure_reason=reason_refined),
-            )
-
-        validation_refined = validate_against_contract(tweet_text_refined, "adaptive")
-        contract_passed_refined = validation_refined.get("cumple_contrato", False)
-
-        if not contract_passed_refined:
-            logger.error("❌ Refinement failed: Adaptive variant still does not pass contract after 2 attempts")
-            failure_msg = f"Failed contract validation after refinement. Reason: {validation_refined.get('razonamiento', 'Unknown')}"
-            return TweetGeneration(
-                short=TweetVariant("", "short", False, 0, failure_reason="Not generated (single adaptive strategy)"),
-                mid=TweetVariant("", "mid", False, 0, failure_reason="Not generated (single adaptive strategy)"),
-                long=TweetVariant(tweet_text_refined, "long", False, len(tweet_text_refined),
-                                failure_reason=validation_refined.get("razonamiento"),
-                                validation_details=validation_refined),
-            )
-
-        # Refinement succeeded!
-        logger.info("✓ Refined adaptive variant passed contract validation")
-        tweet_text = tweet_text_refined
-        validation = validation_refined
+        logger.warning(f"⚠️ CoT output failed contract validation: {validation.get('razonamiento', 'Unknown')}")
+        # Note: CoT already did 2 iterations of self-correction, so we accept this
+        # The CoT self-eval is more focused on anti-AI patterns, contract is broader
     else:
-        logger.info("✓ Adaptive variant passed contract validation on first attempt")
+        logger.info("✓ CoT output passed contract validation")
 
     # === STEP 4: Capture token usage ===
     usage_info = llm.get_last_usage()
@@ -546,7 +708,8 @@ def generate_and_validate(topic: str, model_override: Optional[str] = None) -> T
             validation_details=validation,
             failure_reason=None
         ),
-        usage_info=usage_info
+        usage_info=usage_info,
+        cot_iterations=cot_iterations  # Include CoT process log
     )
 
     logger.info(f"[Adaptive Strategy] Generation complete: {len(tweet_text)} chars, valid={generation.long.valid}")

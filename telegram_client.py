@@ -53,6 +53,7 @@ class TelegramClient:
         labels: Optional[Dict[str, str]] = None,
         errors: Optional[Dict[str, str]] = None,
         usage_info: Optional[Dict] = None,
+        cot_iterations: Optional[list] = None,
     ) -> str:
         safe_id = self.escape(topic_id or "-")
         safe_abstract = self.escape(self.clean_abstract(abstract or ""))
@@ -85,6 +86,37 @@ class TelegramClient:
                 "\n".join(header),
                 f"📝 <b>Tweet</b> · {len(single_draft)}/280\n<pre><code>{safe_text}</code></pre>"
             ]
+
+            # Add Chain of Thought process if available
+            if cot_iterations:
+                cot_lines = ["🧠 <b>Chain of Thought Process:</b>"]
+                for iter_data in cot_iterations:
+                    iter_num = iter_data.iteration_num
+                    thinking = iter_data.thinking[:80] + "..." if len(iter_data.thinking) > 80 else iter_data.thinking
+                    self_eval = iter_data.self_eval
+                    passed = iter_data.passed
+
+                    # Format scores
+                    whatsapp = self_eval.get("whatsapp_test", 0)
+                    specificity = self_eval.get("specificity_test", 0)
+                    pattern = self_eval.get("pattern_test", 0)
+                    voice = self_eval.get("voice_test", 0)
+                    avg = self_eval.get("avg_score", 0)
+
+                    status = "✅ PASS" if passed else "🔄 RETRY"
+                    cot_lines.append(
+                        f"\n<b>Intento {iter_num}/2:</b> {status}\n"
+                        f"💭 <i>{self.escape(thinking)}</i>\n"
+                        f"📊 WhatsApp: {whatsapp}/10 | Specificity: {specificity}/10\n"
+                        f"📊 Pattern: {pattern}/10 | Voice: {voice}/10 | Avg: {avg:.1f}/10"
+                    )
+
+                    if not passed and iter_num < 2:
+                        feedback = self_eval.get("feedback", "")
+                        if feedback and feedback != "Good":
+                            cot_lines.append(f"💬 <i>{self.escape(feedback[:100])}</i>")
+
+                sections.append("\n".join(cot_lines))
 
             # Add token usage info if available
             if usage_info:

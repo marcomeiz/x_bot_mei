@@ -191,7 +191,15 @@ def _process_update(update: Dict) -> None:
         text = (message.get("text") or "").strip()
         chat_id = message["chat"]["id"]
 
-        if text == "/g":
+        if text == "/start":
+            logger.info("[CHAT_ID: %s] Comando '/start' recibido.", chat_id)
+            telegram_client.send_message(chat_id, get_message("start_welcome"), as_html=True)
+            return
+        elif text == "/help":
+            logger.info("[CHAT_ID: %s] Comando '/help' recibido.", chat_id)
+            telegram_client.send_message(chat_id, get_message("help_message"), as_html=True)
+            return
+        elif text == "/g":
             logger.info("[CHAT_ID: %s] Comando '/g' recibido.", chat_id)
             _schedule_generation(chat_id)
             return

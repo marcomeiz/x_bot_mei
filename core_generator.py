@@ -250,6 +250,9 @@ def generate_tweet_from_topic(topic_abstract: str, ignore_similarity: bool = Tru
                 # Include usage_info for Telegram display
                 if generation.usage_info:
                     result["usage_info"] = generation.usage_info
+                # Include CoT iterations for Telegram display
+                if generation.cot_iterations:
+                    result["cot_iterations"] = generation.cot_iterations
                 return result
 
             last_error = "; ".join(variant_errors.values()) or "Sin variantes válidas."

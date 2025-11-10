@@ -343,56 +343,11 @@ Count every single character. If you fail again, generation will abort."""
 {context.icp}
 </TARGET_AUDIENCE>
 
-CORE PRINCIPLE: Sound typed by someone who knows their shit, not crafted by a copywriter.
-ALWAYS use contractions (don't, that's, isn't) — this is how real people talk.
-
-The contract covers quality. Your job: avoid AI tells. Learn from these contrasts:
-
-━━━ EXAMPLE 1: Waitlists ━━━
-
-❌ TOO POLISHED (AI tell: perfect architecture):
-"You think packing your waitlist boosts revenue. Bullshit. It floods you with flakes, kills scarcity, shreds quality. Cap it hard at 25 spots. I did—turned away 150, but those 25 converted 4x higher and raved. Scarcity sells. Discipline protects your edge."
-→ Problem: 3-part parallels ("floods, kills, shreds"), two perfect closers ("Scarcity sells. Discipline protects"), every sentence serves clear purpose
-
-✅ BETTER (sounds human):
-"Waitlists are broken. I capped mine at 25 and turned away like 150 people. Those 25? 4x conversion. Not saying it's the only way but scarcity worked for me."
-→ Why: Casual phrasing ("like 150"), rougher transitions, ending doesn't stick perfect landing
-
-━━━ EXAMPLE 2: Saying No ━━━
-
-❌ TOO STRUCTURED (AI tell: case study template):
-"You're a solopreneur, not a vending machine. You say yes to every random ask because money's money. Bullshit. That's how you kill focus. Last month I turned down 4 gigs, stuck to one project. Finished my core project twice as fast, energy actually back. Protect your scope or burn out."
-→ Problem: Compressed prose, perfect case study flow, every data point clean, ending too round
-
-✅ BETTER (typed thought with structure):
-"You're a solopreneur, not a vending machine.
-You keep saying yes to every random ask because \"money's money\".
-Bullshit. That's how you murder your focus.
-
-Last month I drew a hard line:
-- Turned down 4 off-scope gigs
-- Stuck to one core project
-
-Result: finished it in half the time, with energy left instead of brain fog.
-
-Say it clear: protect your scope or slowly delete yourself."
-→ Why: Line breaks for breathing, list when needed, less essay-like, raw ending
-
-━━━ EXAMPLE 3: Content Creation ━━━
-
-❌ TOO DIDACTIC (AI tell: PowerPoint structure):
-"Buried in client work, ghosting your own content? That kills inbound. Truth: post 3x/week from real wins. I systematized it—10 hours/week batching. Shared how a client saved 10h/week → 7 qualified DMs in a day. Your experiences are gold. Mine them or stay invisible."
-→ Problem: "Truth:" header sounds like webinar, "systematized" is corporate, data too packaged, ending like tagline
-
-✅ BETTER (compressed natural flow):
-"Buried in client work and ghosting your own content? That's why inbound is dead. Post 3x/week from real client wins. Shared how a client saved 10h/week batching email → 7 qualified DMs in 24h. Your work is gold. Use it or stay invisible."
-→ Why: No didactic headers, natural flow, arrow (→) not explanation, simpler verb ("use" not "mine"), still punchy
-
-━━━ PATTERN TO INTERNALIZE ━━━
-AI writes like: Setup → Lesson Label → Perfect Case Study → Tagline Closer
-Humans write like: Rough start → maybe a list if needed → story with loose edges → ending that's strong but not too clean
-
-Use structure (line breaks, lists, arrows) when it helps CLARITY, not to show architecture.
+CORE PRINCIPLES:
+- Sound typed by someone who knows their shit, not crafted by a copywriter
+- ALWAYS use contractions (don't, that's, isn't) — this is how real people talk
+- Avoid AI tells: perfect architecture, symmetrical structures, tagline closers
+- Use structure (line breaks, lists, arrows) when it helps CLARITY, not to show off
 
 ⚠️ ADAPTIVE LENGTH REQUIREMENT:
 - Range: {target_min}-{target_max} characters total
@@ -406,14 +361,7 @@ Use structure (line breaks, lists, arrows) when it helps CLARITY, not to show ar
 Return ONLY valid JSON (no markdown, no explanation):
 {{
   "tweet": "your tweet text here ({target_min}-{target_max} chars, optimal length for topic)"
-}}
-
-REMEMBER:
-- Street-level means conversational. No corporate speak. No academic tone.
-- Sound typed, not crafted. A little roughness is human.
-- ALWAYS use contractions: "don't" not "do not", "that's" not "that is", "isn't" not "is not". This is a tweet, not an academic paper.
-- Let the topic dictate the ideal length within the {target_min}-{target_max} range.
-- COUNT YOUR CHARACTERS CAREFULLY."""
+}}"""
 
     try:
         # Model selection: override > hybrid strategy (refiner on attempt 2) > default
@@ -421,7 +369,7 @@ REMEMBER:
             model_to_use = model_override
         else:
             model_to_use = settings.post_refiner_model if attempt == 2 else settings.post_model
-        temp = 0.8 if attempt == 1 else 0.6  # Higher temp for natural variation, slightly lower on refinement
+        temp = 0.7 if attempt == 1 else 0.6  # Balanced temp for quality, lower on refinement
 
         logger.info(f"[LLM] Generation attempt {attempt}: model={model_to_use}, temp={temp}")
 

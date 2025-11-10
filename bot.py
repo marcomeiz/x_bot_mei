@@ -242,24 +242,8 @@ def _process_update(update: Dict) -> None:
             telegram_client.send_message(chat_id, get_message("help_message"), as_html=True)
             return
         elif text == "/g":
-            logger.info("[CHAT_ID: %s] Comando '/g' recibido.", chat_id)
-            _schedule_generation(chat_id, user_id=user_id)
-            return
-        elif text == "/g1":
-            logger.info("[CHAT_ID: %s] Comando '/g1' recibido (DeepSeek V3.1).", chat_id)
-            _schedule_generation(chat_id, user_id=user_id, model_override="deepseek/deepseek-chat-v3.1")
-            return
-        elif text == "/g2":
-            logger.info("[CHAT_ID: %s] Comando '/g2' recibido (Gemini 2.5 Pro).", chat_id)
-            _schedule_generation(chat_id, user_id=user_id, model_override="google/gemini-2.5-pro")
-            return
-        elif text == "/g3":
-            logger.info("[CHAT_ID: %s] Comando '/g3' recibido (Claude Opus 4.1).", chat_id)
-            _schedule_generation(chat_id, user_id=user_id, model_override="anthropic/claude-opus-4.1")
-            return
-        elif text == "/g4":
-            logger.info("[CHAT_ID: %s] Comando '/g4' recibido (GPT-4o).", chat_id)
-            _schedule_generation(chat_id, user_id=user_id, model_override="openai/gpt-4o")
+            logger.info("[CHAT_ID: %s] Comando '/g' recibido (Claude Sonnet 4.5).", chat_id)
+            _schedule_generation(chat_id, user_id=user_id, model_override="anthropic/claude-sonnet-4.5")
             return
         elif text.startswith("/c"):
             logger.info("[CHAT_ID: %s] Comando '/c' recibido.", chat_id)

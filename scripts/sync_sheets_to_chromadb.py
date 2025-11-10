@@ -68,15 +68,26 @@ def read_topics_from_sheet(sheet_id: str) -> List[Dict[str, str]]:
 
     rows = result.get('values', [])
     topics = []
+    skipped_count = 0
+    skipped_reasons = []
 
-    for row in rows:
+    for row_num, row in enumerate(rows, start=2):  # Start at 2 (row 1 is header)
         if len(row) < 2:  # Need at least ID and Abstract
+            skipped_count += 1
+            skipped_reasons.append(f"Row {row_num}: Less than 2 columns")
             continue
 
         topic_id = (row[0] or '').strip()
         abstract = (row[1] or '').strip()
 
-        if not topic_id or not abstract:
+        if not topic_id:
+            skipped_count += 1
+            skipped_reasons.append(f"Row {row_num}: Empty ID (abstract: '{abstract[:50]}...')")
+            continue
+
+        if not abstract:
+            skipped_count += 1
+            skipped_reasons.append(f"Row {row_num}: Empty Abstract (id: '{topic_id}')")
             continue
 
         topics.append({
@@ -88,6 +99,14 @@ def read_topics_from_sheet(sheet_id: str) -> List[Dict[str, str]]:
         })
 
     logger.info(f"Read {len(topics)} topics from Google Sheet")
+
+    if skipped_count > 0:
+        logger.warning(f"Skipped {skipped_count} rows from Google Sheet:")
+        for reason in skipped_reasons[:10]:  # Show first 10
+            logger.warning(f"  {reason}")
+        if len(skipped_reasons) > 10:
+            logger.warning(f"  ... and {len(skipped_reasons) - 10} more")
+
     return topics
 
 

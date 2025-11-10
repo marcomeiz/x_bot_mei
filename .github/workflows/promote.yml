@@ -37,12 +37,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install --no-cache-dir -r requirements.workflow.txt
 
-      - name: Ingest Reddit signals
-        run: |
-          set -euo pipefail
-          LIMIT="${HF_INGEST_LIMIT:-80}"
-          python reddit_ingestion.py --limit "$LIMIT" --notify
-
       - name: Ingest Hugging Face signals
         run: |
           set -euo pipefail

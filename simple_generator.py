@@ -219,7 +219,7 @@ Respond in JSON:
         }
 
 
-def generate_adaptive_variant_with_cot(topic: str, model_override: Optional[str] = None) -> Tuple[str, List[CoTIteration]]:
+def generate_adaptive_variant_with_cot(topic: str, model_override: Optional[str] = None) -> Tuple[str, List[CoTIteration], Optional[Dict]]:
     """
     Generate adaptive tweet with Chain of Thought self-correction.
 
@@ -228,15 +228,16 @@ def generate_adaptive_variant_with_cot(topic: str, model_override: Optional[str]
     2. Generate draft (Gemini/override)
     3. Self-evaluate (DeepSeek)
     4. If fails → incorporate feedback and retry (max 2 iterations)
-    5. Return best draft + CoT log
+    5. Return best draft + CoT log + usage info
 
     Returns:
-        Tuple of (tweet_text, cot_iterations)
+        Tuple of (tweet_text, cot_iterations, usage_info)
     """
     MAX_ITERATIONS = 2
     cot_iterations = []
     previous_feedback = None
     final_draft = ""
+    generation_usage_info = None  # Track usage from generation call
 
     for iteration in range(1, MAX_ITERATIONS + 1):
         logger.info(f"[CoT] ========== ITERATION {iteration}/{MAX_ITERATIONS} ==========")
@@ -245,12 +246,16 @@ def generate_adaptive_variant_with_cot(topic: str, model_override: Optional[str]
         thinking = _generate_thinking(topic, iteration, previous_feedback)
 
         # STEP 2: Generate (using thinking as context)
-        draft = generate_adaptive_variant(
+        draft, usage_info = generate_adaptive_variant(
             topic=topic,
             attempt=iteration,
             model_override=model_override,
             thinking_context=thinking  # Pass thinking to generation
         )
+
+        # Capture usage info from the generation call (before evaluation overwrites it)
+        if usage_info and iteration == 1:  # Use first iteration's usage
+            generation_usage_info = usage_info
 
         if not draft:
             logger.error(f"[CoT] Iteration {iteration} failed to generate draft")
@@ -272,6 +277,9 @@ def generate_adaptive_variant_with_cot(topic: str, model_override: Optional[str]
         # STEP 4: Decide if we're done
         if self_eval.get("overall_pass") or iteration == MAX_ITERATIONS:
             final_draft = draft
+            # Update usage_info if this is a later iteration
+            if usage_info and iteration > 1:
+                generation_usage_info = usage_info
             logger.info(f"[CoT] ========== FINAL DRAFT (iteration {iteration}) ==========")
             break
 
@@ -279,10 +287,10 @@ def generate_adaptive_variant_with_cot(topic: str, model_override: Optional[str]
         previous_feedback = self_eval.get("feedback", "")
         logger.info(f"[CoT] Iteration {iteration} failed. Retrying with feedback: {previous_feedback[:100]}...")
 
-    return final_draft, cot_iterations
+    return final_draft, cot_iterations, generation_usage_info
 
 
-def generate_adaptive_variant(topic: str, attempt: int = 1, model_override: Optional[str] = None, thinking_context: Optional[str] = None) -> str:
+def generate_adaptive_variant(topic: str, attempt: int = 1, model_override: Optional[str] = None, thinking_context: Optional[str] = None) -> Tuple[str, Optional[Dict]]:
     """
     Generate a single adaptive-length tweet following the Elastic Voice Contract.
 
@@ -295,7 +303,7 @@ def generate_adaptive_variant(topic: str, attempt: int = 1, model_override: Opti
         model_override: Optional model to use instead of default
 
     Returns:
-        Tweet text (or empty string on failure)
+        Tuple of (tweet text or empty string, usage_info dict or None)
     """
     context = build_prompt_context()
     settings = AppSettings.load()
@@ -454,17 +462,20 @@ Return ONLY valid JSON (no markdown, no explanation):
             temperature=temp,
         )
 
+        # Capture usage info immediately after generation call
+        usage_info = llm.get_last_usage()
+
         if not isinstance(response, dict):
             logger.error("LLM returned non-dict response")
-            return ""
+            return "", None
 
         tweet = response.get("tweet", "").strip()
-        logger.info(f"Generated adaptive variant (attempt {attempt}): {len(tweet)} chars")
-        return tweet
+        logger.info(f"Generated adaptive variant (attempt {attempt}): {len(tweet)} chars, model={model_to_use}")
+        return tweet, usage_info
 
     except Exception as e:
         logger.error(f"Failed to generate adaptive variant (attempt {attempt}): {e}", exc_info=True)
-        return ""
+        return "", None
 
 
 def validate_against_contract(text: str, label: str) -> Dict:
@@ -671,7 +682,7 @@ def generate_and_validate(topic: str, model_override: Optional[str] = None) -> T
 
     # === STEP 1: Generate with Chain of Thought (includes self-correction) ===
     logger.info("Step 1: Generating with Chain of Thought (2 iterations max, self-correcting)...")
-    tweet_text, cot_iterations = generate_adaptive_variant_with_cot(topic, model_override=model_override)
+    tweet_text, cot_iterations, usage_info = generate_adaptive_variant_with_cot(topic, model_override=model_override)
 
     if not tweet_text:
         logger.error("Failed to generate adaptive variant after CoT")
@@ -712,8 +723,8 @@ def generate_and_validate(topic: str, model_override: Optional[str] = None) -> T
     else:
         logger.info("✓ CoT output passed contract validation")
 
-    # === STEP 4: Capture token usage ===
-    usage_info = llm.get_last_usage()
+    # === STEP 4: Usage info already captured from generation call ===
+    # (usage_info captured in Step 1 before evaluation calls overwrote it)
     if usage_info:
         logger.info(f"[USAGE_CAPTURED] {usage_info}")
 

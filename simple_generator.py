@@ -154,6 +154,7 @@ Self-evaluate against these 4 tests (score 1-10 each):
 
 4. **Voice Test**: Second person, natural, not AI-like?
    Look for: AI tells like "It's important to", "Let's explore", symmetrical structures
+   CRITICAL: Missing contractions = instant penalty. Use "don't" not "do not", "that's" not "that is", "isn't" not "is not"
 
 CRITICAL: Be HARSH. Score 7+ only if genuinely good. Most drafts fail first try.
 
@@ -343,6 +344,7 @@ Count every single character. If you fail again, generation will abort."""
 </TARGET_AUDIENCE>
 
 CORE PRINCIPLE: Sound typed by someone who knows their shit, not crafted by a copywriter.
+ALWAYS use contractions (don't, that's, isn't) — this is how real people talk.
 
 The contract covers quality. Your job: avoid AI tells. Learn from these contrasts:
 
@@ -409,6 +411,7 @@ Return ONLY valid JSON (no markdown, no explanation):
 REMEMBER:
 - Street-level means conversational. No corporate speak. No academic tone.
 - Sound typed, not crafted. A little roughness is human.
+- ALWAYS use contractions: "don't" not "do not", "that's" not "that is", "isn't" not "is not". This is a tweet, not an academic paper.
 - Let the topic dictate the ideal length within the {target_min}-{target_max} range.
 - COUNT YOUR CHARACTERS CAREFULLY."""
 

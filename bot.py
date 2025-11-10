@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from flask import Flask, request
 
 from admin_service import AdminService
+from analytics import analytics
 from draft_repository import DraftRepository
 from logger_config import logger
 from proposal_service import ProposalService
@@ -33,6 +34,12 @@ SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.20") or 0.20)
 TEMP_DIR = os.getenv("BOT_TEMP_DIR", "/tmp")
 JOB_MAX_WORKERS = int(os.getenv("JOB_MAX_WORKERS", "3") or 3)
 JOB_QUEUE_MAXSIZE = int(os.getenv("JOB_QUEUE_MAXSIZE", "12") or 12)
+
+# User access control (whitelist)
+ALLOWED_USER_IDS_STR = os.getenv("ALLOWED_USER_IDS", "")
+ALLOWED_USER_IDS = set(int(uid.strip()) for uid in ALLOWED_USER_IDS_STR.split(",") if uid.strip())
+BOT_PRIVATE = len(ALLOWED_USER_IDS) > 0  # If whitelist is configured, bot is private
+logger.info(f"Bot access mode: {'PRIVATE' if BOT_PRIVATE else 'PUBLIC'} (allowed users: {len(ALLOWED_USER_IDS)})")
 # NOTE: JOB_TIMEOUT_SECONDS intentionally unused while we debug long-running generations.
 
 # Health/warmup envs
@@ -125,16 +132,31 @@ def _release_chat_lock(chat_id: int) -> None:
 
 
 def _run_job(job: Dict[str, Any]) -> None:
+    import time
     chat_id = job["chat_id"]
     func: Callable[..., None] = job["func"]
     args = job.get("args", ())
     kwargs = job.get("kwargs", {})
+    user_id = job.get("user_id")
+    model = job.get("model", "unknown")
+    job_type = job.get("type", "generation")  # "generation" or "comment"
+
+    start_time = time.time()
     try:
         func(*args, **kwargs)
+        # Track successful job
+        response_time = time.time() - start_time
+        if job_type == "generation" and user_id:
+            analytics.track_generation(user_id, model, response_time)
+        elif job_type == "comment" and user_id:
+            analytics.track_comment(user_id, response_time)
     except Exception as exc:
         logger.error("[CHAT_ID: %s] Error ejecutando job: %s", chat_id, exc, exc_info=True)
+        # Track error
+        if user_id:
+            analytics.track_error(user_id, type(exc).__name__, job_type)
         try:
-            telegram_client.send_message(chat_id, get_message("generate_error"))
+            telegram_client.send_message(chat_id, get_message("generate_error"), as_html=True)
         except Exception:
             logger.exception("[CHAT_ID: %s] No se pudo notificar el error al usuario.", chat_id)
     finally:
@@ -155,12 +177,21 @@ _dispatcher_thread = threading.Thread(target=_job_dispatcher, daemon=True)
 _dispatcher_thread.start()
 
 
-def _schedule_generation(chat_id: int, model_override: Optional[str] = None) -> None:
+def _schedule_generation(chat_id: int, user_id: int = None, model_override: Optional[str] = None) -> None:
     if not _acquire_chat_lock(chat_id):
         telegram_client.send_message(chat_id, get_message("queue_busy"))
         return
+
+    # Get model name for tracking
+    from src.settings import AppSettings
+    settings = AppSettings.load()
+    model_name = model_override or settings.post_model or "google/gemini-2.0-flash-exp"
+
     job = {
         "chat_id": chat_id,
+        "user_id": user_id,
+        "model": model_name,
+        "type": "generation",
         "func": proposal_service.do_the_work,
         "args": (chat_id,),
         "kwargs": {"model_override": model_override} if model_override else {},
@@ -190,6 +221,17 @@ def _process_update(update: Dict) -> None:
         message = update["message"]
         text = (message.get("text") or "").strip()
         chat_id = message["chat"]["id"]
+        user_id = message["from"]["id"]
+
+        # Access control check
+        if not _is_user_allowed(user_id):
+            _send_access_denied(chat_id, user_id)
+            analytics.track_command("DENIED", user_id)
+            return
+
+        # Track command
+        command = text.split()[0] if text else "unknown"
+        analytics.track_command(command, user_id)
 
         if text == "/start":
             logger.info("[CHAT_ID: %s] Comando '/start' recibido.", chat_id)
@@ -201,23 +243,23 @@ def _process_update(update: Dict) -> None:
             return
         elif text == "/g":
             logger.info("[CHAT_ID: %s] Comando '/g' recibido.", chat_id)
-            _schedule_generation(chat_id)
+            _schedule_generation(chat_id, user_id=user_id)
             return
         elif text == "/g1":
             logger.info("[CHAT_ID: %s] Comando '/g1' recibido (DeepSeek V3.1).", chat_id)
-            _schedule_generation(chat_id, model_override="deepseek/deepseek-chat-v3.1")
+            _schedule_generation(chat_id, user_id=user_id, model_override="deepseek/deepseek-chat-v3.1")
             return
         elif text == "/g2":
             logger.info("[CHAT_ID: %s] Comando '/g2' recibido (Gemini 2.5 Pro).", chat_id)
-            _schedule_generation(chat_id, model_override="google/gemini-2.5-pro")
+            _schedule_generation(chat_id, user_id=user_id, model_override="google/gemini-2.5-pro")
             return
         elif text == "/g3":
             logger.info("[CHAT_ID: %s] Comando '/g3' recibido (Claude Opus 4.1).", chat_id)
-            _schedule_generation(chat_id, model_override="anthropic/claude-opus-4.1")
+            _schedule_generation(chat_id, user_id=user_id, model_override="anthropic/claude-opus-4.1")
             return
         elif text == "/g4":
             logger.info("[CHAT_ID: %s] Comando '/g4' recibido (GPT-4o).", chat_id)
-            _schedule_generation(chat_id, model_override="openai/gpt-4o")
+            _schedule_generation(chat_id, user_id=user_id, model_override="openai/gpt-4o")
             return
         elif text.startswith("/c"):
             logger.info("[CHAT_ID: %s] Comando '/c' recibido.", chat_id)
@@ -324,6 +366,26 @@ def _handle_list_topics(chat_id: int) -> None:
         telegram_client.send_message(chat_id, f"❌ Error listando temas: {e}")
 
 
+def _is_user_allowed(user_id: int) -> bool:
+    """Check if user is allowed to use the bot."""
+    if not BOT_PRIVATE:
+        return True  # Public mode, everyone allowed
+    return user_id in ALLOWED_USER_IDS
+
+
+def _send_access_denied(chat_id: int, user_id: int):
+    """Send access denied message to unauthorized user."""
+    message = f"""🔒 <b>Acceso Denegado</b>
+
+Este bot es privado y solo puede ser usado por usuarios autorizados.
+
+<b>Tu User ID:</b> <code>{user_id}</code>
+
+Si crees que deberías tener acceso, contacta al administrador."""
+    telegram_client.send_message(chat_id, message, as_html=True)
+    logger.warning(f"Access denied for user {user_id} (chat {chat_id})")
+
+
 def _chat_has_token(token: Optional[str]) -> bool:
     return not ADMIN_API_TOKEN or token == ADMIN_API_TOKEN
 
@@ -360,6 +422,26 @@ def stats():
     if not _chat_has_token(token):
         return {"ok": False, "error": "forbidden"}, 403
     return {"ok": True, **admin_service.get_stats()}, 200
+
+
+@app.route("/analytics")
+def analytics_endpoint():
+    """
+    Analytics endpoint showing bot usage metrics.
+    Protected with ADMIN_API_TOKEN.
+
+    Usage: GET /analytics?token=YOUR_ADMIN_API_TOKEN
+    """
+    token = request.args.get("token", "")
+    if not _chat_has_token(token):
+        return {"ok": False, "error": "forbidden"}, 403
+
+    try:
+        stats = analytics.get_stats()
+        return {"ok": True, "analytics": stats}, 200
+    except Exception as e:
+        logger.error(f"Error getting analytics: {e}", exc_info=True)
+        return {"ok": False, "error": "server_error"}, 500
 
 
 @app.route("/pdfs")

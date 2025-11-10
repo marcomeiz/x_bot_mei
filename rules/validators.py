@@ -337,3 +337,75 @@ def get_validation_summary(text: str) -> str:
     lines.append(f"  Specificity test: {'✅' if specific else '❌'} {specific_reason}")
 
     return "\n".join(lines)
+
+
+def validate_icp_fit(text: str, icp_text: str) -> Tuple[bool, str]:
+    """
+    Validate that the tweet speaks to the ICP, not a different audience.
+
+    CRITICAL: Detects when content assumes infrastructure/resources the ICP doesn't have.
+
+    Example:
+        ICP: "Solopreneur Day 1, no team, no systems"
+        Tweet: "Run your escalation path..." ❌ FAIL
+        Reason: Solopreneur has no escalation path (no team to escalate to)
+
+    Args:
+        text: Tweet text to validate
+        icp_text: ICP description (from config/icp.md)
+
+    Returns:
+        (fits_icp, reason)
+    """
+    text_lower = text.lower()
+    icp_lower = icp_text.lower()
+
+    # Detect if ICP is solopreneur/solo operator
+    is_solo = any(marker in icp_lower for marker in [
+        "solopreneur", "solo operator", "day 1", "no team", "alone"
+    ])
+
+    if not is_solo:
+        # Not a solo operator, broader validation not needed yet
+        return True, ""
+
+    # Corporate/team jargon that assumes infrastructure solo operators don't have
+    solo_red_flags = [
+        ("escalation path", "assumes team hierarchy"),
+        ("escalation chain", "assumes team hierarchy"),
+        ("call the chain", "assumes team structure"),
+        ("org chart", "assumes organization"),
+        ("ticket system", "assumes ticketing infrastructure"),
+        ("dummy ticket", "assumes ticketing system"),
+        ("file a ticket", "assumes ticketing system"),
+        ("who answers at 3am", "assumes on-call team"),
+        ("team ritual", "assumes team exists"),
+        ("delegation framework", "assumes team to delegate to"),
+        ("slack channel", "assumes team communication"),
+        ("stand-up meeting", "assumes team meetings"),
+        ("sprint planning", "assumes team process"),
+        ("incident response", "assumes incident team"),
+        ("sla", "assumes service level agreements"),
+        ("on-call rotation", "assumes on-call team"),
+    ]
+
+    for phrase, reason in solo_red_flags:
+        if phrase in text_lower:
+            return False, f"Assumes infrastructure solo operator doesn't have: '{phrase}' ({reason})"
+
+    # Detect references to "team", "staff", "employees" (unless explicitly about hiring)
+    team_refs = re.findall(r'\b(team|staff|employees?|workers?|your people)\b', text_lower)
+    if team_refs and "hire" not in text_lower and "first" not in text_lower:
+        return False, f"References team/staff: '{team_refs[0]}' (solo operator has no team yet)"
+
+    return True, ""
+
+
+def check_icp_fit(text: str, icp_text: str) -> Tuple[bool, str]:
+    """
+    Convenience wrapper for validate_icp_fit.
+
+    Returns:
+        (fits_icp, reason)
+    """
+    return validate_icp_fit(text, icp_text)

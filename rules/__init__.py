@@ -35,6 +35,8 @@ from rules.validators import (
     check_whatsapp_test,
     check_specificity_test,
     get_validation_summary,
+    validate_icp_fit,
+    check_icp_fit,
     ValidationResult,
 )
 
@@ -56,5 +58,7 @@ __all__ = [
     "check_whatsapp_test",
     "check_specificity_test",
     "get_validation_summary",
+    "validate_icp_fit",
+    "check_icp_fit",
     "ValidationResult",
 ]

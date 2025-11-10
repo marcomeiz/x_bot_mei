@@ -221,9 +221,10 @@ class ProposalService:
         draft_a = ""
         draft_b = ""
         draft_c = ""
+        usage_info: Optional[Dict] = None
 
         def _process_generation_result(gen_result: Dict[str, object]) -> None:
-            nonlocal draft_a, draft_b, draft_c, variant_errors
+            nonlocal draft_a, draft_b, draft_c, variant_errors, usage_info
             if gen_result.get("provider_error"):
                 reason = str(gen_result.get("error") or "")
                 self.telegram.send_message(
@@ -242,6 +243,7 @@ class ProposalService:
             draft_a = (gen_result.get("short") or "").strip()
             draft_b = (gen_result.get("mid") or "").strip()
             draft_c = (gen_result.get("long") or "").strip()
+            usage_info = gen_result.get("usage_info")
 
         if _deadline_reached():
             self.telegram.send_message(chat_id, JOB_TIMEOUT_MESSAGE)
@@ -406,6 +408,7 @@ class ProposalService:
             evaluations={},
             labels=labeled_drafts,
             errors=variant_errors,
+            usage_info=usage_info,
         )
 
         # Add LLM Judge validation summary to the message

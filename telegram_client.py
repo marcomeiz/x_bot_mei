@@ -52,6 +52,7 @@ class TelegramClient:
         evaluations: Optional[Dict[str, Dict[str, object]]] = None,
         labels: Optional[Dict[str, str]] = None,
         errors: Optional[Dict[str, str]] = None,
+        usage_info: Optional[Dict] = None,
     ) -> str:
         safe_id = self.escape(topic_id or "-")
         safe_abstract = self.escape(self.clean_abstract(abstract or ""))
@@ -84,6 +85,18 @@ class TelegramClient:
                 "\n".join(header),
                 f"📝 <b>Tweet</b> · {len(single_draft)}/280\n<pre><code>{safe_text}</code></pre>"
             ]
+
+            # Add token usage info if available
+            if usage_info:
+                model_name = usage_info.get("model", "unknown")
+                input_tokens = usage_info.get("input_tokens", 0)
+                output_tokens = usage_info.get("output_tokens", 0)
+                cost = usage_info.get("cost", 0.0)
+                sections.append(
+                    f"💰 <b>Tokens:</b> in={input_tokens:,} | out={output_tokens:,} | "
+                    f"cost=${cost:.6f}\n🤖 <b>Modelo:</b> {model_name}"
+                )
+
             return "\n\n".join(sections).strip()
 
         # Multi-variant mode: show A/B/C blocks as before
@@ -103,6 +116,17 @@ class TelegramClient:
                 label = label_map.get(key, key.upper())
                 error_lines.append(f"{label}: {self.escape(message)}")
             sections.append("\n".join(error_lines))
+
+        # Add token usage info if available
+        if usage_info:
+            model_name = usage_info.get("model", "unknown")
+            input_tokens = usage_info.get("input_tokens", 0)
+            output_tokens = usage_info.get("output_tokens", 0)
+            cost = usage_info.get("cost", 0.0)
+            sections.append(
+                f"💰 <b>Tokens:</b> in={input_tokens:,} | out={output_tokens:,} | "
+                f"cost=${cost:.6f}\n🤖 <b>Modelo:</b> {model_name}"
+            )
 
         return "\n\n".join(sections).strip()
 

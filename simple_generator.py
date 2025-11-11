@@ -33,7 +33,7 @@ from persona import get_style_contract_text
 from prompt_context import build_prompt_context
 from src.settings import AppSettings
 from src.goldset import retrieve_goldset_examples_random
-from rules import get_generation_prompt  # Centralized voice contract
+from rules import get_generation_prompt, validate_icp_fit  # Centralized voice contract + ICP validation
 
 # Load length constraints from configuration (DRY principle - no hardcoding!)
 _settings = AppSettings.load()
@@ -664,6 +664,29 @@ def generate_and_validate(topic: str, model_override: Optional[str] = None) -> T
         # The CoT self-eval is more focused on anti-AI patterns, contract is broader
     else:
         logger.info("✓ CoT output passed contract validation")
+
+    # ICP-fit validation (CRITICAL: detect content for wrong audience)
+    context = build_prompt_context()
+    icp_fit_passed, icp_fit_reason = validate_icp_fit(tweet_text, context.icp)
+
+    if not icp_fit_passed:
+        logger.error(f"❌ CoT output FAILED ICP-fit validation: {icp_fit_reason}")
+        logger.error(f"Tweet speaks to wrong audience. REJECTING: {tweet_text[:100]}...")
+        return TweetGeneration(
+            short=TweetVariant("", "short", False, 0, failure_reason="Not generated (single adaptive strategy)"),
+            mid=TweetVariant("", "mid", False, 0, failure_reason="Not generated (single adaptive strategy)"),
+            long=TweetVariant(
+                tweet_text,
+                "long",
+                False,
+                len(tweet_text),
+                validation_details=validation,
+                failure_reason=f"ICP-fit failed: {icp_fit_reason}"
+            ),
+            cot_iterations=cot_iterations
+        )
+    else:
+        logger.info(f"✓ CoT output passed ICP-fit validation")
 
     # === STEP 4: Usage info already captured from generation call ===
     # (usage_info captured in Step 1 before evaluation calls overwrote it)
